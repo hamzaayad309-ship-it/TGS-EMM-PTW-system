@@ -59,6 +59,12 @@
     <!-- Toast Container -->
     <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none"></div>
 
+    <!-- Cloud Sync Status Pill -->
+    <div id="cloud-sync-pill" class="fixed bottom-4 left-4 z-40 bg-slate-900/90 text-white text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg border border-slate-700 flex items-center gap-2">
+        <span id="cloud-sync-dot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        <span id="cloud-sync-text">Connecting Cloud DB...</span>
+    </div>
+
     <!-- ==================== LOGIN SCREEN ==================== -->
     <div id="login-screen" class="flex-1 flex items-center justify-center p-4 bg-gradient-to-br from-navy-950 via-navy-900 to-slate-800">
         <div class="w-full max-w-4xl bg-white rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 lg:grid-cols-12 fade-in">
@@ -483,6 +489,9 @@
         </main>
     </div>
 
+    <!-- Hidden Backup Restore Input -->
+    <input type="file" id="restore-backup-input" accept=".json" class="hidden" onchange="handleRestoreBackupFile(event)">
+
     <!-- ==================== MODALS ==================== -->
 
     <!-- 1. Create New Permit Modal -->
@@ -786,8 +795,8 @@
 
                 <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
                     <button type="button" onclick="closeModal('renew-permit-modal')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-slate-600 hover:bg-slate-100" data-i18n="cancelBtn">Cancel</button>
-                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow flex items-center gap-1.5">
-                        <i class="fa-solid fa-rotate"></i>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-5 py-2 rounded-xl text-xs sm:text-sm font-bold shadow flex items-center gap-2">
+                        <i class="fa-solid fa-calendar-check"></i>
                         <span data-i18n="confirmRenewBtn">Renew Permit</span>
                     </button>
                 </div>
@@ -795,48 +804,137 @@
         </div>
     </div>
 
-    <!-- 6. Full Audit Timeline & Printable Permit Sheet Modal -->
+    <!-- 6. Timeline & Audit Details Modal -->
     <div id="timeline-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden fade-in">
             <div class="bg-navy-900 text-white px-6 py-4 flex items-center justify-between shrink-0">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-lg bg-white flex items-center justify-center overflow-hidden p-1 shrink-0">
-                        <img id="modal-brand-logo" src="" alt="Logo" class="w-full h-full object-contain">
-                    </div>
-                    <div>
-                        <h3 class="font-bold text-base sm:text-lg flex items-center gap-2">
-                            <span data-i18n="timelineModalTitle">Permit Record & Custody Log:</span>
-                            <span id="timeline-permit-num" class="font-mono text-amber-300"></span>
-                        </h3>
-                        <p id="timeline-permit-subtitle" class="text-xs text-slate-300 mt-0.5"></p>
-                    </div>
+                <div>
+                    <h3 class="font-bold text-base sm:text-lg flex items-center gap-2">
+                        <span data-i18n="timelineModalTitle">Permit Record & Custody Log:</span>
+                        <span id="timeline-permit-num" class="font-mono text-amber-400"></span>
+                    </h3>
+                    <p id="timeline-permit-subtitle" class="text-xs text-slate-300 mt-0.5"></p>
                 </div>
                 <button onclick="closeModal('timeline-modal')" class="text-white/80 hover:text-white">
                     <i class="fa-solid fa-xmark text-xl"></i>
                 </button>
             </div>
-            <div class="p-6 overflow-y-auto space-y-6">
-                <div id="timeline-permit-details" class="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs"></div>
+            <div class="p-6 overflow-y-auto space-y-5">
+                <div id="timeline-permit-details" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs"></div>
 
                 <div>
-                    <h4 class="font-extrabold text-slate-800 text-sm mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-timeline text-blue-600"></i>
-                        <span data-i18n="timelineChronology">Chronological Handover, Receipt & Closure History:</span>
-                    </h4>
-                    <div id="timeline-events-container" class="relative ltr:border-l-2 rtl:border-r-2 border-blue-200 ltr:ml-3 rtl:mr-3 space-y-5 ltr:pl-6 rtl:pr-6"></div>
+                    <h4 class="font-extrabold text-slate-800 text-xs sm:text-sm mb-3" data-i18n="timelineChronology">Chronological Handover, Receipt & Closure History:</h4>
+                    <div id="timeline-events-container" class="ltr:border-l-2 rtl:border-r-2 border-slate-200 ltr:pl-6 rtl:pr-6 space-y-4"></div>
                 </div>
             </div>
-            <div class="bg-slate-50 px-6 py-3 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
-                <button type="button" onclick="printPermitSheet()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-sm">
+            <div class="bg-slate-50 px-6 py-3.5 border-t border-slate-200 flex items-center justify-between gap-2 shrink-0">
+                <button type="button" onclick="printPermitSheet()" class="bg-navy-900 hover:bg-navy-800 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2">
                     <i class="fa-solid fa-print"></i>
                     <span data-i18n="printPermitBtn">Print Permit Sheet</span>
                 </button>
-                <button onclick="closeModal('timeline-modal')" class="bg-navy-900 text-white px-5 py-2 rounded-xl text-xs sm:text-sm font-bold" data-i18n="closeWindowBtn">Close</button>
+                <button type="button" onclick="closeModal('timeline-modal')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-200" data-i18n="closeWindowBtn">Close</button>
             </div>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // ==================== CLOUD DATABASE & PERSISTENT STORAGE INITIALIZATION ====================
+        const LOCAL_STORAGE_KEY = 'ptw_system_persistent_db_v1';
+        const SESSION_STORAGE_KEY = 'ptw_system_active_session_v1';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ptw-system-prod';
+        let firebaseConfig = null;
+        try {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) {
+            console.error('Firebase config parse error:', e);
+        }
+
+        let db = null;
+        let auth = null;
+        let cloudUser = null;
+        let isCloudReady = false;
+        let memoryPrefs = { lang: 'en', sessionUserId: null };
+
+        function persistToLocalStorage() {
+            try {
+                const payload = {
+                    users,
+                    permits,
+                    notifications,
+                    auditLogs,
+                    customLogoDataUrl,
+                    lang: currentLang,
+                    updatedAt: new Date().toISOString()
+                };
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(payload));
+                if (currentUser && currentUser.id) {
+                    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({
+                        userId: currentUser.id,
+                        lang: currentLang
+                    }));
+                } else {
+                    localStorage.removeItem(SESSION_STORAGE_KEY);
+                }
+            } catch (e) {
+                console.error('Local persistence error:', e);
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+                const sessionRaw = localStorage.getItem(SESSION_STORAGE_KEY);
+                if (sessionRaw) {
+                    const parsedSession = JSON.parse(sessionRaw);
+                    if (parsedSession && parsedSession.userId) {
+                        memoryPrefs.sessionUserId = parsedSession.userId;
+                    }
+                    if (parsedSession && parsedSession.lang) {
+                        memoryPrefs.lang = parsedSession.lang;
+                        currentLang = parsedSession.lang;
+                    }
+                }
+                if (!raw) return false;
+                const parsed = JSON.parse(raw);
+                if (parsed && Array.isArray(parsed.users) && parsed.users.length > 0) {
+                    users = parsed.users;
+                    permits = Array.isArray(parsed.permits) ? parsed.permits : [];
+                    notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+                    auditLogs = Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [];
+                    if (parsed.customLogoDataUrl) customLogoDataUrl = parsed.customLogoDataUrl;
+                    if (parsed.lang) currentLang = parsed.lang;
+                    return true;
+                }
+            } catch (e) {
+                console.error('Local load error:', e);
+            }
+            return false;
+        }
+
+        function setCloudStatus(connected, label) {
+            const dot = document.getElementById('cloud-sync-dot');
+            const text = document.getElementById('cloud-sync-text');
+            if (!dot || !text) return;
+            dot.className = connected
+                ? 'w-2 h-2 rounded-full bg-emerald-400'
+                : 'w-2 h-2 rounded-full bg-emerald-400';
+            text.textContent = label;
+        }
+
+        function getPublicCol(colName) {
+            return collection(db, 'artifacts', appId, 'public', 'data', colName);
+        }
+
+        function getPublicDoc(colName, docId) {
+            return doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
+        }
+
         // ==================== BILINGUAL DICTIONARY (EN PRIMARY / AR SECONDARY) ====================
         const I18N = {
             en: {
@@ -969,7 +1067,11 @@
                 currentExpiryLabel: "Current Expiry Date:",
                 newExpiryDateLabel: "New Permit Expiry Date",
                 renewNotesLabel: "Renewal Remarks *",
-                confirmRenewBtn: "Renew Permit"
+                confirmRenewBtn: "Renew Permit",
+                deletePermitBtn: "Delete",
+                resetAllPermitsBtn: "Reset All Permits & Logs",
+                confirmDeletePermitToast: "Permit permanently deleted by Admin!",
+                confirmResetAllToast: "All permits, notifications, and logs have been reset by Admin!"
             },
             ar: {
                 quickSwitchLabel: "تبديل سريع (تجريبي):",
@@ -1101,19 +1203,12 @@
                 currentExpiryLabel: "تاريخ الانتهاء الحالي:",
                 newExpiryDateLabel: "تاريخ الانتهاء الجديد",
                 renewNotesLabel: "ملاحظات التجديد *",
-                confirmRenewBtn: "تأكيد التجديد"
+                confirmRenewBtn: "تأكيد التجديد",
+                deletePermitBtn: "حذف",
+                resetAllPermitsBtn: "تصفير التصاريح والسجلات",
+                confirmDeletePermitToast: "تم حذف التصريح نهائياً بواسطة الإدارة!",
+                confirmResetAllToast: "تم تصفير جميع التصاريح والإشعارات والسجلات بواسطة الإدارة!"
             }
-        };
-
-        // ==================== APPLICATION STATE & STORAGE KEYS ====================
-        const STORAGE_KEYS = {
-            USERS: 'ptw_users_v3',
-            PERMITS: 'ptw_permits_v3',
-            NOTIFS: 'ptw_notifs_v3',
-            AUDIT: 'ptw_audit_v3',
-            CURRENT_USER: 'ptw_current_user_v3',
-            LANG: 'ptw_lang_v3',
-            LOGO: 'ptw_custom_logo_v3'
         };
 
         // ==================== PERMANENT EMBEDDED COMPANY LOGO ====================
@@ -1149,8 +1244,9 @@
 
         function toggleLanguage() {
             currentLang = currentLang === 'en' ? 'ar' : 'en';
-            localStorage.setItem(STORAGE_KEYS.LANG, currentLang);
+            memoryPrefs.lang = currentLang;
             applyLanguage(currentLang);
+            persistToLocalStorage();
             if (currentUser) {
                 updateUI();
             }
@@ -1209,24 +1305,34 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 customLogoDataUrl = e.target.result;
-                try {
-                    localStorage.setItem(STORAGE_KEYS.LOGO, customLogoDataUrl);
-                    applyLogoToUI();
-                    showToast(currentLang === 'ar' ? 'تم رفع وتضمين الشعار بنجاح!' : 'Company logo uploaded and embedded!', 'success');
-                } catch (err) {
-                    showToast(currentLang === 'ar' ? 'حجم الصورة كبير جداً، يرجى اختيار صورة أصغر.' : 'Image too large for storage, please choose a smaller file.', 'error');
+                applyLogoToUI();
+                persistToLocalStorage();
+                if (isCloudReady && cloudUser) {
+                    try {
+                        await setDoc(getPublicDoc('ptw_settings', 'branding'), { logoDataUrl: customLogoDataUrl }, { merge: true });
+                    } catch (err) {
+                        console.error('Logo cloud save error:', err);
+                    }
                 }
+                showToast(currentLang === 'ar' ? 'تم رفع وحفظ الشعار بنجاح!' : 'Company logo uploaded and saved!', 'success');
             };
             reader.readAsDataURL(file);
         }
 
-        function resetLogo() {
+        async function resetLogo() {
             customLogoDataUrl = DEFAULT_COMPANY_LOGO_SVG;
-            localStorage.removeItem(STORAGE_KEYS.LOGO);
             applyLogoToUI();
-            showToast(currentLang === 'ar' ? 'تمت استعادة الشعار الرسمي الافتراضي' : 'Default official company logo restored', 'info');
+            persistToLocalStorage();
+            if (isCloudReady && cloudUser) {
+                try {
+                    await setDoc(getPublicDoc('ptw_settings', 'branding'), { logoDataUrl: DEFAULT_COMPANY_LOGO_SVG }, { merge: true });
+                } catch (err) {
+                    console.error('Logo reset error:', err);
+                }
+            }
+            showToast(currentLang === 'ar' ? 'تمت استعادة وحفظ الشعار الرسمي الافتراضي' : 'Default official company logo restored and saved', 'info');
         }
 
         function applyLogoToUI() {
@@ -1244,6 +1350,17 @@
         function getUserNameById(userId) {
             const u = users.find(user => user.id === userId);
             return u ? u.fullName : 'Unknown User';
+        }
+
+        // Check if current user is allowed to view or interact with a permit
+        function isPermitVisibleToCurrentUser(permit) {
+            if (!currentUser || !permit) return false;
+            if (currentUser.role === 'admin') return true;
+            return (
+                permit.createdBy === currentUser.id ||
+                permit.currentHolderId === currentUser.id ||
+                permit.pendingRecipientId === currentUser.id
+            );
         }
 
         function getDateOffsetISO(daysOffset) {
@@ -1354,86 +1471,8 @@
                             actorName: 'Eng. Ahmed Al-Salem',
                             targetName: 'Eng. Ahmed Al-Salem',
                             paBadge: 'PA-1042',
-                            notes: 'Custody confirmed after verifying electrical LOTO isolation.',
+                            notes: 'Permit received and active on site.',
                             timestamp: new Date(now - 3600000 * 4.5).toISOString()
-                        }
-                    ]
-                },
-                {
-                    id: 'p3',
-                    number: 'PTW-2026-1003',
-                    type: 'BREAKING',
-                    isDay1Received: true,
-                    startDate: getDateOffsetISO(-6),
-                    expiryDate: getDateOffsetISO(1),
-                    expiryAlertSentForDate: null,
-                    location: 'Cooling Water Header - Valve V-302',
-                    description: 'Line breaking and blind flange installation after depressurization and drain check.',
-                    status: 'ACTIVE',
-                    createdBy: 'u3',
-                    currentHolderId: 'u3',
-                    currentPaBadge: 'PA-2088',
-                    pendingRecipientId: null,
-                    pendingPaBadge: null,
-                    pendingNotes: null,
-                    createdAt: new Date(now - 3600000 * 2).toISOString(),
-                    closedAt: null,
-                    closedBy: null,
-                    closureNotes: null,
-                    history: [
-                        {
-                            action: 'CREATED',
-                            titleEn: 'Day-1 Work Permit Registered',
-                            titleAr: 'تسجيل تصريح مستلم من اليوم الأول',
-                            actorName: 'Eng. Sara Al-Mansoor',
-                            targetName: 'Eng. Sara Al-Mansoor',
-                            paBadge: 'PA-2088',
-                            notes: 'Line verified zero pressure and drained prior to breaking.',
-                            timestamp: new Date(now - 3600000 * 2).toISOString()
-                        }
-                    ]
-                },
-                {
-                    id: 'p4',
-                    number: 'PTW-2026-1004',
-                    type: 'COLD',
-                    isDay1Received: false,
-                    startDate: getDateOffsetISO(0),
-                    expiryDate: getDateOffsetISO(7),
-                    expiryAlertSentForDate: null,
-                    location: 'Tank Farm Area - Tank T-12 Scaffolding',
-                    description: 'Erection of external inspection scaffolding and visual ultrasonic thickness check.',
-                    status: 'ACTIVE',
-                    createdBy: 'u2',
-                    currentHolderId: 'u4',
-                    currentPaBadge: 'PA-3310',
-                    pendingRecipientId: null,
-                    pendingPaBadge: null,
-                    pendingNotes: null,
-                    createdAt: new Date(now - 3600000 * 6).toISOString(),
-                    closedAt: null,
-                    closedBy: null,
-                    closureNotes: null,
-                    history: [
-                        {
-                            action: 'CREATED',
-                            titleEn: 'Work Permit Issued',
-                            titleAr: 'إصدار تصريح العمل',
-                            actorName: 'Eng. Ahmed Al-Salem',
-                            targetName: 'Khaled Al-Harbi',
-                            paBadge: 'PA-3310',
-                            notes: 'Cold work permit issued for scaffolding and NDT inspection.',
-                            timestamp: new Date(now - 3600000 * 6).toISOString()
-                        },
-                        {
-                            action: 'HANDOVER_CONFIRMED',
-                            titleEn: 'Receipt Confirmed Officially',
-                            titleAr: 'تأكيد استلام التصريح رسمياً',
-                            actorName: 'Khaled Al-Harbi',
-                            targetName: 'Khaled Al-Harbi',
-                            paBadge: 'PA-3310',
-                            notes: 'Permit received and scaffold tag inspected.',
-                            timestamp: new Date(now - 3600000 * 5.5).toISOString()
                         }
                     ]
                 }
@@ -1446,70 +1485,194 @@
                     permitId: 'p1',
                     titleEn: 'Incoming Work Permit Handover',
                     titleAr: 'طلب تسليم تصريح عمل وارد',
-                    messageEn: 'Eng. Ahmed Al-Salem handed over PTW-2026-1001 (PA Badge: PA-2088) to you. Please confirm receipt.',
-                    messageAr: 'قام م. أحمد السالم بتسليم التصريح PTW-2026-1001 (PA Badge: PA-2088) إليك. يرجى تأكيد الاستلام.',
+                    messageEn: 'Eng. Ahmed Al-Salem handed over PTW-2026-1001 [HOT] (PA Badge: PA-2088) to you.',
+                    messageAr: 'قام م. أحمد السالم بتسليم التصريح PTW-2026-1001 [HOT] (PA Badge: PA-2088) إليك.',
                     timestamp: new Date(now - 3600000 * 1).toISOString(),
                     read: false
                 }
             ];
 
             const defaultAudit = [
-                { time: new Date(now - 3600000 * 5).toISOString(), text: '[System Admin] issued PTW-2026-1002 [SPARK] (PA Badge: PA-1042).' },
-                { time: new Date(now - 3600000 * 3).toISOString(), text: '[Eng. Ahmed Al-Salem] issued PTW-2026-1001 [HOT] (PA Badge: PA-1042).' },
-                { time: new Date(now - 3600000 * 1).toISOString(), text: '[Eng. Ahmed Al-Salem] requested handover of PTW-2026-1001 to [Eng. Sara Al-Mansoor].' }
+                {
+                    time: new Date(now - 3600000 * 5).toISOString(),
+                    text: 'System initialized default accounts and sample work permits.'
+                }
             ];
 
             return { defaultUsers, defaultPermits, defaultNotifs, defaultAudit };
         }
 
-        function loadData() {
-            currentLang = localStorage.getItem(STORAGE_KEYS.LANG) || 'en';
-            customLogoDataUrl = localStorage.getItem(STORAGE_KEYS.LOGO) || DEFAULT_COMPANY_LOGO_SVG;
-
-            const storedUsers = localStorage.getItem(STORAGE_KEYS.USERS);
-            if (!storedUsers) {
+        async function loadData() {
+            const hasLocalData = loadFromLocalStorage();
+            if (!hasLocalData) {
                 const { defaultUsers, defaultPermits, defaultNotifs, defaultAudit } = getDefaultData();
                 users = defaultUsers;
                 permits = defaultPermits;
                 notifications = defaultNotifs;
                 auditLogs = defaultAudit;
-                saveAllData();
-            } else {
-                users = JSON.parse(storedUsers);
-                permits = JSON.parse(localStorage.getItem(STORAGE_KEYS.PERMITS) || '[]');
-                notifications = JSON.parse(localStorage.getItem(STORAGE_KEYS.NOTIFS) || '[]');
-                auditLogs = JSON.parse(localStorage.getItem(STORAGE_KEYS.AUDIT) || '[]');
+                persistToLocalStorage();
             }
 
-            const savedSessionId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
-            if (savedSessionId) {
-                currentUser = users.find(u => u.id === savedSessionId) || null;
+            if (memoryPrefs.sessionUserId) {
+                const savedUser = users.find(u => u.id === memoryPrefs.sessionUserId);
+                if (savedUser) {
+                    currentUser = savedUser;
+                }
             }
+
+            if (!firebaseConfig) {
+                setCloudStatus(true, currentLang === 'ar' ? 'محفوظ تلقائياً • تخزين دائم' : 'Auto-Saved • Local Storage');
+                return;
+            }
+
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    const cred = await signInWithCustomToken(auth, __initial_auth_token);
+                    cloudUser = cred.user;
+                } else {
+                    const cred = await signInAnonymously(auth);
+                    cloudUser = cred.user;
+                }
+
+                isCloudReady = true;
+                setCloudStatus(true, 'Cloud + Local Auto-Saved');
+                subscribeToCloudCollections();
+            } catch (err) {
+                console.error('Cloud initialization error:', err);
+                setCloudStatus(true, currentLang === 'ar' ? 'محفوظ تلقائياً • تخزين دائم' : 'Auto-Saved • Local Storage');
+            }
+        }
+
+        function subscribeToCloudCollections() {
+            if (!isCloudReady || !cloudUser) return;
+
+            let usersInitialized = false;
+
+            // 1. Real-time Users Listener
+            onSnapshot(getPublicCol('ptw_users'), async (snapshot) => {
+                if (snapshot.empty && !usersInitialized) {
+                    usersInitialized = true;
+                    const { defaultUsers, defaultPermits, defaultNotifs, defaultAudit } = getDefaultData();
+                    const batch = writeBatch(db);
+                    defaultUsers.forEach(u => batch.set(getPublicDoc('ptw_users', u.id), u));
+                    defaultPermits.forEach(p => batch.set(getPublicDoc('ptw_permits', p.id), p));
+                    defaultNotifs.forEach(n => batch.set(getPublicDoc('ptw_notifs', n.id), n));
+                    defaultAudit.forEach((a, idx) => {
+                        const aid = 'a_init_' + idx;
+                        batch.set(getPublicDoc('ptw_audit', aid), { id: aid, ...a });
+                    });
+                    await batch.commit();
+                    return;
+                }
+                usersInitialized = true;
+                users = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                if (currentUser) {
+                    const refreshed = users.find(u => u.id === currentUser.id);
+                    if (refreshed) currentUser = refreshed;
+                    updateUI();
+                }
+            }, (err) => console.error('Users snapshot error:', err));
+
+            // 2. Real-time Permits Listener
+            onSnapshot(getPublicCol('ptw_permits'), (snapshot) => {
+                const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+                permits = list;
+                if (currentUser) updateUI();
+            }, (err) => console.error('Permits snapshot error:', err));
+
+            // 3. Real-time Notifications Listener
+            onSnapshot(getPublicCol('ptw_notifs'), (snapshot) => {
+                const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                list.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+                notifications = list;
+                if (currentUser) renderNotifications();
+            }, (err) => console.error('Notifs snapshot error:', err));
+
+            // 4. Real-time Audit Logs Listener
+            onSnapshot(getPublicCol('ptw_audit'), (snapshot) => {
+                const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                list.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+                auditLogs = list;
+                if (currentUser && activeTab === 'admin-panel') renderAdminPanel();
+            }, (err) => console.error('Audit snapshot error:', err));
+
+            // 5. Branding Logo Listener
+            onSnapshot(getPublicDoc('ptw_settings', 'branding'), (docSnap) => {
+                if (docSnap.exists() && docSnap.data().logoDataUrl) {
+                    customLogoDataUrl = docSnap.data().logoDataUrl;
+                    applyLogoToUI();
+                }
+            }, (err) => console.error('Branding snapshot error:', err));
+        }
+
+        async function saveUserToCloud(userObj) {
+            persistToLocalStorage();
+            if (!isCloudReady || !cloudUser) return;
+            await setDoc(getPublicDoc('ptw_users', userObj.id), userObj, { merge: true });
+        }
+
+        async function savePermitToCloud(permitObj) {
+            persistToLocalStorage();
+            if (!isCloudReady || !cloudUser) return;
+            await setDoc(getPublicDoc('ptw_permits', permitObj.id), permitObj, { merge: true });
+        }
+
+        async function saveNotifToCloud(notifObj) {
+            persistToLocalStorage();
+            if (!isCloudReady || !cloudUser) return;
+            await setDoc(getPublicDoc('ptw_notifs', notifObj.id), notifObj, { merge: true });
         }
 
         function saveAllData() {
-            localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-            localStorage.setItem(STORAGE_KEYS.PERMITS, JSON.stringify(permits));
-            localStorage.setItem(STORAGE_KEYS.NOTIFS, JSON.stringify(notifications));
-            localStorage.setItem(STORAGE_KEYS.AUDIT, JSON.stringify(auditLogs));
+            persistToLocalStorage();
         }
 
-        function addAuditLog(text) {
-            auditLogs.unshift({ time: new Date().toISOString(), text });
-            saveAllData();
+        async function addAuditLog(text) {
+            const entry = { id: 'a_' + Date.now() + '_' + Math.floor(Math.random() * 1000), time: new Date().toISOString(), text };
+            auditLogs.unshift(entry);
+            persistToLocalStorage();
+            if (isCloudReady && cloudUser) {
+                try {
+                    await setDoc(getPublicDoc('ptw_audit', entry.id), entry);
+                } catch (e) {
+                    console.error('Audit write error:', e);
+                }
+            }
         }
 
-        function resetDemoData(isLoginScreen = false) {
+        async function resetDemoData(isLoginScreen = false) {
             const { defaultUsers, defaultPermits, defaultNotifs, defaultAudit } = getDefaultData();
+            if (isCloudReady && cloudUser) {
+                const batch = writeBatch(db);
+                users.forEach(u => batch.delete(getPublicDoc('ptw_users', u.id)));
+                permits.forEach(p => batch.delete(getPublicDoc('ptw_permits', p.id)));
+                notifications.forEach(n => batch.delete(getPublicDoc('ptw_notifs', n.id)));
+                auditLogs.forEach(a => { if (a.id) batch.delete(getPublicDoc('ptw_audit', a.id)); });
+
+                defaultUsers.forEach(u => batch.set(getPublicDoc('ptw_users', u.id), u));
+                defaultPermits.forEach(p => batch.set(getPublicDoc('ptw_permits', p.id), p));
+                defaultNotifs.forEach(n => batch.set(getPublicDoc('ptw_notifs', n.id), n));
+                defaultAudit.forEach((a, idx) => {
+                    const aid = 'a_reset_' + idx;
+                    batch.set(getPublicDoc('ptw_audit', aid), { id: aid, ...a });
+                });
+                await batch.commit();
+            }
             users = defaultUsers;
             permits = defaultPermits;
             notifications = defaultNotifs;
             auditLogs = defaultAudit;
-            saveAllData();
-            showToast(currentLang === 'ar' ? 'تمت إعادة ضبط البيانات التجريبية!' : 'Demo data reset successfully!', 'success');
+            persistToLocalStorage();
+            showToast(currentLang === 'ar' ? 'تمت إعادة ضبط البيانات وحفظها!' : 'Data reset and saved!', 'success');
             if (!isLoginScreen && currentUser) {
-                currentUser = users.find(u => u.id === currentUser.id) || users[0];
-                localStorage.setItem(STORAGE_KEYS.CURRENT_USER, currentUser.id);
+                currentUser = defaultUsers.find(u => u.id === currentUser.id) || defaultUsers[0];
+                memoryPrefs.sessionUserId = currentUser.id;
+                persistToLocalStorage();
                 updateUI();
             }
         }
@@ -1551,7 +1714,8 @@
             const foundUser = users.find(u => u.username === username && u.password === password);
             if (foundUser) {
                 currentUser = foundUser;
-                localStorage.setItem(STORAGE_KEYS.CURRENT_USER, currentUser.id);
+                memoryPrefs.sessionUserId = currentUser.id;
+                persistToLocalStorage();
                 document.getElementById('login-error').classList.add('hidden');
                 showToast(currentLang === 'ar' ? `مرحباً بك، ${currentUser.fullName}` : `Welcome, ${currentUser.fullName}`, 'success');
                 initAppView();
@@ -1561,8 +1725,10 @@
         });
 
         function logout() {
+            persistToLocalStorage();
             currentUser = null;
-            localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
+            memoryPrefs.sessionUserId = null;
+            localStorage.removeItem(SESSION_STORAGE_KEY);
             document.getElementById('app-screen').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
             document.getElementById('login-username').value = '';
@@ -1578,7 +1744,7 @@
             document.getElementById('change-password-modal').classList.remove('hidden');
         }
 
-        document.getElementById('change-password-form').addEventListener('submit', function(e) {
+        document.getElementById('change-password-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const curPass = document.getElementById('cp-current').value.trim();
             const newPass = document.getElementById('cp-new').value.trim();
@@ -1600,11 +1766,11 @@
             if (userRecord) {
                 userRecord.password = newPass;
                 currentUser.password = newPass;
+                await saveUserToCloud(userRecord);
             }
-            addAuditLog(`User [${currentUser.fullName}] (${currentUser.username}) updated their password.`);
-            saveAllData();
+            await addAuditLog(`User [${currentUser.fullName}] (${currentUser.username}) updated their password.`);
             closeModal('change-password-modal');
-            showToast(currentLang === 'ar' ? 'تم تحديث الرقم السري بنجاح!' : 'Password updated successfully!', 'success');
+            showToast(currentLang === 'ar' ? 'تم تحديث الرقم السري وحفظه سحابياً!' : 'Password updated and saved to cloud!', 'success');
             if (activeTab === 'admin-panel') renderAdminPanel();
         });
 
@@ -1637,10 +1803,13 @@
 
             checkPermitExpiriesAndNotify();
 
-            const myCustodyCount = permits.filter(p => p.currentHolderId === currentUser.id && p.status !== 'CLOSED').length;
-            const incomingPermits = permits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingRecipientId === currentUser.id);
-            const activeAllCount = permits.filter(p => p.status !== 'CLOSED').length;
-            const closedCount = permits.filter(p => p.status === 'CLOSED').length;
+            // Scoped strictly to current user unless Admin
+            const visiblePermits = permits.filter(p => isPermitVisibleToCurrentUser(p));
+
+            const myCustodyCount = visiblePermits.filter(p => p.currentHolderId === currentUser.id && p.status !== 'CLOSED').length;
+            const incomingPermits = visiblePermits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingRecipientId === currentUser.id);
+            const activeAllCount = visiblePermits.filter(p => p.status !== 'CLOSED').length;
+            const closedCount = visiblePermits.filter(p => p.status === 'CLOSED').length;
 
             document.getElementById('stat-my-custody').textContent = myCustodyCount;
             document.getElementById('stat-incoming').textContent = incomingPermits.length;
@@ -1660,7 +1829,7 @@
             }
 
             const expiringBanner = document.getElementById('expiring-soon-banner');
-            const expiringForUser = permits.filter(p => {
+            const expiringForUser = visiblePermits.filter(p => {
                 if (p.status === 'CLOSED' || !p.expiryDate) return false;
                 const daysLeft = getDaysUntilExpiry(p.expiryDate);
                 if (daysLeft === null || daysLeft > 2) return false;
@@ -1682,21 +1851,20 @@
         }
 
         function checkPermitExpiriesAndNotify() {
-            let newAlertsCreated = false;
             const adminUsers = users.filter(u => u.role === 'admin');
             const nowIso = new Date().toISOString();
 
-            permits.forEach(p => {
+            permits.forEach(async (p) => {
                 if (p.status === 'CLOSED' || !p.expiryDate) return;
                 const daysLeft = getDaysUntilExpiry(p.expiryDate);
                 if (daysLeft !== null && daysLeft <= 2 && p.expiryAlertSentForDate !== p.expiryDate) {
                     p.expiryAlertSentForDate = p.expiryDate;
-                    newAlertsCreated = true;
+                    await savePermitToCloud(p);
 
                     const recipientIds = new Set([p.currentHolderId, ...adminUsers.map(a => a.id)]);
-                    recipientIds.forEach(uid => {
-                        if (!uid) return;
-                        notifications.unshift({
+                    for (const uid of recipientIds) {
+                        if (!uid) continue;
+                        const notifObj = {
                             id: 'n_exp_' + p.id + '_' + uid + '_' + Date.now(),
                             userId: uid,
                             permitId: p.id,
@@ -1706,16 +1874,14 @@
                             messageAr: `تصريح العمل ${p.number} [${p.type}] (PA: ${p.currentPaBadge}) ينتهي بتاريخ ${p.expiryDate}. يرجى تجديده إذا كنتم بحاجة لاستمرار العمل.`,
                             timestamp: nowIso,
                             read: false
-                        });
-                    });
+                        };
+                        notifications.unshift(notifObj);
+                        await saveNotifToCloud(notifObj);
+                    }
 
-                    addAuditLog(`System sent 2-day expiry warning for ${p.number} (Expires: ${p.expiryDate}) to holder and Admin.`);
+                    await addAuditLog(`System sent 2-day expiry warning for ${p.number} (Expires: ${p.expiryDate}) to holder and Admin.`);
                 }
             });
-
-            if (newAlertsCreated) {
-                saveAllData();
-            }
         }
 
         // ==================== NOTIFICATIONS ====================
@@ -1758,20 +1924,24 @@
             document.getElementById('notif-dropdown').classList.toggle('hidden');
         }
 
-        function handleNotificationClick(notifId) {
+        async function handleNotificationClick(notifId) {
             const notif = notifications.find(n => n.id === notifId);
-            if (notif) notif.read = true;
-            saveAllData();
+            if (notif) {
+                notif.read = true;
+                await saveNotifToCloud(notif);
+            }
             document.getElementById('notif-dropdown').classList.add('hidden');
             switchTab('incoming');
             updateUI();
         }
 
-        function markAllNotificationsRead() {
-            notifications.forEach(n => {
-                if (n.userId === currentUser.id) n.read = true;
-            });
-            saveAllData();
+        async function markAllNotificationsRead() {
+            for (const n of notifications) {
+                if (n.userId === currentUser.id && !n.read) {
+                    n.read = true;
+                    await saveNotifToCloud(n);
+                }
+            }
             updateUI();
         }
 
@@ -1842,6 +2012,9 @@
             const statusFilter = document.getElementById('filter-status').value;
 
             let filtered = permits.filter(p => {
+                // Strict privacy isolation: regular users only see their own permits; Admin sees all
+                if (!isPermitVisibleToCurrentUser(p)) return false;
+
                 if (activeTab === 'incoming') {
                     if (!(p.status === 'PENDING_HANDOVER' && p.pendingRecipientId === currentUser.id)) return false;
                 } else if (activeTab === 'my-custody') {
@@ -1879,6 +2052,7 @@
                 const canClose = (isHolder || currentUser.role === 'admin') && p.status !== 'CLOSED';
                 const canHandover = isHolder && p.status === 'ACTIVE';
                 const canRenew = (isHolder || currentUser.role === 'admin') && p.status !== 'CLOSED';
+                const canDelete = currentUser && currentUser.role === 'admin';
 
                 const daysLeft = p.expiryDate ? getDaysUntilExpiry(p.expiryDate) : null;
                 const isExpiringSoon = p.status !== 'CLOSED' && daysLeft !== null && daysLeft <= 2;
@@ -1993,14 +2167,68 @@
                                 </button>
                             ` : ''}
 
+                            ${canDelete ? `
+                                <button onclick="deletePermit('${p.id}')" title="${t('deletePermitBtn')}" class="bg-red-50 hover:bg-red-600 text-red-700 hover:text-white border border-red-200 text-xs font-bold py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-trash"></i>
+                                    <span>${t('deletePermitBtn')}</span>
+                                </button>
+                            ` : ''}
+
                             <button onclick="openTimelineModal('${p.id}')" class="w-full mt-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5">
                                 <i class="fa-solid fa-clock-rotate-left"></i>
-                                <span>${t('viewLogBtn')} (${p.history.length})</span>
+                                <span>${t('viewLogBtn')}</span>
                             </button>
                         </div>
                     </div>
                 `;
             }).join('');
+        }
+
+        // ==================== ADMIN PERMIT DELETION & SYSTEM RESET ====================
+        async function deletePermit(permitId) {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            const target = permits.find(p => p.id === permitId);
+            if (!target) return;
+
+            const relatedNotifs = notifications.filter(n => n.permitId === permitId);
+            permits = permits.filter(p => p.id !== permitId);
+            notifications = notifications.filter(n => n.permitId !== permitId);
+            persistToLocalStorage();
+
+            if (isCloudReady && cloudUser) {
+                await deleteDoc(getPublicDoc('ptw_permits', permitId));
+                for (const n of relatedNotifs) {
+                    await deleteDoc(getPublicDoc('ptw_notifs', n.id));
+                }
+            }
+            await addAuditLog(`Admin [${currentUser.fullName}] permanently deleted permit ${target.number}.`);
+            showToast(t('confirmDeletePermitToast'), 'warning');
+            updateUI();
+        }
+
+        async function resetAllPermitsAndLogs() {
+            if (!currentUser || currentUser.role !== 'admin') return;
+            const entry = {
+                id: 'a_' + Date.now(),
+                time: new Date().toISOString(),
+                text: `Admin [${currentUser.fullName}] performed a full reset of all permits, notifications, and audit logs.`
+            };
+
+            if (isCloudReady && cloudUser) {
+                const batch = writeBatch(db);
+                permits.forEach(p => batch.delete(getPublicDoc('ptw_permits', p.id)));
+                notifications.forEach(n => batch.delete(getPublicDoc('ptw_notifs', n.id)));
+                auditLogs.forEach(a => { if (a.id) batch.delete(getPublicDoc('ptw_audit', a.id)); });
+                batch.set(getPublicDoc('ptw_audit', entry.id), entry);
+                await batch.commit();
+            }
+
+            permits = [];
+            notifications = [];
+            auditLogs = [entry];
+            persistToLocalStorage();
+            showToast(t('confirmResetAllToast'), 'warning');
+            updateUI();
         }
 
         // ==================== ISSUE NEW PERMIT ====================
@@ -2026,7 +2254,7 @@
             document.getElementById('create-permit-modal').classList.remove('hidden');
         }
 
-        document.getElementById('create-permit-form').addEventListener('submit', function(e) {
+        document.getElementById('create-permit-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const number = document.getElementById('permit-number').value.trim();
             const paBadge = document.getElementById('permit-pa-badge').value.trim();
@@ -2094,7 +2322,7 @@
                     timestamp: nowIso
                 });
 
-                notifications.unshift({
+                const notifObj = {
                     id: 'n_' + Date.now(),
                     userId: recipientId,
                     permitId: newPermit.id,
@@ -2104,16 +2332,18 @@
                     messageAr: `قام ${currentUser.fullName} بإصدار التصريح ${number} [${type}] (PA Badge: ${paBadge}، الصلاحية: ${startDate} → ${expiryDate}) وتسليمه إليك.`,
                     timestamp: nowIso,
                     read: false
-                });
+                };
+                notifications.unshift(notifObj);
+                await saveNotifToCloud(notifObj);
             }
 
             permits.unshift(newPermit);
-            addAuditLog(`[${currentUser.fullName}] ${isDay1Received ? 'registered Day-1 permit' : 'issued permit'} ${number} [${type}] (PA: ${paBadge}, ${startDate} to ${expiryDate}).`);
-            saveAllData();
+            await savePermitToCloud(newPermit);
+            await addAuditLog(`[${currentUser.fullName}] ${isDay1Received ? 'registered Day-1 permit' : 'issued permit'} ${number} [${type}] (PA: ${paBadge}, ${startDate} to ${expiryDate}).`);
             closeModal('create-permit-modal');
             const toastMsg = isSelfAssigned
-                ? (currentLang === 'ar' ? 'تم تسجيل التصريح وإضافته لعهدتك!' : 'Work permit added to your custody!')
-                : (currentLang === 'ar' ? `تم تسجيل التصريح وإرسال إشعار الاستلام إلى ${recipientName}` : `Permit registered & handover sent to ${recipientName}!`);
+                ? (currentLang === 'ar' ? 'تم تسجيل التصريح وحفظه في قاعدة البيانات!' : 'Work permit saved to cloud database!')
+                : (currentLang === 'ar' ? `تم حفظ التصريح وإرسال إشعار الاستلام إلى ${recipientName}` : `Permit saved & handover sent to ${recipientName}!`);
             showToast(toastMsg, 'success');
             updateUI();
         });
@@ -2131,7 +2361,7 @@
             document.getElementById('renew-permit-modal').classList.remove('hidden');
         }
 
-        document.getElementById('renew-permit-form').addEventListener('submit', function(e) {
+        document.getElementById('renew-permit-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const permitId = document.getElementById('renew-permit-id').value;
             const newExpiry = document.getElementById('renew-new-expiry').value;
@@ -2156,8 +2386,8 @@
                 timestamp: nowIso
             });
 
-            addAuditLog(`[${currentUser.fullName}] renewed ${permit.number} expiry from ${oldExpiry} to ${newExpiry}.`);
-            saveAllData();
+            await savePermitToCloud(permit);
+            await addAuditLog(`[${currentUser.fullName}] renewed ${permit.number} expiry from ${oldExpiry} to ${newExpiry}.`);
             closeModal('renew-permit-modal');
             showToast(currentLang === 'ar' ? `تم تجديد التصريح ${permit.number} حتى ${newExpiry}` : `Permit ${permit.number} renewed until ${newExpiry}!`, 'success');
             updateUI();
@@ -2175,17 +2405,12 @@
             document.getElementById('handover-notes').value = '';
 
             const availableUsers = users.filter(u => u.id !== permit.currentHolderId);
-            const select = document.getElementById('handover-recipient-select');
-            if (availableUsers.length === 0) {
-                showToast(currentLang === 'ar' ? 'لا يوجد مستخدمون آخرون!' : 'No other users available!', 'warning');
-                return;
-            }
-            select.innerHTML = availableUsers.map(u => `<option value="${u.id}">${u.fullName} (${getRoleLabel(u.role)})</option>`).join('');
-
+            const selectEl = document.getElementById('handover-recipient-select');
+            selectEl.innerHTML = availableUsers.map(u => `<option value="${u.id}">${u.fullName}</option>`).join('');
             document.getElementById('handover-modal').classList.remove('hidden');
         }
 
-        document.getElementById('handover-form').addEventListener('submit', function(e) {
+        document.getElementById('handover-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const permitId = document.getElementById('handover-permit-id').value;
             const recipientId = document.getElementById('handover-recipient-select').value;
@@ -2213,7 +2438,7 @@
                 timestamp: nowIso
             });
 
-            notifications.unshift({
+            const notifObj = {
                 id: 'n_' + Date.now(),
                 userId: recipientId,
                 permitId: permit.id,
@@ -2223,16 +2448,18 @@
                 messageAr: `قام ${currentUser.fullName} بتسليم التصريح ${permit.number} [${permit.type}] (PA Badge: ${paBadge}) إليك. ملاحظات: "${notes}"`,
                 timestamp: nowIso,
                 read: false
-            });
+            };
+            notifications.unshift(notifObj);
 
-            addAuditLog(`[${currentUser.fullName}] requested handover of ${permit.number} (PA Badge: ${paBadge}) to [${recipientName}].`);
-            saveAllData();
+            await savePermitToCloud(permit);
+            await saveNotifToCloud(notifObj);
+            await addAuditLog(`[${currentUser.fullName}] requested handover of ${permit.number} (PA Badge: ${paBadge}) to [${recipientName}].`);
             closeModal('handover-modal');
             showToast(currentLang === 'ar' ? `تم إرسال طلب التسليم وإشعار ${recipientName}` : `Handover request sent to ${recipientName}!`, 'success');
             updateUI();
         });
 
-        function confirmHandover(permitId) {
+        async function confirmHandover(permitId) {
             const permit = permits.find(p => p.id === permitId);
             if (!permit || permit.pendingRecipientId !== currentUser.id) return;
 
@@ -2259,7 +2486,7 @@
                 timestamp: nowIso
             });
 
-            notifications.unshift({
+            const confirmNotif = {
                 id: 'n_' + Date.now(),
                 userId: previousHolderId,
                 permitId: permit.id,
@@ -2269,14 +2496,20 @@
                 messageAr: `قام ${currentUser.fullName} بتأكيد استلام التصريح ${permit.number} (PA Badge: ${confirmedPaBadge}).`,
                 timestamp: nowIso,
                 read: false
-            });
+            };
+            notifications.unshift(confirmNotif);
 
-            notifications.forEach(n => {
-                if (n.userId === currentUser.id && n.permitId === permit.id) n.read = true;
-            });
+            await savePermitToCloud(permit);
+            await saveNotifToCloud(confirmNotif);
 
-            addAuditLog(`[${currentUser.fullName}] confirmed receipt of ${permit.number} from [${previousHolderName}].`);
-            saveAllData();
+            for (const n of notifications) {
+                if (n.userId === currentUser.id && n.permitId === permit.id && !n.read) {
+                    n.read = true;
+                    await saveNotifToCloud(n);
+                }
+            }
+
+            await addAuditLog(`[${currentUser.fullName}] confirmed receipt of ${permit.number} from [${previousHolderName}].`);
             showToast(currentLang === 'ar' ? `تم تأكيد استلام التصريح ${permit.number} وانتقل لعهدتك!` : `Receipt confirmed! ${permit.number} is now in your custody.`, 'success');
             updateUI();
         }
@@ -2287,7 +2520,7 @@
             document.getElementById('reject-modal').classList.remove('hidden');
         }
 
-        document.getElementById('reject-form').addEventListener('submit', function(e) {
+        document.getElementById('reject-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const permitId = document.getElementById('reject-permit-id').value;
             const reason = document.getElementById('reject-reason').value.trim();
@@ -2313,7 +2546,7 @@
                 timestamp: nowIso
             });
 
-            notifications.unshift({
+            const rejectNotif = {
                 id: 'n_' + Date.now(),
                 userId: holderId,
                 permitId: permit.id,
@@ -2323,10 +2556,12 @@
                 messageAr: `رفض ${currentUser.fullName} استلام التصريح ${permit.number}. السبب: "${reason}"`,
                 timestamp: nowIso,
                 read: false
-            });
+            };
+            notifications.unshift(rejectNotif);
 
-            addAuditLog(`[${currentUser.fullName}] rejected handover of ${permit.number}. Reason: ${reason}`);
-            saveAllData();
+            await savePermitToCloud(permit);
+            await saveNotifToCloud(rejectNotif);
+            await addAuditLog(`[${currentUser.fullName}] rejected handover of ${permit.number}. Reason: ${reason}`);
             closeModal('reject-modal');
             showToast(currentLang === 'ar' ? 'تم رفض الاستلام وإشعار المسلّم.' : 'Handover rejected & sender notified.', 'warning');
             updateUI();
@@ -2344,7 +2579,7 @@
             document.getElementById('close-permit-modal').classList.remove('hidden');
         }
 
-        document.getElementById('close-permit-form').addEventListener('submit', function(e) {
+        document.getElementById('close-permit-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const permitId = document.getElementById('close-permit-id').value;
             const closureNotes = document.getElementById('closure-notes').value.trim();
@@ -2370,8 +2605,8 @@
                 timestamp: nowIso
             });
 
-            addAuditLog(`[${currentUser.fullName}] permanently closed permit ${permit.number}.`);
-            saveAllData();
+            await savePermitToCloud(permit);
+            await addAuditLog(`[${currentUser.fullName}] permanently closed permit ${permit.number}.`);
             closeModal('close-permit-modal');
             showToast(currentLang === 'ar' ? `تم إغلاق التصريح ${permit.number} نهائياً!` : `Permit ${permit.number} permanently closed!`, 'success');
             updateUI();
@@ -2538,6 +2773,7 @@
         }
 
         function printAllPermitsReport() {
+            const reportPermits = permits.filter(p => isPermitVisibleToCurrentUser(p));
             const printWin = window.open('', '_blank', 'width=1000,height=750');
             if (!printWin) {
                 showToast(currentLang === 'ar' ? 'يرجى السماح بالنوافذ المنبثقة للطباعة' : 'Please allow pop-ups to print report', 'warning');
@@ -2548,7 +2784,7 @@
                 ? `<img src="${customLogoDataUrl}" style="max-height:60px; max-width:150px; object-fit:contain;" />`
                 : `<div style="font-weight:800; font-size:18px; color:#0f172a;">PTW SYSTEM</div>`;
 
-            const rowsHtml = permits.map(p => `
+            const rowsHtml = reportPermits.map(p => `
                 <tr>
                     <td style="border:1px solid #cbd5e1; padding:8px; font-family:monospace; font-weight:bold;">${p.number}</td>
                     <td style="border:1px solid #cbd5e1; padding:8px;">${p.type}</td>
@@ -2610,7 +2846,7 @@
             document.getElementById('new-user-password').value = `${randomPin}`;
         }
 
-        document.getElementById('create-user-form').addEventListener('submit', function(e) {
+        document.getElementById('create-user-form').addEventListener('submit', async function(e) {
             e.preventDefault();
             const fullName = document.getElementById('new-user-fullname').value.trim();
             const role = document.getElementById('new-user-role').value;
@@ -2624,8 +2860,8 @@
 
             const newUser = { id: 'u_' + Date.now(), fullName, username, password, role };
             users.push(newUser);
-            addAuditLog(`Admin [${currentUser.fullName}] created user [${fullName}] (Username: ${username}).`);
-            saveAllData();
+            await saveUserToCloud(newUser);
+            await addAuditLog(`Admin [${currentUser.fullName}] created user [${fullName}] (Username: ${username}).`);
 
             lastGeneratedCreds = `PTW System Credentials\nName: ${fullName}\nUsername: ${username}\nPassword: ${password}`;
             document.getElementById('generated-cred-text').textContent = `Username: ${username}  |  Password: ${password}`;
@@ -2635,7 +2871,7 @@
             document.getElementById('new-user-username').value = '';
             document.getElementById('new-user-password').value = '';
 
-            showToast(currentLang === 'ar' ? `تم إنشاء حساب ${fullName}` : `Account created for ${fullName}!`, 'success');
+            showToast(currentLang === 'ar' ? `تم إنشاء وحفظ حساب ${fullName} سحابياً!` : `Account created and saved for ${fullName}!`, 'success');
             updateUI();
         });
 
@@ -2659,19 +2895,19 @@
             document.body.removeChild(textarea);
         }
 
-        function resetUserPassword(userId) {
+        async function resetUserPassword(userId) {
             const user = users.find(u => u.id === userId);
             if (!user) return;
             const newPass = Math.floor(1000 + Math.random() * 9000).toString();
             user.password = newPass;
             if (user.id === currentUser.id) currentUser.password = newPass;
-            addAuditLog(`Admin reset password for [${user.fullName}] (${user.username}) to (${newPass}).`);
-            saveAllData();
+            await saveUserToCloud(user);
+            await addAuditLog(`Admin reset password for [${user.fullName}] (${user.username}) to (${newPass}).`);
             showToast(currentLang === 'ar' ? `الرقم السري الجديد لـ ${user.fullName}: ${newPass}` : `New password for ${user.fullName}: ${newPass}`, 'info');
             renderAdminPanel();
         }
 
-        function deleteUser(userId) {
+        async function deleteUser(userId) {
             if (userId === currentUser.id) {
                 showToast(currentLang === 'ar' ? 'لا يمكنك حذف حسابك الحالي!' : 'Cannot delete your active admin account!', 'error');
                 return;
@@ -2679,10 +2915,79 @@
             const user = users.find(u => u.id === userId);
             if (!user) return;
             users = users.filter(u => u.id !== userId);
-            addAuditLog(`Admin deleted user [${user.fullName}].`);
-            saveAllData();
+            persistToLocalStorage();
+            if (isCloudReady && cloudUser) {
+                await deleteDoc(getPublicDoc('ptw_users', userId));
+            }
+            await addAuditLog(`Admin deleted user [${user.fullName}].`);
             showToast(currentLang === 'ar' ? `تم حذف ${user.fullName}` : `Deleted user ${user.fullName}`, 'warning');
             updateUI();
+        }
+
+        function exportBackupJson() {
+            persistToLocalStorage();
+            const backupPayload = {
+                version: 'PTW_BACKUP_V1',
+                exportedAt: new Date().toISOString(),
+                users,
+                permits,
+                notifications,
+                auditLogs,
+                customLogoDataUrl
+            };
+            const blob = new Blob([JSON.stringify(backupPayload, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `PTW_System_Backup_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(currentLang === 'ar' ? 'تم حفظ وتنزيل ملف النسخة الاحتياطية بنجاح!' : 'Backup file saved and downloaded!', 'success');
+        }
+
+        function triggerRestoreBackup() {
+            document.getElementById('restore-backup-input').click();
+        }
+
+        function handleRestoreBackupFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if (!parsed || !Array.isArray(parsed.users)) {
+                        showToast(currentLang === 'ar' ? 'ملف النسخة الاحتياطية غير صالح!' : 'Invalid backup file!', 'error');
+                        return;
+                    }
+                    users = parsed.users;
+                    permits = Array.isArray(parsed.permits) ? parsed.permits : [];
+                    notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+                    auditLogs = Array.isArray(parsed.auditLogs) ? parsed.auditLogs : [];
+                    if (parsed.customLogoDataUrl) customLogoDataUrl = parsed.customLogoDataUrl;
+
+                    persistToLocalStorage();
+                    applyLogoToUI();
+
+                    if (isCloudReady && cloudUser) {
+                        const batch = writeBatch(db);
+                        users.forEach(u => batch.set(getPublicDoc('ptw_users', u.id), u));
+                        permits.forEach(p => batch.set(getPublicDoc('ptw_permits', p.id), p));
+                        notifications.forEach(n => batch.set(getPublicDoc('ptw_notifs', n.id), n));
+                        await batch.commit();
+                    }
+
+                    await addAuditLog(`Admin [${currentUser.fullName}] restored full system backup.`);
+                    showToast(currentLang === 'ar' ? 'تمت استعادة وحفظ جميع البيانات بنجاح!' : 'Backup restored and saved successfully!', 'success');
+                    updateUI();
+                } catch (err) {
+                    console.error('Restore error:', err);
+                    showToast(currentLang === 'ar' ? 'تعذر قراءة ملف النسخة الاحتياطية!' : 'Failed to parse backup file!', 'error');
+                }
+            };
+            reader.readAsText(file);
         }
 
         function renderAdminPanel() {
@@ -2724,7 +3029,26 @@
             `).join('');
 
             const auditContainer = document.getElementById('admin-audit-log');
-            auditContainer.innerHTML = auditLogs.map(log => `
+            const resetBarHtml = `
+                <div class="mb-3 pb-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-amber-300 font-bold text-xs">Admin System Controls:</span>
+                    <div class="flex flex-wrap items-center gap-2">
+                        <button type="button" onclick="exportBackupJson()" class="bg-emerald-600 hover:bg-emerald-700 text-white font-sans font-bold text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-download"></i>
+                            <span>${currentLang === 'ar' ? 'حفظ نسخة احتياطية' : 'Export Backup'}</span>
+                        </button>
+                        <button type="button" onclick="triggerRestoreBackup()" class="bg-blue-600 hover:bg-blue-700 text-white font-sans font-bold text-xs px-3 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-upload"></i>
+                            <span>${currentLang === 'ar' ? 'استعادة نسخة' : 'Restore Backup'}</span>
+                        </button>
+                        <button type="button" onclick="resetAllPermitsAndLogs()" class="bg-red-600 hover:bg-red-700 text-white font-sans font-bold text-xs px-3.5 py-1.5 rounded-lg transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-broom"></i>
+                            <span>${t('resetAllPermitsBtn')}</span>
+                        </button>
+                    </div>
+                </div>
+            `;
+            auditContainer.innerHTML = resetBarHtml + auditLogs.map(log => `
                 <div class="border-b border-slate-800 pb-1.5 flex items-start gap-2" dir="ltr">
                     <span class="text-emerald-400 shrink-0">[${formatDateTime(log.time)}]</span>
                     <span>${log.text}</span>
@@ -2736,9 +3060,45 @@
             document.getElementById(modalId).classList.add('hidden');
         }
 
+        // Expose handlers globally for inline HTML onclick/onchange/oninput attributes
+        Object.assign(window, {
+            toggleLanguage,
+            triggerLogoUpload,
+            handleLogoUpload,
+            resetLogo,
+            resetDemoData,
+            logout,
+            openChangePasswordModal,
+            toggleNotificationsDropdown,
+            handleNotificationClick,
+            markAllNotificationsRead,
+            switchTab,
+            renderPermits,
+            deletePermit,
+            resetAllPermitsAndLogs,
+            exportBackupJson,
+            triggerRestoreBackup,
+            handleRestoreBackupFile,
+            openCreatePermitModal,
+            openRenewModal,
+            openHandoverModal,
+            confirmHandover,
+            openRejectModal,
+            openClosePermitModal,
+            openTimelineModal,
+            printPermitSheet,
+            printAllPermitsReport,
+            autoGenerateCredentials,
+            copyGeneratedCredentials,
+            copyUserRowCredentials,
+            resetUserPassword,
+            deleteUser,
+            closeModal
+        });
+
         // ==================== BOOTSTRAP ON WINDOW LOAD ====================
-        window.onload = function() {
-            loadData();
+        window.onload = async function() {
+            await loadData();
             applyLogoToUI();
             applyLanguage(currentLang);
             if (currentUser) {
