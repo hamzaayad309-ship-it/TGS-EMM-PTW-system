@@ -441,10 +441,16 @@
                                     <span class="font-bold block mb-1"><i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i> <span data-i18n="credCreatedMsg">Account created! Copy and share these credentials with the user:</span></span>
                                     <div id="generated-cred-text" class="font-mono text-xs bg-white px-3 py-2 rounded-lg border border-emerald-200 inline-block" dir="ltr"></div>
                                 </div>
-                                <button type="button" onclick="copyGeneratedCredentials()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center gap-2 shrink-0">
-                                    <i class="fa-regular fa-copy"></i>
-                                    <span data-i18n="copyCredBtn">Copy Credentials</span>
-                                </button>
+                                <div class="flex flex-wrap items-center gap-2 shrink-0">
+                                    <button type="button" onclick="copyGeneratedActivationLink()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center gap-2">
+                                        <i class="fa-solid fa-link"></i>
+                                        <span data-i18n="copyInviteLinkBtn">Copy Device Activation Link</span>
+                                    </button>
+                                    <button type="button" onclick="copyGeneratedCredentials()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-sm transition flex items-center gap-2">
+                                        <i class="fa-regular fa-copy"></i>
+                                        <span data-i18n="copyCredBtn">Copy Credentials</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -845,11 +851,17 @@
         // ==================== CLOUD DATABASE & PERSISTENT STORAGE INITIALIZATION ====================
         const LOCAL_STORAGE_KEY = 'ptw_system_persistent_db_v1';
         const SESSION_STORAGE_KEY = 'ptw_system_active_session_v1';
+        const CLOUD_CFG_STORAGE_KEY = 'ptw_system_custom_firebase_cfg_v1';
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'ptw-system-prod';
         let firebaseConfig = null;
         try {
             if (typeof __firebase_config !== 'undefined' && __firebase_config) {
                 firebaseConfig = JSON.parse(__firebase_config);
+            } else {
+                const savedCloudCfg = localStorage.getItem(CLOUD_CFG_STORAGE_KEY);
+                if (savedCloudCfg) {
+                    firebaseConfig = JSON.parse(savedCloudCfg);
+                }
             }
         } catch (e) {
             console.error('Firebase config parse error:', e);
@@ -989,6 +1001,7 @@
                 saveUserBtn: "Create User",
                 credCreatedMsg: "Account created! Copy and share these credentials with the user:",
                 copyCredBtn: "Copy Credentials",
+                copyInviteLinkBtn: "Copy Device Link",
                 usersTableTitle: "Registered Users & Active Passwords",
                 usersTableSub: "Admin can view every user's current username and password (including user-updated passwords).",
                 thFullName: "Full Name",
@@ -1125,6 +1138,7 @@
                 saveUserBtn: "إنشاء الحساب",
                 credCreatedMsg: "تم إنشاء الحساب! انسخ بيانات الدخول وأرسلها للموظف:",
                 copyCredBtn: "نسخ البيانات",
+                copyInviteLinkBtn: "نسخ رابط التفعيل للجوال",
                 usersTableTitle: "المستخدمون المسجلون والأرقام السرية الحالية",
                 usersTableSub: "يمكن للمدير رؤية اسم المستخدم والرقم السري الحالي لكل موظف (بما في ذلك الأرقام التي غيرها الموظفون).",
                 thFullName: "الاسم الكامل",
@@ -1235,17 +1249,63 @@
         let currentUser = null;
         let activeTab = 'all-permits';
         let lastGeneratedCreds = '';
+        let lastGeneratedUserObj = null;
         let activeTimelinePermitId = null;
 
-        // ==================== LOCALIZATION HELPERS ====================
+        // ==================== CROSS-DEVICE ACCOUNT ACTIVATION LINK ====================
+        function buildUserActivationLink(userObj) {
+            const payload = {
+                id: userObj.id,
+                fullName: userObj.fullName,
+                username: userObj.username,
+                password: userObj.password,
+                role: userObj.role
+            };
+            const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
+            const baseUrl = window.location.origin + window.location.pathname;
+            return `${baseUrl}?activate=${encodeURIComponent(encoded)}`;
+        }
+
+        function processUrlActivationToken() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const token = params.get('activate');
+                if (!token) return false;
+
+                const decodedJson = decodeURIComponent(escape(atob(token)));
+                const incomingUser = JSON.parse(decodedJson);
+                if (!incomingUser || !incomingUser.username || !incomingUser.password) return false;
+
+                const existingIdx = users.findIndex(u => u.username.toLowerCase() === incomingUser.username.toLowerCase());
+                if (existingIdx >= 0) {
+                    users[existingIdx] = { ...users[existingIdx], ...incomingUser };
+                } else {
+                    users.push({
+                        id: incomingUser.id || ('u_' + Date.now()),
+                        fullName: incomingUser.fullName || incomingUser.username,
+                        username: incomingUser.username,
+                        password: incomingUser.password,
+                        role: incomingUser.role || 'pa'
+                    });
+                }
+                persistToLocalStorage();
+
+                const cleanUrl = window.location.origin + window.location.pathname;
+                window.history.replaceState({}, document.title, cleanUrl);
+                return incomingUser;
+            } catch (e) {
+                console.error('Activation link parse error:', e);
+                return false;
+            }
+        }
+
         function t(key) {
-            return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key;
+            return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en && I18N.en[key]) || key;
         }
 
         function toggleLanguage() {
-            currentLang = currentLang === 'en' ? 'ar' : 'en';
-            memoryPrefs.lang = currentLang;
-            applyLanguage(currentLang);
+            const nextLang = currentLang === 'en' ? 'ar' : 'en';
+            applyLanguage(nextLang);
             persistToLocalStorage();
             if (currentUser) {
                 updateUI();
@@ -1513,7 +1573,15 @@
                 persistToLocalStorage();
             }
 
-            if (memoryPrefs.sessionUserId) {
+            const activatedUser = processUrlActivationToken();
+            if (activatedUser) {
+                const matched = users.find(u => u.username.toLowerCase() === activatedUser.username.toLowerCase());
+                if (matched) {
+                    currentUser = matched;
+                    memoryPrefs.sessionUserId = matched.id;
+                    persistToLocalStorage();
+                }
+            } else if (memoryPrefs.sessionUserId) {
                 const savedUser = users.find(u => u.id === memoryPrefs.sessionUserId);
                 if (savedUser) {
                     currentUser = savedUser;
@@ -2863,7 +2931,9 @@
             await saveUserToCloud(newUser);
             await addAuditLog(`Admin [${currentUser.fullName}] created user [${fullName}] (Username: ${username}).`);
 
-            lastGeneratedCreds = `PTW System Credentials\nName: ${fullName}\nUsername: ${username}\nPassword: ${password}`;
+            lastGeneratedUserObj = newUser;
+            const activationUrl = buildUserActivationLink(newUser);
+            lastGeneratedCreds = `PTW System Login\nName: ${fullName}\nUsername: ${username}\nPassword: ${password}\nDirect Link: ${activationUrl}`;
             document.getElementById('generated-cred-text').textContent = `Username: ${username}  |  Password: ${password}`;
             document.getElementById('generated-cred-box').classList.remove('hidden');
 
@@ -2871,19 +2941,36 @@
             document.getElementById('new-user-username').value = '';
             document.getElementById('new-user-password').value = '';
 
-            showToast(currentLang === 'ar' ? `تم إنشاء وحفظ حساب ${fullName} سحابياً!` : `Account created and saved for ${fullName}!`, 'success');
+            showToast(currentLang === 'ar' ? `تم إنشاء وحفظ حساب ${fullName}!` : `Account created and saved for ${fullName}!`, 'success');
             updateUI();
         });
 
+        function copyGeneratedActivationLink() {
+            if (!lastGeneratedUserObj) return;
+            const link = buildUserActivationLink(lastGeneratedUserObj);
+            copyTextToClipboard(link);
+            showToast(currentLang === 'ar' ? 'تم نسخ رابط التفعيل! أرسله للموظف ليفتح حسابه على جواله فوراً' : 'Activation link copied! Send it to the user to open on their phone.', 'success');
+        }
+
         function copyGeneratedCredentials() {
             copyTextToClipboard(lastGeneratedCreds);
-            showToast(currentLang === 'ar' ? 'تم نسخ بيانات الدخول!' : 'Credentials copied to clipboard!', 'success');
+            showToast(currentLang === 'ar' ? 'تم نسخ بيانات الدخول والرابط!' : 'Credentials & link copied to clipboard!', 'success');
+        }
+
+        function copyUserRowActivationLink(userId) {
+            const u = users.find(x => x.id === userId);
+            if (!u) return;
+            const link = buildUserActivationLink(u);
+            copyTextToClipboard(link);
+            showToast(currentLang === 'ar' ? `تم نسخ رابط تفعيل حساب (${u.fullName}) للجوال!` : `Copied device activation link for ${u.fullName}!`, 'success');
         }
 
         function copyUserRowCredentials(username, password, fullName) {
-            const text = `PTW System Credentials\nName: ${fullName}\nUsername: ${username}\nPassword: ${password}`;
+            const u = users.find(x => x.username === username) || { username, password, fullName, role: 'pa', id: 'u_ext' };
+            const link = buildUserActivationLink(u);
+            const text = `PTW System Credentials\nName: ${fullName}\nUsername: ${username}\nPassword: ${password}\nActivation Link: ${link}`;
             copyTextToClipboard(text);
-            showToast(currentLang === 'ar' ? `تم نسخ بيانات (${fullName})` : `Copied credentials for ${fullName}`, 'success');
+            showToast(currentLang === 'ar' ? `تم نسخ بيانات ورابط (${fullName})` : `Copied credentials & link for ${fullName}`, 'success');
         }
 
         function copyTextToClipboard(text) {
@@ -3008,7 +3095,11 @@
                         </span>
                     </td>
                     <td class="py-3 px-4 text-center">
-                        <div class="flex items-center justify-center gap-1.5">
+                        <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                            <button onclick="copyUserRowActivationLink('${u.id}')"
+                                class="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-xs font-bold transition flex items-center gap-1">
+                                <i class="fa-solid fa-link"></i> <span>${currentLang === 'ar' ? 'رابط الجوال' : 'Device Link'}</span>
+                            </button>
                             <button onclick="copyUserRowCredentials('${u.username}', '${u.password}', '${u.fullName}')"
                                 class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition flex items-center gap-1">
                                 <i class="fa-regular fa-copy"></i> <span>${t('copyShort')}</span>
@@ -3089,7 +3180,9 @@
             printPermitSheet,
             printAllPermitsReport,
             autoGenerateCredentials,
+            copyGeneratedActivationLink,
             copyGeneratedCredentials,
+            copyUserRowActivationLink,
             copyUserRowCredentials,
             resetUserPassword,
             deleteUser,
