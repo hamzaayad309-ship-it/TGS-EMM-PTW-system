@@ -1009,8 +1009,8 @@
         const STORAGE_KEY = 'tgs_ptw_system_state_v1';
         const SESSION_KEY = 'tgs_ptw_active_user_id_v1';
         const CUSTOM_CLOUD_KEY = 'tgs_ptw_custom_firebase_cfg_v1';
-        const PUBLIC_SYNC_URL = 'https://tgs-ptw-global-sync-default-rtdb.firebaseio.com';
-        const GLOBAL_SYNC_CHANNEL = 'tgs_ptw_hamzaayad309_prod_v1';
+        const PUBLIC_SYNC_URL = 'https://kvdb.io/A9xT7mP2qL8vR4nK6wZ3jB';
+        const GLOBAL_SYNC_CHANNEL = 'tgs_ptw_hamzaayad309_prod_v2';
 
         let users = [];
         let permits = [];
@@ -1215,7 +1215,14 @@
                         if (idx >= 0) users[idx] = { ...users[idx], ...decodedUser, active: true };
                         else users.push({ ...decodedUser, active: true });
                         persistToLocalStorage();
-                        localStorage.setItem(SESSION_KEY, decodedUser.id);
+                        // Pre-fill login inputs as well in case user signs out and logs in manually
+                        const loginUserInp = document.getElementById('login-username');
+                        const loginPassInp = document.getElementById('login-password');
+                        if (loginUserInp) loginUserInp.value = decodedUser.username;
+                        if (loginPassInp) loginPassInp.value = decodedUser.password;
+                        if (params.get('autoLogin') !== '0') {
+                            localStorage.setItem(SESSION_KEY, decodedUser.id);
+                        }
                     }
                 } catch (e) {
                     console.warn('Invalid user activation URL param', e);
@@ -1290,11 +1297,18 @@
 
         async function initPublicMultiDeviceSync() {
             const loginBadge = document.getElementById('login-sync-badge');
+            const endpoint = `${PUBLIC_SYNC_URL}/${GLOBAL_SYNC_CHANNEL}`;
             try {
-                const res = await fetch(`${PUBLIC_SYNC_URL}/workspaces/${GLOBAL_SYNC_CHANNEL}.json`);
-                if (res.ok) {
-                    const remoteData = await res.json();
+                const res = await fetch(endpoint, { cache: 'no-store' });
+                if (res.ok || res.status === 404) {
                     isPublicRestSyncReady = true;
+                    let remoteData = null;
+                    if (res.ok) {
+                        const txt = await res.text();
+                        if (txt) {
+                            try { remoteData = JSON.parse(txt); } catch (e) {}
+                        }
+                    }
                     if (remoteData && Array.isArray(remoteData.users) && remoteData.users.length > 0) {
                         if (Array.isArray(remoteData.deletedUserIds)) {
                             deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteData.deletedUserIds]));
@@ -1302,7 +1316,6 @@
                         if (Array.isArray(remoteData.deletedPermitIds)) {
                             deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...remoteData.deletedPermitIds]));
                         }
-                        // Merge remote users with any newly activated user from URL without overwriting remote data
                         const mergedMap = new Map();
                         remoteData.users.forEach(u => {
                             if (!deletedUserIds.includes(u.id)) mergedMap.set(u.id, u);
@@ -1319,8 +1332,7 @@
                         notifications = Array.isArray(remoteData.notifications) ? remoteData.notifications : [];
                         lastRemoteSyncHash = JSON.stringify({ users, permits, notifications, deletedUserIds, deletedPermitIds });
                         persistToLocalStorage();
-                    } else if (remoteData === null) {
-                        // Only initialize cloud workspace if completely empty on server
+                    } else {
                         await pushStateToPublicMultiDeviceSync();
                     }
                     setCloudStatus(true, currentLang === 'ar' ? 'متصل بالسحابة العالمية (كل الأجهزة)' : 'Global Multi-Device Cloud Active');
@@ -1347,8 +1359,8 @@
                     updatedAt: new Date().toISOString()
                 };
                 lastRemoteSyncHash = JSON.stringify({ users, permits, notifications, deletedUserIds, deletedPermitIds });
-                await fetch(`${PUBLIC_SYNC_URL}/workspaces/${GLOBAL_SYNC_CHANNEL}.json`, {
-                    method: 'PUT',
+                await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_SYNC_CHANNEL}`, {
+                    method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
@@ -1361,9 +1373,11 @@
             setInterval(async () => {
                 if (!isPublicRestSyncReady) return;
                 try {
-                    const res = await fetch(`${PUBLIC_SYNC_URL}/workspaces/${GLOBAL_SYNC_CHANNEL}.json`);
+                    const res = await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_SYNC_CHANNEL}`, { cache: 'no-store' });
                     if (!res.ok) return;
-                    const remoteData = await res.json();
+                    const txt = await res.text();
+                    if (!txt) return;
+                    const remoteData = JSON.parse(txt);
                     if (!remoteData || !Array.isArray(remoteData.users) || remoteData.users.length === 0) return;
                     const remoteDelUsers = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
                     const remoteDelPermits = Array.isArray(remoteData.deletedPermitIds) ? remoteData.deletedPermitIds : [];
@@ -1548,43 +1562,61 @@
             document.getElementById('nav-user-avatar').textContent = (user.fullName || 'U').charAt(0).toUpperCase();
 
             const adminTabBtn = document.getElementById('admin-tab-btn');
+            const adminSection = document.getElementById('admin-section');
             if (isAdminUser()) {
                 adminTabBtn?.classList.remove('hidden');
             } else {
                 adminTabBtn?.classList.add('hidden');
-                if (currentTab === 'admin') currentTab = 'my-custody';
+                adminSection?.classList.add('hidden');
             }
 
-            setActiveTab(currentTab);
+            setActiveTab('my-custody');
             renderAll();
+        }
+
+        function normalizeDigits(str) {
+            return String(str || '')
+                .replace(/[٠-٩]/g, d => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)])
+                .replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)])
+                .trim();
         }
 
         async function handleLogin(e) {
             e.preventDefault();
-            const username = document.getElementById('login-username').value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value.trim();
+            const username = normalizeDigits(document.getElementById('login-username').value).toLowerCase();
+            const password = normalizeDigits(document.getElementById('login-password').value);
             const errBox = document.getElementById('login-error');
             const errText = document.getElementById('login-error-text');
 
             // Pull latest users from cloud right before checking credentials so mobile always sees newly created accounts
             if (isPublicRestSyncReady) {
                 try {
-                    const res = await fetch(`${PUBLIC_SYNC_URL}/workspaces/${GLOBAL_SYNC_CHANNEL}.json`);
+                    const res = await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_SYNC_CHANNEL}`, { cache: 'no-store' });
                     if (res.ok) {
-                        const remoteData = await res.json();
+                        const txt = await res.text();
+                        const remoteData = txt ? JSON.parse(txt) : null;
                         if (remoteData && Array.isArray(remoteData.users) && remoteData.users.length > 0) {
                             const remoteDelUsers = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
                             deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteDelUsers]));
-                            users = remoteData.users.filter(u => !deletedUserIds.includes(u.id));
+                            const merged = new Map(users.map(u => [u.id, u]));
+                            remoteData.users.forEach(u => {
+                                if (!deletedUserIds.includes(u.id)) merged.set(u.id, u);
+                            });
+                            users = Array.from(merged.values());
                             persistToLocalStorage();
                         }
                     }
                 } catch (err) {}
             }
 
-            const matched = users.find(u => (u.username || '').trim().toLowerCase() === username && String(u.password || '').trim() === password);
+            const matched = users.find(u =>
+                normalizeDigits(u.username).toLowerCase() === username &&
+                normalizeDigits(u.password) === password
+            );
             if (!matched) {
-                errText.textContent = currentLang === 'ar' ? 'اسم المستخدم أو الرقم السري غير صحيح.' : 'Invalid username or password.';
+                errText.textContent = currentLang === 'ar'
+                    ? 'اسم المستخدم أو الرقم السري غير صحيح. (تأكد من فتح رابط التفعيل الخاص بحسابك إذا كنت تفتحه لأول مرة من هاتف جديد)'
+                    : 'Invalid username or password. (If logging in for the first time on a new device, open the personal link sent by Admin)';
                 errBox.classList.remove('hidden');
                 return;
             }
@@ -2142,12 +2174,12 @@
             users.push(newUser);
             await syncUserToCloud(newUser);
 
-            lastCreatedCredString = `Name: ${fullName} | Role: ${role} | Username: ${username} | Password: ${password}`;
             const encodedUser = btoa(unescape(encodeURIComponent(JSON.stringify(newUser))));
             const baseUrl = window.location.origin + window.location.pathname;
             lastCreatedActivationLink = `${baseUrl}?activateUser=${encodeURIComponent(encodedUser)}`;
+            lastCreatedCredString = `Portal Link: ${lastCreatedActivationLink}\nName: ${fullName} | Role: ${role} | Username: ${username} | Password: ${password}`;
 
-            document.getElementById('created-cred-text').textContent = lastCreatedCredString;
+            document.getElementById('created-cred-text').textContent = `Name: ${fullName} | Role: ${role} | Username: ${username} | Password: ${password}`;
             document.getElementById('created-cred-box').classList.remove('hidden');
             document.getElementById('create-user-form').reset();
             renderUsersTable();
@@ -2156,19 +2188,22 @@
 
         function copyCreatedCredentials() {
             if (!lastCreatedCredString) return;
-            copyTextToClipboard(lastCreatedCredString, currentLang === 'ar' ? 'تم نسخ بيانات الدخول!' : 'Credentials copied!');
+            copyTextToClipboard(lastCreatedCredString, currentLang === 'ar' ? 'تم نسخ بيانات الدخول والرابط المباشر!' : 'Credentials & direct link copied!');
         }
 
         function copyCreatedActivationLink() {
             if (!lastCreatedActivationLink) return;
-            copyTextToClipboard(lastCreatedActivationLink, currentLang === 'ar' ? 'تم نسخ رابط التفعيل المباشر للجوال!' : 'Direct device activation link copied!');
+            copyTextToClipboard(lastCreatedActivationLink, currentLang === 'ar' ? 'تم نسخ رابط الجوال المباشر!' : 'Direct device activation link copied!');
         }
 
         function copyUserRowCredentials(userId) {
             const u = users.find(x => x.id === userId);
             if (!u) return;
-            const text = `Name: ${u.fullName} | Role: ${u.role} | Username: ${u.username} | Password: ${u.password}`;
-            copyTextToClipboard(text, currentLang === 'ar' ? 'تم نسخ بيانات دخول الموظف!' : 'User credentials copied!');
+            const encodedUser = btoa(unescape(encodeURIComponent(JSON.stringify(u))));
+            const baseUrl = window.location.origin + window.location.pathname;
+            const link = `${baseUrl}?activateUser=${encodeURIComponent(encodedUser)}`;
+            const text = `Portal Link: ${link}\nName: ${u.fullName} | Role: ${u.role} | Username: ${u.username} | Password: ${u.password}`;
+            copyTextToClipboard(text, currentLang === 'ar' ? 'تم نسخ بيانات دخول الموظف والرابط!' : 'User credentials & link copied!');
         }
 
         function copyUserActivationLink(userId) {
