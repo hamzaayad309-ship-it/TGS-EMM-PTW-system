@@ -1015,6 +1015,8 @@
         let users = [];
         let permits = [];
         let notifications = [];
+        let deletedUserIds = [];
+        let deletedPermitIds = [];
         let db = null;
         let auth = null;
         let cloudUser = null;
@@ -1033,7 +1035,13 @@
 
         function persistToLocalStorage() {
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify({ users, permits, notifications }));
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    users,
+                    permits,
+                    notifications,
+                    deletedUserIds,
+                    deletedPermitIds
+                }));
             } catch (e) {
                 console.warn('Local storage write failed:', e);
             }
@@ -1157,6 +1165,8 @@
             ];
             permits = [];
             notifications = [];
+            deletedUserIds = [];
+            deletedPermitIds = [];
             persistToLocalStorage();
         }
 
@@ -1165,8 +1175,14 @@
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    if (Array.isArray(parsed.users) && parsed.users.length > 0) users = parsed.users;
-                    if (Array.isArray(parsed.permits)) permits = parsed.permits;
+                    if (Array.isArray(parsed.deletedUserIds)) deletedUserIds = parsed.deletedUserIds;
+                    if (Array.isArray(parsed.deletedPermitIds)) deletedPermitIds = parsed.deletedPermitIds;
+                    if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+                        users = parsed.users.filter(u => !deletedUserIds.includes(u.id));
+                    }
+                    if (Array.isArray(parsed.permits)) {
+                        permits = parsed.permits.filter(p => !deletedPermitIds.includes(p.id));
+                    }
                     if (Array.isArray(parsed.notifications)) notifications = parsed.notifications;
                 }
             } catch (e) {
@@ -1241,25 +1257,21 @@
 
                 onSnapshot(getPublicCollection('ptw_users'), (snap) => {
                     if (!snap.empty) {
-                        const cloudUsers = snap.docs.map(d => d.data());
-                        cloudUsers.forEach(cu => {
-                            const idx = users.findIndex(u => u.id === cu.id);
-                            if (idx >= 0) users[idx] = cu;
-                            else users.push(cu);
-                        });
-                        persistToLocalStorage();
-                        if (currentUser) renderAll();
+                        const cloudUsers = snap.docs.map(d => d.data()).filter(u => !deletedUserIds.includes(u.id));
+                        if (cloudUsers.length > 0) {
+                            users = cloudUsers;
+                            persistToLocalStorage();
+                            if (currentUser) renderAll();
+                        }
                     } else {
                         users.forEach(u => setDoc(getPublicDoc('ptw_users', u.id), u, { merge: true }).catch(() => {}));
                     }
                 }, (err) => console.warn('Users snapshot error:', err));
 
                 onSnapshot(getPublicCollection('ptw_permits'), (snap) => {
-                    if (!snap.empty) {
-                        permits = snap.docs.map(d => d.data());
-                        persistToLocalStorage();
-                        if (currentUser) renderAll();
-                    }
+                    permits = snap.docs.map(d => d.data()).filter(p => !deletedPermitIds.includes(p.id));
+                    persistToLocalStorage();
+                    if (currentUser) renderAll();
                 }, (err) => console.warn('Permits snapshot error:', err));
 
                 onSnapshot(getPublicCollection('ptw_notifs'), (snap) => {
@@ -1283,10 +1295,16 @@
                     const remoteData = await res.json();
                     isPublicRestSyncReady = true;
                     if (remoteData && Array.isArray(remoteData.users) && remoteData.users.length > 0) {
-                        users = remoteData.users;
-                        permits = Array.isArray(remoteData.permits) ? remoteData.permits : [];
+                        if (Array.isArray(remoteData.deletedUserIds)) {
+                            deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteData.deletedUserIds]));
+                        }
+                        if (Array.isArray(remoteData.deletedPermitIds)) {
+                            deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...remoteData.deletedPermitIds]));
+                        }
+                        users = remoteData.users.filter(u => !deletedUserIds.includes(u.id));
+                        permits = (Array.isArray(remoteData.permits) ? remoteData.permits : []).filter(p => !deletedPermitIds.includes(p.id));
                         notifications = Array.isArray(remoteData.notifications) ? remoteData.notifications : [];
-                        lastRemoteSyncHash = JSON.stringify({ users, permits, notifications });
+                        lastRemoteSyncHash = JSON.stringify({ users, permits, notifications, deletedUserIds, deletedPermitIds });
                         persistToLocalStorage();
                     } else {
                         await pushStateToPublicMultiDeviceSync();
@@ -1306,8 +1324,15 @@
         async function pushStateToPublicMultiDeviceSync() {
             if (!isPublicRestSyncReady) return;
             try {
-                const payload = { users, permits, notifications, updatedAt: new Date().toISOString() };
-                lastRemoteSyncHash = JSON.stringify({ users, permits, notifications });
+                const payload = {
+                    users,
+                    permits,
+                    notifications,
+                    deletedUserIds,
+                    deletedPermitIds,
+                    updatedAt: new Date().toISOString()
+                };
+                lastRemoteSyncHash = JSON.stringify({ users, permits, notifications, deletedUserIds, deletedPermitIds });
                 await fetch(`${PUBLIC_SYNC_URL}/workspaces/${GLOBAL_SYNC_CHANNEL}.json`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
@@ -1326,25 +1351,35 @@
                     if (!res.ok) return;
                     const remoteData = await res.json();
                     if (!remoteData || !Array.isArray(remoteData.users) || remoteData.users.length === 0) return;
+                    const remoteDelUsers = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
+                    const remoteDelPermits = Array.isArray(remoteData.deletedPermitIds) ? remoteData.deletedPermitIds : [];
                     const incomingHash = JSON.stringify({
                         users: remoteData.users,
                         permits: Array.isArray(remoteData.permits) ? remoteData.permits : [],
-                        notifications: Array.isArray(remoteData.notifications) ? remoteData.notifications : []
+                        notifications: Array.isArray(remoteData.notifications) ? remoteData.notifications : [],
+                        deletedUserIds: remoteDelUsers,
+                        deletedPermitIds: remoteDelPermits
                     });
                     if (incomingHash !== lastRemoteSyncHash) {
-                        lastRemoteSyncHash = incomingHash;
-                        users = remoteData.users;
-                        permits = Array.isArray(remoteData.permits) ? remoteData.permits : [];
+                        deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteDelUsers]));
+                        deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...remoteDelPermits]));
+                        users = remoteData.users.filter(u => !deletedUserIds.includes(u.id));
+                        permits = (Array.isArray(remoteData.permits) ? remoteData.permits : []).filter(p => !deletedPermitIds.includes(p.id));
                         notifications = Array.isArray(remoteData.notifications) ? remoteData.notifications : [];
+                        lastRemoteSyncHash = incomingHash;
                         persistToLocalStorage();
                         if (currentUser) {
-                            const updatedSelf = users.find(u => u.id === currentUser.id);
-                            if (updatedSelf) currentUser = updatedSelf;
+                            const updatedSelf = users.find(u => u.id === currentUser.id && u.active);
+                            if (!updatedSelf) {
+                                handleLogout();
+                                return;
+                            }
+                            currentUser = updatedSelf;
                             renderAll();
                         }
                     }
                 } catch (e) {}
-            }, 4000);
+            }, 3000);
         }
 
         async function syncUserToCloud(userObj) {
@@ -1366,6 +1401,7 @@
         }
 
         async function deletePermitFromCloud(permitId) {
+            if (!deletedPermitIds.includes(permitId)) deletedPermitIds.push(permitId);
             persistToLocalStorage();
             if (isCloudReady && cloudUser) {
                 try { await deleteDoc(getPublicDoc('ptw_permits', permitId)); } catch (e) {}
@@ -1375,6 +1411,9 @@
         }
 
         async function resetCloudPermitsAndNotifs() {
+            permits.forEach(p => {
+                if (!deletedPermitIds.includes(p.id)) deletedPermitIds.push(p.id);
+            });
             if (isCloudReady && cloudUser) {
                 try {
                     const batch = writeBatch(db);
@@ -2140,6 +2179,7 @@
             const confirmBtn = document.getElementById('cam-confirm-btn');
             confirmBtn.textContent = currentLang === 'ar' ? 'نعم، احذف المستخدم' : 'Yes, Delete User';
             confirmBtn.onclick = async () => {
+                if (!deletedUserIds.includes(userId)) deletedUserIds.push(userId);
                 users = users.filter(x => x.id !== userId);
                 persistToLocalStorage();
                 if (isCloudReady && cloudUser) {
@@ -2149,7 +2189,7 @@
                 }
                 closeModal('confirm-action-modal');
                 renderUsersTable();
-                showToast(currentLang === 'ar' ? 'تم حذف حساب المستخدم نهائياً' : 'User account permanently deleted', 'warning');
+                showToast(currentLang === 'ar' ? 'تم حذف حساب المستخدم نهائياً من جميع الأجهزة' : 'User account permanently deleted across devices', 'warning');
             };
             document.getElementById('confirm-action-modal').classList.remove('hidden');
         }
