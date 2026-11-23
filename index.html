@@ -1027,7 +1027,21 @@
         let db = null;
         let auth = null;
         let appId = typeof __app_id !== 'undefined' ? __app_id : 'tgs-ptw-portal';
-// ... existing code ... -->
+
+        // ==========================================
+        // 2. CLOUD & LOCAL PERSISTENCE ENGINE
+        // ==========================================
+        function getActiveFirebaseConfig() {
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                try { return JSON.parse(__firebase_config); } catch (e) {}
+            }
+            try {
+                const saved = localStorage.getItem(CUSTOM_CLOUD_KEY);
+                if (saved) return JSON.parse(saved);
+            } catch (e) {}
+            return null;
+        }
+
         function seedDefaultData() {
             const adminIdx = users.findIndex(u => String(u.username || '').trim().toLowerCase() === 'admin');
             if (adminIdx === -1) {
@@ -1085,9 +1099,20 @@
                 }));
             } catch (e) {}
         }
-// ... existing code ... -->
+
+        function updateSyncStatusBadge() {
+            const loginBadge = document.getElementById('login-sync-badge');
+            const footerText = document.getElementById('cloud-sync-text');
+            if (isCloudReady || isPublicRestSyncReady) {
+                if (loginBadge) loginBadge.innerHTML = `<span class="text-emerald-700 font-semibold"><i class="fa-solid fa-cloud-check mr-1"></i>${currentLang === 'ar' ? 'المزامنة السحابية بين الأجهزة متصلة' : 'Global Multi-Device Sync Connected'}</span>`;
+                if (footerText) footerText.textContent = currentLang === 'ar' ? 'مزامنة سحابية لحظية بين جميع الأجهزة' : 'Global Multi-Device Sync Active';
+            } else {
+                if (loginBadge) loginBadge.innerHTML = `<span class="text-slate-500"><i class="fa-solid fa-shield-check mr-1"></i>${currentLang === 'ar' ? 'جاهز للدخول أو عبر رابط الموظف' : 'Ready (Use Username/Password or Personal Link)'}</span>`;
+                if (footerText) footerText.textContent = currentLang === 'ar' ? 'محفوظ تلقائياً على هذا الجهاز' : 'Auto-Saved Locally';
+            }
+        }
+
         async function fetchLatestCloudState() {
-            // Primary authoritative stream via ntfy topic
             try {
                 const ntfyRes = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=all`, { cache: 'no-store' });
                 if (ntfyRes.ok) {
@@ -1103,7 +1128,6 @@
                 }
             } catch (e) {}
 
-            // Fallback JSONBlob endpoint
             try {
                 const res = await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_BLOB_ID}?t=${Date.now()}`, {
                     method: 'GET',
@@ -1182,4 +1206,1676 @@
                 });
             } catch (e) {}
         }
-// ... existing code ... -->
+
+        async function initPublicMultiDeviceSync() {
+            try {
+                const remoteData = await fetchLatestCloudState();
+                isPublicRestSyncReady = true;
+                if (remoteData && Array.isArray(remoteData.users) && remoteData.users.length > 0) {
+                    applyRemoteCloudState(remoteData);
+                } else {
+                    await pushStateToPublicMultiDeviceSync();
+                }
+                updateSyncStatusBadge();
+                if (currentUser) refreshAllUI();
+            } catch (e) {
+                isPublicRestSyncReady = false;
+                updateSyncStatusBadge();
+            }
+
+            setInterval(async () => {
+                try {
+                    const remoteData = await fetchLatestCloudState();
+                    if (remoteData) {
+                        isPublicRestSyncReady = true;
+                        const changed = applyRemoteCloudState(remoteData);
+                        if (changed && currentUser) {
+                            const refreshedMe = users.find(u => u.id === currentUser.id);
+                            if (refreshedMe) currentUser = refreshedMe;
+                            checkPermitExpiryReminders();
+                            refreshAllUI();
+                        }
+                    }
+                } catch (e) {}
+            }, 3500);
+        }
+
+        function processUrlActivationParams() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const cloudParam = params.get('cloud');
+                if (cloudParam) {
+                    const decodedCfg = JSON.parse(decodeURIComponent(escape(atob(cloudParam))));
+                    if (decodedCfg && decodedCfg.apiKey && decodedCfg.projectId) {
+                        localStorage.setItem(CUSTOM_CLOUD_KEY, JSON.stringify(decodedCfg));
+                    }
+                }
+                const userParam = params.get('u');
+                if (userParam) {
+                    const importedUser = JSON.parse(decodeURIComponent(escape(atob(userParam))));
+                    if (importedUser && importedUser.id && importedUser.username) {
+                        const idx = users.findIndex(u => u.id === importedUser.id || u.username.toLowerCase() === importedUser.username.toLowerCase());
+                        if (idx === -1) users.push(importedUser);
+                        else users[idx] = importedUser;
+                        persistToLocalStorage();
+                        if (isCloudReady) syncUserToCloud(importedUser);
+                        if (isPublicRestSyncReady) pushStateToPublicMultiDeviceSync();
+                        localStorage.setItem(SESSION_KEY, importedUser.id);
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
+                }
+            } catch (e) {}
+        }
+
+        async function initPersistenceAndCloud() {
+            const hadLocal = loadFromLocalStorage();
+            if (!hadLocal) {
+                seedDefaultData();
+                persistToLocalStorage();
+            }
+            processUrlActivationParams();
+            updateSyncStatusBadge();
+
+            await initPublicMultiDeviceSync();
+            processUrlActivationParams();
+
+            const fbConfig = getActiveFirebaseConfig();
+            if (!fbConfig) return;
+
+            try {
+                const app = initializeApp(fbConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                isCloudReady = true;
+                updateSyncStatusBadge();
+
+                const usersCol = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+                onSnapshot(usersCol, (snap) => {
+                    if (snap.empty) {
+                        users.forEach(u => setDoc(doc(usersCol, u.id), u));
+                    } else {
+                        const cloudUsers = [];
+                        snap.forEach(d => cloudUsers.push(d.data()));
+                        if (cloudUsers.length > 0) {
+                            users = cloudUsers;
+                            seedDefaultData();
+                            persistToLocalStorage();
+                            if (currentUser) {
+                                const updatedMe = users.find(u => u.id === currentUser.id);
+                                if (updatedMe) currentUser = updatedMe;
+                                refreshAllUI();
+                            }
+                        }
+                    }
+                });
+
+                const permitsCol = collection(db, 'artifacts', appId, 'public', 'data', 'permits');
+                onSnapshot(permitsCol, (snap) => {
+                    const cloudPermits = [];
+                    snap.forEach(d => cloudPermits.push(d.data()));
+                    permits = cloudPermits.filter(p => !deletedPermitIds.includes(p.id));
+                    persistToLocalStorage();
+                    if (currentUser) {
+                        checkPermitExpiryReminders();
+                        refreshAllUI();
+                    }
+                });
+
+                const notifsCol = collection(db, 'artifacts', appId, 'public', 'data', 'notifications');
+                onSnapshot(notifsCol, (snap) => {
+                    const cloudNotifs = [];
+                    snap.forEach(d => cloudNotifs.push(d.data()));
+                    cloudNotifs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                    notifications = cloudNotifs.slice(0, 60);
+                    persistToLocalStorage();
+                    if (currentUser) renderNotifications();
+                });
+
+            } catch (err) {
+                isCloudReady = false;
+                updateSyncStatusBadge();
+            }
+        }
+
+        async function syncUserToCloud(userObj) {
+            persistToLocalStorage();
+            await pushStateToPublicMultiDeviceSync();
+            if (!isCloudReady || !db) return;
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userObj.id), userObj);
+            } catch (e) {}
+        }
+
+        async function syncPermitToCloud(permitObj) {
+            persistToLocalStorage();
+            await pushStateToPublicMultiDeviceSync();
+            if (!isCloudReady || !db) return;
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'permits', permitObj.id), permitObj);
+            } catch (e) {}
+        }
+
+        async function deletePermitFromCloud(permitId) {
+            persistToLocalStorage();
+            await pushStateToPublicMultiDeviceSync();
+            if (!isCloudReady || !db) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'permits', permitId));
+            } catch (e) {}
+        }
+
+        async function resetCloudPermitsAndNotifs() {
+            persistToLocalStorage();
+            await pushStateToPublicMultiDeviceSync();
+            if (!isCloudReady || !db) return;
+            try {
+                const batch = writeBatch(db);
+                permits.forEach(p => batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'permits', p.id)));
+                notifications.forEach(n => batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', n.id)));
+                await batch.commit();
+            } catch (e) {}
+        }
+
+        async function addNotification(userId, messageEn, messageAr) {
+            const notif = {
+                id: 'ntf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                userId,
+                messageEn,
+                messageAr,
+                read: false,
+                createdAt: new Date().toISOString()
+            };
+            notifications.unshift(notif);
+            if (notifications.length > 60) notifications = notifications.slice(0, 60);
+            persistToLocalStorage();
+            pushStateToPublicMultiDeviceSync();
+            if (isCloudReady && db) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', notif.id), notif);
+                } catch (e) {}
+            }
+        }
+
+        // ==========================================
+        // 3. LANGUAGE & DIRECTION TOGGLE
+        // ==========================================
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'ar' : 'en';
+            const htmlEl = document.documentElement;
+            htmlEl.lang = currentLang;
+            htmlEl.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+
+            const btnText = currentLang === 'en' ? 'العربية' : 'English';
+            document.getElementById('login-lang-btn-text').textContent = btnText;
+            document.getElementById('nav-lang-btn-text').textContent = btnText;
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[currentLang][key]) {
+                    el.textContent = translations[currentLang][key];
+                }
+            });
+
+            const searchInput = document.getElementById('permit-search');
+            if (searchInput) {
+                searchInput.placeholder = currentLang === 'ar'
+                    ? 'ابحث برقم التصريح، الموقع، أو المستلم...'
+                    : 'Search permit #, location, holder...';
+            }
+
+            updateSyncStatusBadge();
+            if (currentUser) refreshAllUI();
+        }
+
+        function t(key) {
+            return translations[currentLang][key] || key;
+        }
+
+        function normalizeDigits(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/[\u0660-\u0669]/g, d => String(d.charCodeAt(0) - 0x0660))
+                .replace(/[\u06F0-\u06F9]/g, d => String(d.charCodeAt(0) - 0x06F0));
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        // ==========================================
+        // 4. AUTHENTICATION & SESSION MANAGEMENT
+        // ==========================================
+        async function handleLogin(e) {
+            e.preventDefault();
+            const rawUsername = document.getElementById('login-username').value;
+            const rawPassword = document.getElementById('login-password').value;
+            const usernameInput = normalizeDigits(rawUsername).trim().toLowerCase();
+            const passwordInput = normalizeDigits(rawPassword).trim();
+            const errBox = document.getElementById('login-error');
+            const errText = document.getElementById('login-error-text');
+
+            let user = users.find(u =>
+                normalizeDigits(u.username).trim().toLowerCase() === usernameInput &&
+                (normalizeDigits(u.password).trim() === passwordInput || String(u.password).trim() === rawPassword.trim())
+            );
+
+            if (!user) {
+                try {
+                    const remoteData = await fetchLatestCloudState();
+                    if (remoteData) {
+                        applyRemoteCloudState(remoteData);
+                        user = users.find(u =>
+                            normalizeDigits(u.username).trim().toLowerCase() === usernameInput &&
+                            (normalizeDigits(u.password).trim() === passwordInput || String(u.password).trim() === rawPassword.trim())
+                        );
+                    }
+                } catch (err) {}
+            }
+
+            if (!user) {
+                errText.textContent = currentLang === 'ar'
+                    ? 'اسم المستخدم أو الرقم السري غير صحيح. (تأكد من كتابة الأرقام بالإنجليزية أو افتح رابط التفعيل المرسل من الإدارة)'
+                    : 'Invalid username or password. (If logging in for the first time on a new device, open the personal link sent by Admin)';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            if (!user.active) {
+                errText.textContent = currentLang === 'ar' ? 'هذا الحساب معطل من قبل الإدارة.' : 'This account has been deactivated by Admin.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+
+            errBox.classList.add('hidden');
+            localStorage.setItem(SESSION_KEY, user.id);
+            enterApp(user);
+        }
+
+        function enterApp(user) {
+            currentUser = user;
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('app-view').classList.remove('hidden');
+
+            document.getElementById('nav-user-name').textContent = user.fullName;
+            document.getElementById('nav-user-role').textContent = user.role;
+            document.getElementById('nav-user-avatar').textContent = user.fullName.charAt(0).toUpperCase();
+            document.getElementById('mobile-user-name').textContent = user.fullName;
+            document.getElementById('mobile-user-role').textContent = user.role;
+
+            const adminBtn = document.getElementById('admin-tab-btn');
+            if (user.role === 'Admin') {
+                adminBtn.classList.remove('hidden');
+            } else {
+                adminBtn.classList.add('hidden');
+                if (currentTab === 'admin') currentTab = 'my-custody';
+            }
+
+            checkPermitExpiryReminders();
+            setActiveTab(currentTab);
+            refreshAllUI();
+        }
+
+        function handleLogout() {
+            currentUser = null;
+            localStorage.removeItem(SESSION_KEY);
+            document.getElementById('user-dropdown').classList.add('hidden');
+            document.getElementById('app-view').classList.add('hidden');
+            document.getElementById('login-view').classList.remove('hidden');
+            document.getElementById('login-username').value = '';
+            document.getElementById('login-password').value = '';
+        }
+
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            const icon = btn.querySelector('i');
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        }
+
+        // ==========================================
+        // 5. ADMIN USER & CREDENTIALS MANAGEMENT
+        // ==========================================
+        function generateUsername() {
+            const fullName = document.getElementById('new-user-fullname').value.trim();
+            if (!fullName) {
+                showToast(currentLang === 'ar' ? 'اكتب الاسم الكامل أولاً لتوليد اسم المستخدم' : 'Enter Full Name first to auto-generate username', 'warning');
+                return;
+            }
+            const clean = fullName.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim().split(/\s+/);
+            const base = clean.length > 1 ? `${clean[0]}.${clean[clean.length - 1].charAt(0)}` : (clean[0] || 'user');
+            const rand = Math.floor(10 + Math.random() * 89);
+            document.getElementById('new-user-username').value = `${base}${rand}`;
+        }
+
+        function generatePassword() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#$';
+            let pass = 'TGS@';
+            for (let i = 0; i < 6; i++) {
+                pass += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            document.getElementById('new-user-password').value = pass;
+        }
+
+        function buildUserActivationLink(userObj) {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const encodedUser = btoa(unescape(encodeURIComponent(JSON.stringify(userObj))));
+            const cfg = getActiveFirebaseConfig();
+            let url = `${baseUrl}?u=${encodeURIComponent(encodedUser)}`;
+            if (cfg) {
+                const encodedCloud = btoa(unescape(encodeURIComponent(JSON.stringify(cfg))));
+                url += `&cloud=${encodeURIComponent(encodedCloud)}`;
+            }
+            return url;
+        }
+
+        function handleCreateUser(e) {
+            e.preventDefault();
+            const fullName = document.getElementById('new-user-fullname').value.trim();
+            const role = document.getElementById('new-user-role').value;
+            const username = document.getElementById('new-user-username').value.trim();
+            const password = document.getElementById('new-user-password').value.trim();
+
+            if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+                showToast(currentLang === 'ar' ? 'اسم المستخدم مسجل مسبقاً!' : 'Username already exists!', 'error');
+                return;
+            }
+
+            const newUser = {
+                id: 'usr_' + Date.now(),
+                fullName,
+                role,
+                username,
+                password,
+                active: true
+            };
+            users.push(newUser);
+            syncUserToCloud(newUser);
+
+            const activationLink = buildUserActivationLink(newUser);
+            lastCreatedActivationLink = activationLink;
+            lastCreatedCredString = `TGS PTW Portal\nName: ${fullName} (${role})\nUsername: ${username}\nPassword: ${password}\nDirect Link: ${activationLink}`;
+            document.getElementById('created-cred-text').textContent = `User: ${username} | Pass: ${password}`;
+            document.getElementById('created-cred-box').classList.remove('hidden');
+
+            document.getElementById('create-user-form').reset();
+            renderUsersTable();
+            showToast(currentLang === 'ar' ? 'تم إنشاء وحفظ حساب المستخدم بنجاح' : 'User account created & saved successfully', 'success');
+        }
+
+        function copyTextFallback(text, successMsg) {
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            showToast(successMsg, 'success');
+        }
+
+        function copyCreatedCredentials() {
+            copyTextFallback(lastCreatedCredString, currentLang === 'ar' ? 'تم نسخ بيانات الدخول والرابط المباشر' : 'Credentials & direct link copied');
+        }
+
+        function copyCreatedActivationLink() {
+            copyTextFallback(lastCreatedActivationLink, currentLang === 'ar' ? 'تم نسخ رابط الدخول المباشر للموظف' : 'Direct device link copied');
+        }
+
+        function copyUserActivationLink(userId) {
+            const u = users.find(item => item.id === userId);
+            if (!u) return;
+            const link = buildUserActivationLink(u);
+            copyTextFallback(link, currentLang === 'ar' ? `تم نسخ رابط التفعيل المباشر لـ ${u.fullName}` : `Direct activation link copied for ${u.fullName}`);
+        }
+
+        function copyUserRowCredentials(userId) {
+            const u = users.find(item => item.id === userId);
+            if (!u) return;
+            const link = buildUserActivationLink(u);
+            const text = `TGS PTW Portal\nName: ${u.fullName} (${u.role})\nUsername: ${u.username}\nPassword: ${u.password}\nDirect Link: ${link}`;
+            copyTextFallback(text, currentLang === 'ar' ? 'تم نسخ بيانات الدخول والرابط المباشر' : 'Credentials & direct link copied');
+        }
+
+        function toggleUserStatus(userId) {
+            const u = users.find(item => item.id === userId);
+            if (!u || u.id === currentUser.id) return;
+            u.active = !u.active;
+            syncUserToCloud(u);
+            renderUsersTable();
+            showToast(currentLang === 'ar' ? 'تم تحديث وحفظ حالة الحساب' : 'User status updated & saved', 'info');
+        }
+
+        function deleteUserAccount(userId) {
+            const u = users.find(item => item.id === userId);
+            if (!u) return;
+            if (u.id === currentUser.id || u.id === 'usr_admin_1') {
+                showToast(currentLang === 'ar' ? 'لا يمكن حذف حساب المدير الأساسي' : 'Cannot delete primary admin account', 'error');
+                return;
+            }
+            const title = currentLang === 'ar' ? 'حذف حساب المستخدم' : 'Delete User Account';
+            const msg = currentLang === 'ar'
+                ? `هل أنت متأكد من حذف حساب "${u.fullName}" (${u.username}) نهائياً؟`
+                : `Are you sure you want to permanently delete user "${u.fullName}" (${u.username})?`;
+
+            openConfirmActionModal(title, msg, () => {
+                if (!deletedUserIds.includes(userId)) deletedUserIds.push(userId);
+                users = users.filter(item => item.id !== userId);
+                persistToLocalStorage();
+                pushStateToPublicMultiDeviceSync();
+                if (isCloudReady && db) {
+                    deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userId)).catch(() => {});
+                }
+                renderUsersTable();
+                showToast(currentLang === 'ar' ? 'تم حذف حساب المستخدم ومزامنة الحذف' : 'User account deleted & synced across devices', 'success');
+            });
+        }
+
+        function deletePermitRecord(permitId) {
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit || currentUser.role !== 'Admin') return;
+
+            const title = currentLang === 'ar' ? 'حذف التصريح نهائياً' : 'Delete Work Permit';
+            const msg = currentLang === 'ar'
+                ? `هل أنت متأكد من حذف التصريح رقم (${permit.permitNumber}) نهائياً من النظام؟`
+                : `Are you sure you want to permanently delete permit (${permit.permitNumber}) from the system?`;
+
+            openConfirmActionModal(title, msg, () => {
+                if (!deletedPermitIds.includes(permitId)) deletedPermitIds.push(permitId);
+                permits = permits.filter(p => p.id !== permitId);
+                deletePermitFromCloud(permitId);
+                refreshAllUI();
+                showToast(currentLang === 'ar' ? `تم حذف التصريح ${permit.permitNumber}` : `Permit ${permit.permitNumber} deleted`, 'success');
+            });
+        }
+
+        function openConfirmActionModal(title, message, onConfirm) {
+            document.getElementById('cam-title').innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i><span>${escapeHtml(title)}</span>`;
+            document.getElementById('cam-message').textContent = message;
+            const confirmBtn = document.getElementById('cam-confirm-btn');
+            confirmBtn.onclick = () => {
+                closeModal('confirm-action-modal');
+                onConfirm();
+            };
+            document.getElementById('confirm-action-modal').classList.remove('hidden');
+        }
+
+        function openResetSystemModal() {
+            const title = currentLang === 'ar' ? 'تصفير جميع التصاريح والإشعارات' : 'Reset All Permits & Notifications';
+            const msg = currentLang === 'ar'
+                ? 'سيتم مسح جميع التصاريح التجريبية أو القديمة وإعادة العدادات إلى الصفر (0) مع الإبقاء على حسابات المستخدمين. هل تريد المتابعة؟'
+                : 'This will clear all existing permits and reset all dashboard counters to zero (0) while keeping all user accounts. Continue?';
+
+            openConfirmActionModal(title, msg, () => {
+                permits.forEach(p => { if (p && p.id && !deletedPermitIds.includes(p.id)) deletedPermitIds.push(p.id); });
+                permits = [];
+                notifications = [];
+                resetCloudPermitsAndNotifs();
+                refreshAllUI();
+                showToast(currentLang === 'ar' ? 'تم تصفير جميع التصاريح والعدادات إلى 0' : 'All permits & counters reset to 0', 'success');
+            });
+        }
+
+        function renderUsersTable() {
+            const tbody = document.getElementById('users-table-body');
+            document.getElementById('users-count-badge').textContent = `${users.length} ${currentLang === 'ar' ? 'مستخدمين' : 'Users'}`;
+            tbody.innerHTML = users.map(u => {
+                const canDelete = u.id !== currentUser.id && u.id !== 'usr_admin_1';
+                return `
+                <tr class="hover:bg-slate-50 transition">
+                    <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(u.fullName)}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2.5 py-1 rounded-lg text-[11px] font-bold ${u.role === 'Admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'}">
+                            ${escapeHtml(u.role)}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 font-mono text-xs text-slate-700">${escapeHtml(u.username)}</td>
+                    <td class="py-3 px-4 font-mono text-xs text-slate-700">
+                        <span class="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">${escapeHtml(u.password)}</span>
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-0.5 rounded-full text-[11px] font-bold ${u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                            ${u.active ? (currentLang === 'ar' ? 'نشط' : 'Active') : (currentLang === 'ar' ? 'معطل' : 'Disabled')}
+                        </span>
+                    </td>
+                    <td class="py-3 px-4 text-right space-x-1">
+                        <button onclick="copyUserActivationLink('${u.id}')" title="${currentLang === 'ar' ? 'نسخ رابط الجوال المباشر' : 'Copy Direct Device Link'}" class="px-2.5 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-800 text-amber-400 text-xs font-bold">
+                            <i class="fa-solid fa-link"></i>
+                        </button>
+                        <button onclick="copyUserRowCredentials('${u.id}')" title="${currentLang === 'ar' ? 'نسخ بيانات الدخول' : 'Copy Credentials'}" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold">
+                            <i class="fa-solid fa-copy"></i>
+                        </button>
+                        ${u.id !== currentUser.id ? `
+                        <button onclick="toggleUserStatus('${u.id}')" title="${currentLang === 'ar' ? 'تفعيل / تعطيل' : 'Toggle Status'}" class="px-2.5 py-1.5 rounded-lg ${u.active ? 'bg-amber-50 hover:bg-amber-100 text-amber-700' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'} text-xs font-semibold">
+                            <i class="fa-solid ${u.active ? 'fa-user-slash' : 'fa-user-check'}"></i>
+                        </button>` : ''}
+                        ${canDelete ? `
+                        <button onclick="deleteUserAccount('${u.id}')" title="${currentLang === 'ar' ? 'حذف المستخدم' : 'Delete User'}" class="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>` : ''}
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function handleChangeOwnPassword(e) {
+            e.preventDefault();
+            const cur = document.getElementById('cpw-current').value;
+            const nw = document.getElementById('cpw-new').value;
+            const conf = document.getElementById('cpw-confirm').value;
+
+            if (cur !== currentUser.password) {
+                showToast(currentLang === 'ar' ? 'الرقم السري الحالي غير صحيح' : 'Current password is incorrect', 'error');
+                return;
+            }
+            if (nw !== conf) {
+                showToast(currentLang === 'ar' ? 'الرقم السري الجديد غير متطابق' : 'New passwords do not match', 'error');
+                return;
+            }
+            currentUser.password = nw;
+            const idx = users.findIndex(u => u.id === currentUser.id);
+            if (idx !== -1) users[idx].password = nw;
+            syncUserToCloud(currentUser);
+            closeModal('change-password-modal');
+            e.target.reset();
+            if (currentUser.role === 'Admin') renderUsersTable();
+            showToast(currentLang === 'ar' ? 'تم تحديث وحفظ الرقم السري بنجاح' : 'Password updated & saved successfully', 'success');
+        }
+
+        // ==========================================
+        // 6. CLOUD CONFIG & JSON BACKUP / RESTORE
+        // ==========================================
+        function openCloudConfigModal() {
+            const cfg = getActiveFirebaseConfig();
+            const input = document.getElementById('cloud-config-input');
+            const shareBox = document.getElementById('cloud-share-link-box');
+            const shareInput = document.getElementById('cloud-share-url');
+
+            if (cfg) {
+                input.value = JSON.stringify(cfg, null, 2);
+                const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(cfg))));
+                const baseUrl = window.location.origin + window.location.pathname;
+                shareInput.value = `${baseUrl}?cloud=${encodeURIComponent(encoded)}`;
+                shareBox.classList.remove('hidden');
+            } else {
+                input.value = '';
+                shareBox.classList.add('hidden');
+            }
+            document.getElementById('cloud-config-modal').classList.remove('hidden');
+        }
+
+        function handleSaveCloudConfig(e) {
+            e.preventDefault();
+            const raw = document.getElementById('cloud-config-input').value.trim();
+            try {
+                const parsed = JSON.parse(raw);
+                if (!parsed.apiKey || !parsed.projectId) {
+                    throw new Error('Missing apiKey or projectId');
+                }
+                localStorage.setItem(CUSTOM_CLOUD_KEY, JSON.stringify(parsed));
+                showToast(currentLang === 'ar' ? 'تم حفظ إعدادات السحابة! جاري إعادة الاتصال...' : 'Cloud config saved! Reconnecting...', 'success');
+                setTimeout(() => window.location.reload(), 800);
+            } catch (err) {
+                showToast(currentLang === 'ar' ? 'صيغة JSON غير صحيحة، تأكد من نسخ إعدادات Firebase كاملة' : 'Invalid Firebase JSON format', 'error');
+            }
+        }
+
+        function clearCustomCloudConfig() {
+            localStorage.removeItem(CUSTOM_CLOUD_KEY);
+            showToast(currentLang === 'ar' ? 'تم فصل السحابة' : 'Cloud config disconnected', 'info');
+            setTimeout(() => window.location.reload(), 600);
+        }
+
+        function copyCloudPortalLink() {
+            const url = document.getElementById('cloud-share-url').value;
+            copyTextFallback(url, currentLang === 'ar' ? 'تم نسخ رابط البوابة السحابية للفريق' : 'Team cloud portal link copied');
+        }
+
+        function manualSaveAll() {
+            persistToLocalStorage();
+            pushStateToPublicMultiDeviceSync();
+            if (isCloudReady && db) {
+                users.forEach(u => syncUserToCloud(u));
+                permits.forEach(p => syncPermitToCloud(p));
+            }
+            showToast(
+                currentLang === 'ar' ? 'تم حفظ ومزامنة كافة البيانات بنجاح' : 'All changes saved & synced across devices',
+                'success'
+            );
+        }
+
+        function exportBackupFile() {
+            const data = {
+                exportedAt: new Date().toISOString(),
+                users,
+                permits,
+                notifications
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `TGS-PTW-Backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast(currentLang === 'ar' ? 'تم تنزيل ملف النسخة الاحتياطية بنجاح' : 'Backup file downloaded successfully', 'success');
+        }
+
+        function importBackupFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                try {
+                    const parsed = JSON.parse(ev.target.result);
+                    if (!Array.isArray(parsed.users) || !Array.isArray(parsed.permits)) {
+                        throw new Error('Invalid backup format');
+                    }
+                    users = parsed.users;
+                    permits = parsed.permits;
+                    notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+                    seedDefaultData();
+                    persistToLocalStorage();
+                    pushStateToPublicMultiDeviceSync();
+                    if (isCloudReady && db) {
+                        users.forEach(u => syncUserToCloud(u));
+                        permits.forEach(p => syncPermitToCloud(p));
+                    }
+                    refreshAllUI();
+                    showToast(currentLang === 'ar' ? 'تمت استعادة وحفظ جميع البيانات بنجاح' : 'Backup restored & saved successfully', 'success');
+                } catch (err) {
+                    showToast(currentLang === 'ar' ? 'ملف النسخة الاحتياطية غير صالح' : 'Invalid backup file', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ==========================================
+        // 7. WORK PERMIT LIFECYCLE (ISSUE, HANDOVER, ACCEPT/REJECT, CLOSE, RENEW)
+        // ==========================================
+        function openCreatePermitModal() {
+            document.getElementById('cp-number').value = '';
+            document.getElementById('cp-location').value = '';
+            document.getElementById('cp-description').value = '';
+            document.getElementById('cp-handover-notes').value = '';
+
+            const defaultValid = new Date(Date.now() + 8 * 3600000);
+            defaultValid.setMinutes(defaultValid.getMinutes() - defaultValid.getTimezoneOffset());
+            document.getElementById('cp-valid-until').value = defaultValid.toISOString().slice(0, 16);
+
+            const holderSelect = document.getElementById('cp-holder');
+            const activeUsers = users.filter(u => u.active);
+            holderSelect.innerHTML = activeUsers.map(u => `
+                <option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${escapeHtml(u.fullName)} (${escapeHtml(u.role)})</option>
+            `).join('');
+
+            const handoverSelect = document.getElementById('cp-handover-to');
+            const noneLabel = currentLang === 'ar' ? '-- إبقاء التصريح في عهدة المستلم الحالي (بدون تسليم) --' : '-- Keep with Current Holder (No Immediate Handover) --';
+            handoverSelect.innerHTML = `<option value="">${noneLabel}</option>` + activeUsers.map(u => `
+                <option value="${u.id}">${escapeHtml(u.fullName)} (${escapeHtml(u.role)})</option>
+            `).join('');
+
+            document.getElementById('create-permit-modal').classList.remove('hidden');
+        }
+
+        function handleCreatePermit(e) {
+            e.preventDefault();
+            const permitNumber = document.getElementById('cp-number').value.trim().toUpperCase();
+            const type = document.getElementById('cp-type').value;
+            const location = document.getElementById('cp-location').value.trim();
+            const description = document.getElementById('cp-description').value.trim();
+            const validUntil = new Date(document.getElementById('cp-valid-until').value).toISOString();
+            const holderId = document.getElementById('cp-holder').value;
+            const handoverToId = document.getElementById('cp-handover-to').value;
+            const handoverNotes = document.getElementById('cp-handover-notes').value.trim();
+
+            if (permits.some(p => p.permitNumber.toLowerCase() === permitNumber.toLowerCase())) {
+                showToast(currentLang === 'ar' ? 'رقم التصريح موجود مسبقاً!' : 'Permit number already exists!', 'error');
+                return;
+            }
+
+            if (handoverToId && handoverToId === holderId) {
+                showToast(currentLang === 'ar' ? 'لا يمكن تسليم التصريح لنفس الشخص المستلم الحالي' : 'Cannot handover permit to the same current holder', 'warning');
+                return;
+            }
+
+            const holderUser = users.find(u => u.id === holderId);
+            const isImmediateHandover = Boolean(handoverToId);
+            const receiverUser = isImmediateHandover ? users.find(u => u.id === handoverToId) : null;
+
+            const logs = [{
+                action: 'ISSUED',
+                byUserId: currentUser.id,
+                byUserName: currentUser.fullName,
+                toUserName: holderUser.fullName,
+                notes: 'Work permit created and issued.',
+                timestamp: new Date().toISOString()
+            }];
+
+            if (isImmediateHandover && receiverUser) {
+                logs.push({
+                    action: 'HANDOVER_REQUESTED',
+                    byUserId: holderUser.id,
+                    byUserName: holderUser.fullName,
+                    toUserName: receiverUser.fullName,
+                    notes: handoverNotes || 'Handover initiated upon permit creation. Awaiting receiver confirmation.',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            const newPermit = {
+                id: 'ptw_' + Date.now(),
+                permitNumber,
+                type,
+                location,
+                description,
+                status: isImmediateHandover ? 'PENDING_HANDOVER' : 'ACTIVE',
+                currentHolderId: holderUser.id,
+                currentHolderName: holderUser.fullName,
+                pendingReceiverId: isImmediateHandover ? receiverUser.id : null,
+                pendingReceiverName: isImmediateHandover ? receiverUser.fullName : null,
+                validUntil,
+                expiryNotified: false,
+                createdAt: new Date().toISOString(),
+                logs
+            };
+
+            permits.unshift(newPermit);
+            syncPermitToCloud(newPermit);
+            checkPermitExpiryReminders();
+
+            if (holderUser.id !== currentUser.id) {
+                addNotification(
+                    holderUser.id,
+                    `New permit ${permitNumber} (${type}) issued and assigned to your custody by ${currentUser.fullName}.`,
+                    `تم إصدار تصريح جديد رقم ${permitNumber} وإسناده لعهدتك بواسطة ${currentUser.fullName}.`
+                );
+            }
+
+            if (isImmediateHandover && receiverUser) {
+                addNotification(
+                    receiverUser.id,
+                    `${holderUser.fullName} requested to handover permit ${permitNumber} (${location}) to you. Confirmation required.`,
+                    `طلب ${holderUser.fullName} تسليم التصريح رقم ${permitNumber} (${location}) إليك. بانتظار تأكيدك للاستلام.`
+                );
+            }
+
+            closeModal('create-permit-modal');
+            refreshAllUI();
+            showToast(
+                isImmediateHandover
+                    ? (currentLang === 'ar' ? `تم إصدار التصريح ${permitNumber} وإرسال طلب التسليم إلى ${receiverUser.fullName}` : `Permit ${permitNumber} issued & handover sent to ${receiverUser.fullName}`)
+                    : (currentLang === 'ar' ? `تم إصدار وحفظ التصريح ${permitNumber} بنجاح` : `Permit ${permitNumber} issued & saved successfully`),
+                'success'
+            );
+        }
+
+        function openHandoverModal(permitId) {
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit) return;
+
+            document.getElementById('ho-permit-id').value = permit.id;
+            document.getElementById('ho-permit-label').textContent = permit.permitNumber;
+            document.getElementById('ho-permit-loc').textContent = permit.location;
+            document.getElementById('ho-notes').value = '';
+
+            const receiverSelect = document.getElementById('ho-receiver');
+            const candidates = users.filter(u => u.active && u.id !== permit.currentHolderId);
+            receiverSelect.innerHTML = candidates.map(u => `
+                <option value="${u.id}">${escapeHtml(u.fullName)} (${escapeHtml(u.role)})</option>
+            `).join('');
+
+            document.getElementById('handover-modal').classList.remove('hidden');
+        }
+
+        function handleInitiateHandover(e) {
+            e.preventDefault();
+            const permitId = document.getElementById('ho-permit-id').value;
+            const receiverId = document.getElementById('ho-receiver').value;
+            const notes = document.getElementById('ho-notes').value.trim();
+
+            const permit = permits.find(p => p.id === permitId);
+            const receiver = users.find(u => u.id === receiverId);
+            if (!permit || !receiver) return;
+
+            permit.status = 'PENDING_HANDOVER';
+            permit.pendingReceiverId = receiver.id;
+            permit.pendingReceiverName = receiver.fullName;
+            permit.logs.push({
+                action: 'HANDOVER_REQUESTED',
+                byUserId: currentUser.id,
+                byUserName: currentUser.fullName,
+                toUserName: receiver.fullName,
+                notes,
+                timestamp: new Date().toISOString()
+            });
+
+            syncPermitToCloud(permit);
+
+            addNotification(
+                receiver.id,
+                `${currentUser.fullName} initiated handover of permit ${permit.permitNumber} (${permit.location}) to you. Action required.`,
+                `طلب ${currentUser.fullName} تسليم التصريح رقم ${permit.permitNumber} (${permit.location}) إليك. يرجى القبول أو الرفض.`
+            );
+
+            closeModal('handover-modal');
+            refreshAllUI();
+            showToast(
+                currentLang === 'ar' ? `تم حفظ وإرسال طلب التسليم إلى ${receiver.fullName}` : `Handover saved & sent to ${receiver.fullName}`,
+                'info'
+            );
+        }
+
+        function acceptHandover(permitId) {
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit || permit.pendingReceiverId !== currentUser.id) return;
+
+            const previousHolderId = permit.currentHolderId;
+            const previousHolderName = permit.currentHolderName;
+            const confirmedAt = new Date().toISOString();
+
+            const lastReqLog = [...permit.logs].reverse().find(l => l.action === 'HANDOVER_REQUESTED');
+            const handoverNotes = lastReqLog ? lastReqLog.notes : '';
+
+            permit.currentHolderId = currentUser.id;
+            permit.currentHolderName = currentUser.fullName;
+            permit.pendingReceiverId = null;
+            permit.pendingReceiverName = null;
+            permit.status = 'ACTIVE';
+            permit.logs.push({
+                action: 'HANDOVER_ACCEPTED',
+                byUserId: currentUser.id,
+                byUserName: currentUser.fullName,
+                fromUserName: previousHolderName,
+                notes: 'Custody accepted and verified on site.',
+                timestamp: confirmedAt
+            });
+
+            syncPermitToCloud(permit);
+
+            addNotification(
+                previousHolderId,
+                `${currentUser.fullName} ACCEPTED custody of permit ${permit.permitNumber}.`,
+                `قبل ${currentUser.fullName} استلام التصريح رقم ${permit.permitNumber} وانتقلت العهدة إليه.`
+            );
+
+            const adminUsers = users.filter(u => u.role === 'Admin' && u.active);
+            adminUsers.forEach(admin => {
+                if (admin.id !== currentUser.id) {
+                    addNotification(
+                        admin.id,
+                        `CUSTODY TRANSFER CONFIRMED: Permit ${permit.permitNumber} (${permit.location}) handed over from ${previousHolderName} to ${currentUser.fullName}.`,
+                        `تم تأكيد تسليم التصريح ${permit.permitNumber} (${permit.location}) من ${previousHolderName} إلى ${currentUser.fullName} وإرسال التقرير للإدارة.`
+                    );
+                }
+            });
+
+            lastConfirmedHandoverData = {
+                permitNumber: permit.permitNumber,
+                permitType: permit.type,
+                location: permit.location,
+                description: permit.description,
+                validUntil: permit.validUntil,
+                fromHolder: previousHolderName,
+                toHolder: currentUser.fullName,
+                handoverNotes: handoverNotes,
+                confirmedAt: confirmedAt
+            };
+
+            refreshAllUI();
+            openHandoverReceiptModal(lastConfirmedHandoverData);
+        }
+
+        function openHandoverReceiptModal(data) {
+            if (!data) return;
+            const summaryEl = document.getElementById('handover-receipt-summary');
+            summaryEl.innerHTML = `
+                <div class="flex justify-between border-b border-slate-200 pb-1.5">
+                    <span class="text-slate-500">${currentLang === 'ar' ? 'رقم التصريح:' : 'Permit Number:'}</span>
+                    <span class="font-mono font-bold text-navy-900">${escapeHtml(data.permitNumber)} (${escapeHtml(data.permitType)})</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200 pb-1.5">
+                    <span class="text-slate-500">${currentLang === 'ar' ? 'الموقع / الوحدة:' : 'Location:'}</span>
+                    <span class="font-semibold">${escapeHtml(data.location)}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200 pb-1.5">
+                    <span class="text-slate-500">${currentLang === 'ar' ? 'المُسلِّم السابق:' : 'From Holder:'}</span>
+                    <span class="font-semibold">${escapeHtml(data.fromHolder)}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200 pb-1.5">
+                    <span class="text-slate-500">${currentLang === 'ar' ? 'المُستلِم الجديد:' : 'To New Holder:'}</span>
+                    <span class="font-bold text-emerald-700">${escapeHtml(data.toHolder)}</span>
+                </div>
+                <div class="flex justify-between border-b border-slate-200 pb-1.5">
+                    <span class="text-slate-500">${currentLang === 'ar' ? 'تاريخ ووقت الاستلام:' : 'Confirmed At:'}</span>
+                    <span class="font-mono">${formatDate(data.confirmedAt)}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">${currentLang === 'ar' ? 'حالة الإرسال للإدارة:' : 'Admin Notification:'}</span>
+                    <span class="font-bold text-blue-700">${currentLang === 'ar' ? '✓ تم الإرسال تلقائياً للإدارة' : '✓ Sent to Admin Automatically'}</span>
+                </div>
+            `;
+            document.getElementById('handover-receipt-modal').classList.remove('hidden');
+        }
+
+        function buildHandoverPrintHtml(data) {
+            return `<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>PTW Handover Report - ${escapeHtml(data.permitNumber)}</title>
+<style>
+  body { font-family: Arial, Tahoma, sans-serif; padding: 32px; color: #0f172a; line-height: 1.6; }
+  .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #091b33; padding-bottom: 16px; margin-bottom: 24px; }
+  .brand { font-size: 28px; font-weight: 900; color: #091b33; letter-spacing: 2px; }
+  .badge { background: #dcfce7; color: #166534; padding: 6px 14px; border-radius: 8px; font-weight: bold; font-size: 13px; border: 1px solid #86efac; }
+  h1 { font-size: 20px; margin: 0 0 6px 0; color: #091b33; }
+  table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+  th, td { border: 1px solid #cbd5e1; padding: 11px 14px; text-align: right; font-size: 14px; }
+  th { background: #f1f5f9; width: 32%; font-weight: bold; color: #1e293b; }
+  .footer { margin-top: 36px; display: flex; justify-content: space-between; font-size: 13px; color: #475569; border-top: 1px dashed #94a3b8; padding-top: 16px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>سند تسليم واستلام تصريح عمل (PTW Handover Receipt)</h1>
+      <div style="font-size:13px;color:#475569;">TGS Work Permit Custody & Closure Portal</div>
+    </div>
+    <div class="brand">TGS</div>
+  </div>
+  <div class="badge">✓ تم تأكيد الاستلام وإرسال نسخة للإدارة (Confirmed & Sent to Admin)</div>
+  <table>
+    <tr><th>رقم التصريح (Permit Number)</th><td><strong>${escapeHtml(data.permitNumber)}</strong> — ${escapeHtml(data.permitType)}</td></tr>
+    <tr><th>الموقع / المعدة (Location)</th><td>${escapeHtml(data.location)}</td></tr>
+    <tr><th>نطاق العمل (Scope of Work)</th><td>${escapeHtml(data.description)}</td></tr>
+    <tr><th>المُسلِّم السابق (Previous Holder)</th><td>${escapeHtml(data.fromHolder)}</td></tr>
+    <tr><th>المُستلِم الجديد (New Holder)</th><td><strong>${escapeHtml(data.toHolder)}</strong></td></tr>
+    <tr><th>صلاحية التصريح (Valid Until)</th><td>${formatDate(data.validUntil)}</td></tr>
+    <tr><th>تاريخ ووقت تأكيد الاستلام</th><td>${formatDate(data.confirmedAt)}</td></tr>
+    <tr><th>ملاحظات التسليم</th><td>${escapeHtml(data.handoverNotes || 'لا توجد ملاحظات إضافية')}</td></tr>
+  </table>
+  <div class="footer">
+    <div>توقيع المُسلِّم: ${escapeHtml(data.fromHolder)}</div>
+    <div>توقيع المُستلِم: ${escapeHtml(data.toHolder)}</div>
+    <div>اعتماد النظام: TGS PTW Admin</div>
+  </div>
+</body>
+</html>`;
+        }
+
+        function downloadHandoverPDF() {
+            if (!lastConfirmedHandoverData) return;
+            const htmlContent = buildHandoverPrintHtml(lastConfirmedHandoverData);
+            const printWin = window.open('', '_blank', 'width=850,height=700');
+            if (printWin) {
+                printWin.document.open();
+                printWin.document.write(htmlContent);
+                printWin.document.close();
+                printWin.focus();
+                setTimeout(() => { printWin.print(); }, 350);
+            } else {
+                const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `PTW-Handover-${lastConfirmedHandoverData.permitNumber}.html`;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        function shareHandoverViaWhatsApp() {
+            if (!lastConfirmedHandoverData) return;
+            const d = lastConfirmedHandoverData;
+            downloadHandoverPDF();
+            const msg = [
+                `*TGS PTW - إشعار تأكيد تسليم تصريح عمل*`,
+                `• *رقم التصريح:* ${d.permitNumber} (${d.permitType})`,
+                `• *الموقع:* ${d.location}`,
+                `• *المُسلِّم:* ${d.fromHolder}`,
+                `• *المُستلِم الجديد:* ${d.toHolder}`,
+                `• *وقت الاستلام:* ${formatDate(d.confirmedAt)}`,
+                `• *الحالة:* تم تأكيد الاستلام وإرساله للإدارة ✓`,
+                `_(تم تجهيز ملف PDF للطباعة/الإرفاق)_`
+            ].join('\n');
+            const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+            window.open(waUrl, '_blank');
+        }
+
+        function openRejectModal(permitId) {
+            document.getElementById('rej-permit-id').value = permitId;
+            document.getElementById('rej-reason').value = '';
+            document.getElementById('reject-modal').classList.remove('hidden');
+        }
+
+        function handleRejectHandover(e) {
+            e.preventDefault();
+            const permitId = document.getElementById('rej-permit-id').value;
+            const reason = document.getElementById('rej-reason').value.trim();
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit) return;
+
+            permit.status = 'ACTIVE';
+            permit.pendingReceiverId = null;
+            permit.pendingReceiverName = null;
+            permit.logs.push({
+                action: 'HANDOVER_REJECTED',
+                byUserId: currentUser.id,
+                byUserName: currentUser.fullName,
+                notes: reason,
+                timestamp: new Date().toISOString()
+            });
+
+            syncPermitToCloud(permit);
+
+            addNotification(
+                permit.currentHolderId,
+                `${currentUser.fullName} REJECTED handover of permit ${permit.permitNumber}. Reason: "${reason}"`,
+                `رفض ${currentUser.fullName} استلام التصريح رقم ${permit.permitNumber}. السبب: "${reason}"`
+            );
+
+            closeModal('reject-modal');
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم رفض الاستلام وإشعار المسلّم' : 'Handover rejected & holder notified', 'warning');
+        }
+
+        function openClosePermitModal(permitId) {
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit) return;
+            document.getElementById('cl-permit-id').value = permit.id;
+            document.getElementById('cl-permit-label').textContent = `${permit.permitNumber} (${permit.location})`;
+            document.getElementById('cl-notes').value = '';
+            document.querySelectorAll('#close-permit-modal input[type="checkbox"]').forEach(cb => cb.checked = false);
+            document.getElementById('close-permit-modal').classList.remove('hidden');
+        }
+
+        function handleClosePermit(e) {
+            e.preventDefault();
+            const permitId = document.getElementById('cl-permit-id').value;
+            const notes = document.getElementById('cl-notes').value.trim();
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit) return;
+
+            permit.status = 'CLOSED';
+            permit.pendingReceiverId = null;
+            permit.pendingReceiverName = null;
+            permit.closedAt = new Date().toISOString();
+            permit.closedByName = currentUser.fullName;
+            permit.logs.push({
+                action: 'CLOSED',
+                byUserId: currentUser.id,
+                byUserName: currentUser.fullName,
+                notes,
+                timestamp: permit.closedAt
+            });
+
+            syncPermitToCloud(permit);
+
+            const adminUser = users.find(u => u.role === 'Admin');
+            if (adminUser && adminUser.id !== currentUser.id) {
+                addNotification(
+                    adminUser.id,
+                    `Permit ${permit.permitNumber} (${permit.location}) has been permanently CLOSED by ${currentUser.fullName}.`,
+                    `تم إغلاق التصريح رقم ${permit.permitNumber} (${permit.location}) نهائياً بواسطة ${currentUser.fullName}.`
+                );
+            }
+
+            closeModal('close-permit-modal');
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? `تم حفظ وإغلاق التصريح ${permit.permitNumber} نهائياً` : `Permit ${permit.permitNumber} saved & permanently closed`, 'success');
+        }
+
+        // ==========================================
+        // 8. EXPIRY REMINDER (< 48 HOURS) & RENEWAL
+        // ==========================================
+        function getPermitExpiryState(permit) {
+            if (!permit || permit.status === 'CLOSED') return 'NORMAL';
+            const remainingMs = new Date(permit.validUntil).getTime() - Date.now();
+            if (remainingMs <= 0) return 'EXPIRED';
+            if (remainingMs <= 48 * 3600000) return 'EXPIRING_SOON';
+            return 'NORMAL';
+        }
+
+        function checkPermitExpiryReminders() {
+            let changed = false;
+            const adminUsers = users.filter(u => u.role === 'Admin' && u.active);
+
+            permits.forEach(permit => {
+                if (permit.status === 'CLOSED' || permit.expiryNotified) return;
+                const expiryState = getPermitExpiryState(permit);
+                if (expiryState === 'EXPIRING_SOON' || expiryState === 'EXPIRED') {
+                    permit.expiryNotified = true;
+                    changed = true;
+
+                    const remainingHrs = Math.max(0, Math.round((new Date(permit.validUntil).getTime() - Date.now()) / 3600000));
+                    const msgEn = expiryState === 'EXPIRED'
+                        ? `EXPIRED PERMIT ALERT: Permit ${permit.permitNumber} (${permit.location}) held by ${permit.currentHolderName} has expired! Please renew or close.`
+                        : `EXPIRY REMINDER (< 2 DAYS): Permit ${permit.permitNumber} (${permit.location}) held by ${permit.currentHolderName} expires in ~${remainingHrs}h (${formatDate(permit.validUntil)}).`;
+                    const msgAr = expiryState === 'EXPIRED'
+                        ? `تنبيه انتهاء تصريح: التصريح رقم ${permit.permitNumber} (${permit.location}) لدى ${permit.currentHolderName} قد انتهت صلاحيته! يرجى التجديد أو الإغلاق.`
+                        : `تذكير بانتهاء تصريح (أقل من يومين): التصريح رقم ${permit.permitNumber} (${permit.location}) لدى ${permit.currentHolderName} ينتهي خلال ${remainingHrs} ساعة (${formatDate(permit.validUntil)}).`;
+
+                    addNotification(permit.currentHolderId, msgEn, msgAr);
+                    adminUsers.forEach(admin => {
+                        if (admin.id !== permit.currentHolderId) {
+                            addNotification(admin.id, msgEn, msgAr);
+                        }
+                    });
+                    syncPermitToCloud(permit);
+                }
+            });
+
+            if (changed && currentUser) {
+                renderNotifications();
+            }
+        }
+
+        function openRenewPermitModal(permitId) {
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit) return;
+
+            document.getElementById('rn-permit-id').value = permit.id;
+            document.getElementById('rn-permit-label').textContent = `${permit.permitNumber} (${permit.type})`;
+            document.getElementById('rn-permit-loc').textContent = permit.location;
+            document.getElementById('rn-current-expiry').textContent = formatDate(permit.validUntil);
+            document.getElementById('rn-notes').value = '';
+
+            const baseTime = Math.max(Date.now(), new Date(permit.validUntil).getTime());
+            const suggested = new Date(baseTime + 24 * 3600000);
+            suggested.setMinutes(suggested.getMinutes() - suggested.getTimezoneOffset());
+            document.getElementById('rn-new-expiry').value = suggested.toISOString().slice(0, 16);
+
+            document.getElementById('renew-permit-modal').classList.remove('hidden');
+        }
+
+        function handleRenewPermit(e) {
+            e.preventDefault();
+            const permitId = document.getElementById('rn-permit-id').value;
+            const newExpiryRaw = document.getElementById('rn-new-expiry').value;
+            const notes = document.getElementById('rn-notes').value.trim();
+
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit || !newExpiryRaw) return;
+
+            const oldExpiryStr = formatDate(permit.validUntil);
+            permit.validUntil = new Date(newExpiryRaw).toISOString();
+            permit.expiryNotified = false;
+            permit.logs.push({
+                action: 'RENEWED',
+                byUserId: currentUser.id,
+                byUserName: currentUser.fullName,
+                notes: `Extended from ${oldExpiryStr} to ${formatDate(permit.validUntil)}. ${notes}`,
+                timestamp: new Date().toISOString()
+            });
+
+            syncPermitToCloud(permit);
+            checkPermitExpiryReminders();
+
+            if (permit.currentHolderId !== currentUser.id) {
+                addNotification(
+                    permit.currentHolderId,
+                    `Permit ${permit.permitNumber} (${permit.location}) has been RENEWED until ${formatDate(permit.validUntil)} by ${currentUser.fullName}.`,
+                    `تم تجديد صلاحية التصريح رقم ${permit.permitNumber} (${permit.location}) لغاية ${formatDate(permit.validUntil)} بواسطة ${currentUser.fullName}.`
+                );
+            }
+
+            closeModal('renew-permit-modal');
+            refreshAllUI();
+            showToast(
+                currentLang === 'ar' ? `تم تجديد وحفظ صلاحية التصريح ${permit.permitNumber}` : `Permit ${permit.permitNumber} renewed & saved successfully`,
+                'success'
+            );
+        }
+
+        // ==========================================
+        // 9. TIMELINE MODAL & UI RENDERING
+        // ==========================================
+        function openTimelineModal(permitId) {
+            const permit = permits.find(p => p.id === permitId);
+            if (!permit) return;
+
+            document.getElementById('tl-permit-number').textContent = permit.permitNumber;
+            const container = document.getElementById('timeline-content');
+
+            const actionColors = {
+                ISSUED: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+                HANDOVER_REQUESTED: 'bg-amber-100 text-amber-800 border-amber-300',
+                HANDOVER_ACCEPTED: 'bg-blue-100 text-blue-800 border-blue-300',
+                HANDOVER_REJECTED: 'bg-red-100 text-red-800 border-red-300',
+                RENEWED: 'bg-indigo-100 text-indigo-800 border-indigo-300',
+                CLOSED: 'bg-slate-200 text-slate-800 border-slate-400'
+            };
+
+            container.innerHTML = `
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div><span class="text-slate-500 block">${currentLang === 'ar' ? 'الموقع / المعدة:' : 'Location / Unit:'}</span><strong class="text-slate-900">${escapeHtml(permit.location)}</strong></div>
+                    <div><span class="text-slate-500 block">${currentLang === 'ar' ? 'فئة التصريح:' : 'Category:'}</span><strong class="text-slate-900">${escapeHtml(permit.type)}</strong></div>
+                    <div><span class="text-slate-500 block">${currentLang === 'ar' ? 'الحائز الحالي:' : 'Current Holder:'}</span><strong class="text-navy-900">${escapeHtml(permit.currentHolderName)}</strong></div>
+                    <div><span class="text-slate-500 block">${currentLang === 'ar' ? 'صالح لغاية:' : 'Valid Until:'}</span><strong class="text-slate-900">${formatDate(permit.validUntil)}</strong></div>
+                    <div class="sm:col-span-2"><span class="text-slate-500 block">${currentLang === 'ar' ? 'وصف العمل:' : 'Scope of Work:'}</span><p class="text-slate-800 mt-0.5">${escapeHtml(permit.description)}</p></div>
+                </div>
+
+                <div>
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">${currentLang === 'ar' ? 'سجل التسليم والحركات الموثق (Audit Trail)' : 'Custody Transfer & Audit Trail'}</h4>
+                    <div class="space-y-3 border-l-2 border-slate-200 ml-2 pl-4">
+                        ${permit.logs.map(log => `
+                            <div class="relative bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs">
+                                <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                                    <span class="text-[10px] font-extrabold px-2 py-0.5 rounded border ${actionColors[log.action] || 'bg-slate-100'}">${escapeHtml(log.action.replace('_', ' '))}</span>
+                                    <span class="text-[11px] text-slate-400 font-mono">${formatDate(log.timestamp)}</span>
+                                </div>
+                                <div class="text-xs font-bold text-slate-800">
+                                    ${escapeHtml(log.byUserName)}
+                                    ${log.toUserName ? `<span class="text-slate-400 font-normal"> → </span> <span class="text-navy-900">${escapeHtml(log.toUserName)}</span>` : ''}
+                                    ${log.fromUserName ? `<span class="text-slate-400 font-normal"> (${currentLang === 'ar' ? 'مستلم من' : 'from'} ${escapeHtml(log.fromUserName)})</span>` : ''}
+                                </div>
+                                <p class="text-xs text-slate-600 mt-1">${escapeHtml(log.notes)}</p>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('timeline-modal').classList.remove('hidden');
+        }
+
+        function setActiveTab(tabName) {
+            currentTab = tabName;
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                if (btn.getAttribute('data-tab') === tabName) {
+                    btn.classList.add('bg-navy-900', 'text-white');
+                    btn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+                } else {
+                    btn.classList.remove('bg-navy-900', 'text-white');
+                    btn.classList.add('text-slate-600', 'hover:bg-slate-100');
+                }
+            });
+
+            const permitsSec = document.getElementById('permits-section');
+            const adminSec = document.getElementById('admin-section');
+            const searchBox = document.getElementById('search-container');
+
+            if (tabName === 'admin') {
+                permitsSec.classList.add('hidden');
+                searchBox.classList.add('hidden');
+                adminSec.classList.remove('hidden');
+                renderUsersTable();
+            } else {
+                adminSec.classList.add('hidden');
+                permitsSec.classList.remove('hidden');
+                searchBox.classList.remove('hidden');
+                renderPermits();
+            }
+        }
+
+        function updateKPIs() {
+            const myCustody = permits.filter(p => p.status !== 'CLOSED' && p.currentHolderId === currentUser.id).length;
+            const incoming = permits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingReceiverId === currentUser.id).length;
+            const allActive = permits.filter(p => p.status !== 'CLOSED').length;
+            const closed = permits.filter(p => p.status === 'CLOSED').length;
+
+            document.getElementById('kpi-custody-count').textContent = myCustody;
+            document.getElementById('kpi-incoming-count').textContent = incoming;
+            document.getElementById('kpi-active-count').textContent = allActive;
+            document.getElementById('kpi-closed-count').textContent = closed;
+
+            const tabBadge = document.getElementById('tab-incoming-badge');
+            if (incoming > 0) {
+                tabBadge.textContent = incoming;
+                tabBadge.classList.remove('hidden');
+            } else {
+                tabBadge.classList.add('hidden');
+            }
+        }
+
+        function renderPermits() {
+            const grid = document.getElementById('permits-grid');
+            const query = (document.getElementById('permit-search').value || '').toLowerCase().trim();
+
+            let filtered = permits.filter(p => {
+                if (currentTab === 'my-custody') return p.status !== 'CLOSED' && p.currentHolderId === currentUser.id;
+                if (currentTab === 'incoming') return p.status === 'PENDING_HANDOVER' && p.pendingReceiverId === currentUser.id;
+                if (currentTab === 'all-active') return p.status !== 'CLOSED';
+                if (currentTab === 'closed') return p.status === 'CLOSED';
+                return true;
+            });
+
+            if (query) {
+                filtered = filtered.filter(p =>
+                    p.permitNumber.toLowerCase().includes(query) ||
+                    p.location.toLowerCase().includes(query) ||
+                    p.currentHolderName.toLowerCase().includes(query) ||
+                    p.type.toLowerCase().includes(query)
+                );
+            }
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-400">
+                        <i class="fa-regular fa-folder-open text-3xl mb-2"></i>
+                        <p class="text-sm font-semibold">${t('noPermitsFound')}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const typeBadges = {
+                'SPARK': 'bg-orange-100 text-orange-800 border-orange-200',
+                'HOT': 'bg-red-100 text-red-700 border-red-200',
+                'COLD': 'bg-sky-100 text-sky-700 border-sky-200',
+                'BREAKING': 'bg-purple-100 text-purple-700 border-purple-200'
+            };
+
+            grid.innerHTML = filtered.map(p => {
+                const isHolder = p.currentHolderId === currentUser.id;
+                const isPendingReceiver = p.status === 'PENDING_HANDOVER' && p.pendingReceiverId === currentUser.id;
+                const isAdmin = currentUser.role === 'Admin';
+                const expiryState = getPermitExpiryState(p);
+
+                let statusBadge = '';
+                if (p.status === 'ACTIVE') {
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full">${t('statusActive')}</span>`;
+                } else if (p.status === 'PENDING_HANDOVER') {
+                    statusBadge = `<span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full animate-pulse">${t('statusPending')}</span>`;
+                } else {
+                    statusBadge = `<span class="bg-slate-200 text-slate-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full">${t('statusClosed')}</span>`;
+                }
+
+                let expiryBadge = '';
+                if (expiryState === 'EXPIRING_SOON') {
+                    expiryBadge = `<span class="bg-orange-500 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> ${t('expiringSoonBadge')}</span>`;
+                } else if (expiryState === 'EXPIRED') {
+                    expiryBadge = `<span class="bg-red-600 text-white text-[10px] font-extrabold px-2.5 py-1 rounded-full flex items-center gap-1"><i class="fa-solid fa-circle-exclamation"></i> ${t('expiredBadge')}</span>`;
+                }
+
+                return `
+                    <div class="bg-white rounded-2xl border ${isPendingReceiver ? 'border-blue-400 ring-2 ring-blue-100' : (expiryState !== 'NORMAL' ? 'border-orange-300' : 'border-slate-200')} shadow-sm hover:shadow-md transition flex flex-col justify-between overflow-hidden">
+                        <div class="p-5 space-y-3">
+                            <div class="flex items-start justify-between gap-2">
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="font-mono font-extrabold text-navy-900 text-base">${escapeHtml(p.permitNumber)}</span>
+                                        <span class="text-[10px] font-bold px-2 py-0.5 rounded border ${typeBadges[p.type] || 'bg-slate-100 text-slate-700'}">${escapeHtml(p.type)}</span>
+                                    </div>
+                                    <p class="text-xs font-semibold text-slate-600 mt-1 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-location-dot text-amber-500"></i>
+                                        ${escapeHtml(p.location)}
+                                    </p>
+                                </div>
+                                <div class="flex flex-col items-end gap-1">
+                                    ${statusBadge}
+                                    ${expiryBadge}
+                                </div>
+                            </div>
+
+                            <p class="text-xs text-slate-600 line-clamp-2 bg-slate-50 p-2.5 rounded-xl border border-slate-100">${escapeHtml(p.description)}</p>
+
+                            <div class="space-y-1.5 text-xs pt-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-400">${t('currentCustody')}:</span>
+                                    <span class="font-bold text-slate-800">${escapeHtml(p.currentHolderName)}</span>
+                                </div>
+                                ${p.status === 'PENDING_HANDOVER' ? `
+                                <div class="flex items-center justify-between bg-amber-50 px-2.5 py-1.5 rounded-lg border border-amber-200">
+                                    <span class="text-amber-800 font-semibold">${t('pendingReceiver')}:</span>
+                                    <span class="font-bold text-amber-950">${escapeHtml(p.pendingReceiverName)}</span>
+                                </div>` : ''}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-400">${t('validUntil')}:</span>
+                                    <span class="font-mono text-[11px] ${expiryState !== 'NORMAL' ? 'text-red-600 font-bold' : 'text-slate-600'}">${formatDate(p.validUntil)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Footer -->
+                        <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                            <div class="flex flex-wrap items-center gap-1.5">
+                                ${p.status === 'ACTIVE' && (isHolder || isAdmin) ? `
+                                    <button onclick="openHandoverModal('${p.id}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-2xs">
+                                        <i class="fa-solid fa-right-left"></i>
+                                        <span>${t('handoverBtn')}</span>
+                                    </button>
+                                    <button onclick="openRenewPermitModal('${p.id}')" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-2xs">
+                                        <i class="fa-solid fa-clock-rotate-left"></i>
+                                        <span>${t('renewPermitBtn')}</span>
+                                    </button>
+                                    <button onclick="openClosePermitModal('${p.id}')" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-2xs">
+                                        <i class="fa-solid fa-lock"></i>
+                                        <span>${t('closePermitBtn')}</span>
+                                    </button>
+                                ` : ''}
+
+                                ${isPendingReceiver ? `
+                                    <button onclick="acceptHandover('${p.id}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 shadow-2xs">
+                                        <i class="fa-solid fa-check"></i>
+                                        <span>${t('acceptBtn')}</span>
+                                    </button>
+                                    <button onclick="openRejectModal('${p.id}')" class="bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold px-3 py-1.5 rounded-xl transition flex items-center gap-1.5">
+                                        <i class="fa-solid fa-xmark"></i>
+                                        <span>${t('rejectBtn')}</span>
+                                    </button>
+                                ` : ''}
+                            </div>
+
+                            <div class="flex items-center gap-1.5">
+                                <button onclick="openTimelineModal('${p.id}')" class="text-xs font-bold text-slate-600 hover:text-navy-900 px-2.5 py-1.5 rounded-xl hover:bg-slate-200/70 transition flex items-center gap-1">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                    <span>${t('viewHistoryBtn')}</span>
+                                </button>
+                                ${isAdmin ? `
+                                    <button onclick="deletePermitRecord('${p.id}')" title="${t('deletePermitBtn')}" class="text-xs font-bold text-red-600 hover:bg-red-100 px-2.5 py-1.5 rounded-xl transition flex items-center gap-1">
+                                        <i class="fa-solid fa-trash-can"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==========================================
+        // 10. NOTIFICATIONS & HELPERS
+        // ==========================================
+        function renderNotifications() {
+            const myNotifs = notifications.filter(n => n.userId === currentUser.id);
+            const unreadCount = myNotifs.filter(n => !n.read).length;
+
+            const badge = document.getElementById('notif-badge');
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            const list = document.getElementById('notif-list');
+            if (myNotifs.length === 0) {
+                list.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">${t('noNotifications')}</div>`;
+                return;
+            }
+
+            list.innerHTML = myNotifs.map(n => `
+                <div onclick="markNotificationRead('${n.id}')" class="p-3.5 text-xs cursor-pointer transition ${n.read ? 'bg-white text-slate-600' : 'bg-amber-50/70 text-slate-900 font-semibold'} hover:bg-slate-50">
+                    <p class="leading-relaxed">${escapeHtml(currentLang === 'ar' ? n.messageAr : n.messageEn)}</p>
+                    <span class="text-[10px] text-slate-400 mt-1 block font-mono">${formatDate(n.createdAt)}</span>
+                </div>
+            `).join('');
+        }
+
+        function markNotificationRead(id) {
+            const n = notifications.find(item => item.id === id);
+            if (n) {
+                n.read = true;
+                persistToLocalStorage();
+                pushStateToPublicMultiDeviceSync();
+                if (isCloudReady && db) {
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', n.id), n).catch(() => {});
+                }
+            }
+            renderNotifications();
+        }
+
+        function markAllNotificationsRead() {
+            notifications.filter(n => n.userId === currentUser.id).forEach(n => {
+                n.read = true;
+                if (isCloudReady && db) {
+                    setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', n.id), n).catch(() => {});
+                }
+            });
+            persistToLocalStorage();
+            pushStateToPublicMultiDeviceSync();
+            renderNotifications();
+        }
+
+        function toggleNotifications() {
+            document.getElementById('user-dropdown').classList.add('hidden');
+            document.getElementById('notif-dropdown').classList.toggle('hidden');
+        }
+
+        function toggleUserMenu() {
+            document.getElementById('notif-dropdown').classList.add('hidden');
+            document.getElementById('user-dropdown').classList.toggle('hidden');
+        }
+
+        function openChangePasswordModal() {
+            document.getElementById('user-dropdown').classList.add('hidden');
+            document.getElementById('change-password-modal').classList.remove('hidden');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        function refreshAllUI() {
+            updateKPIs();
+            renderNotifications();
+            if (currentTab === 'admin') {
+                renderUsersTable();
+            } else {
+                renderPermits();
+            }
+        }
+
+        function formatDate(isoStr) {
+            if (!isoStr) return '-';
+            const d = new Date(isoStr);
+            return d.toLocaleString(currentLang === 'ar' ? 'ar-EG' : 'en-GB', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const colors = {
+                success: 'bg-emerald-700 text-white border-emerald-500',
+                error: 'bg-red-700 text-white border-red-500',
+                warning: 'bg-amber-600 text-white border-amber-400',
+                info: 'bg-navy-900 text-white border-navy-700'
+            };
+            const icons = {
+                success: 'fa-circle-check',
+                error: 'fa-circle-exclamation',
+                warning: 'fa-triangle-exclamation',
+                info: 'fa-circle-info'
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `toast-enter pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs sm:text-sm font-semibold ${colors[type]}`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type]}"></i><span>${escapeHtml(message)}</span>`;
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transition = 'opacity 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('#notif-dropdown') && !e.target.closest('button[onclick="toggleNotifications()"]')) {
+                document.getElementById('notif-dropdown').classList.add('hidden');
+            }
+            if (!e.target.closest('#user-dropdown') && !e.target.closest('button[onclick="toggleUserMenu()"]')) {
+                document.getElementById('user-dropdown').classList.add('hidden');
+            }
+        });
+
+        // Expose functions globally for inline HTML event handlers
+        window.toggleLanguage = toggleLanguage;
+        window.handleLogin = handleLogin;
+        window.handleLogout = handleLogout;
+        window.togglePasswordVisibility = togglePasswordVisibility;
+        window.manualSaveAll = manualSaveAll;
+        window.exportBackupFile = exportBackupFile;
+        window.importBackupFile = importBackupFile;
+        window.openCloudConfigModal = openCloudConfigModal;
+        window.handleSaveCloudConfig = handleSaveCloudConfig;
+        window.clearCustomCloudConfig = clearCustomCloudConfig;
+        window.copyCloudPortalLink = copyCloudPortalLink;
+        window.openCreatePermitModal = openCreatePermitModal;
+        window.handleCreatePermit = handleCreatePermit;
+        window.openHandoverModal = openHandoverModal;
+        window.handleInitiateHandover = handleInitiateHandover;
+        window.acceptHandover = acceptHandover;
+        window.openHandoverReceiptModal = openHandoverReceiptModal;
+        window.downloadHandoverPDF = downloadHandoverPDF;
+        window.shareHandoverViaWhatsApp = shareHandoverViaWhatsApp;
+        window.openRejectModal = openRejectModal;
+        window.handleRejectHandover = handleRejectHandover;
+        window.openClosePermitModal = openClosePermitModal;
+        window.handleClosePermit = handleClosePermit;
+        window.openRenewPermitModal = openRenewPermitModal;
+        window.handleRenewPermit = handleRenewPermit;
+        window.openTimelineModal = openTimelineModal;
+        window.setActiveTab = setActiveTab;
+        window.renderPermits = renderPermits;
+        window.generateUsername = generateUsername;
+        window.generatePassword = generatePassword;
+        window.handleCreateUser = handleCreateUser;
+        window.copyCreatedCredentials = copyCreatedCredentials;
+        window.copyCreatedActivationLink = copyCreatedActivationLink;
+        window.copyUserActivationLink = copyUserActivationLink;
+        window.copyUserRowCredentials = copyUserRowCredentials;
+        window.toggleUserStatus = toggleUserStatus;
+        window.deleteUserAccount = deleteUserAccount;
+        window.deletePermitRecord = deletePermitRecord;
+        window.openResetSystemModal = openResetSystemModal;
+        window.handleChangeOwnPassword = handleChangeOwnPassword;
+        window.markNotificationRead = markNotificationRead;
+        window.markAllNotificationsRead = markAllNotificationsRead;
+        window.toggleNotifications = toggleNotifications;
+        window.toggleUserMenu = toggleUserMenu;
+        window.openChangePasswordModal = openChangePasswordModal;
+        window.closeModal = closeModal;
+
+        // Initialize storage, cloud sync, and restore active user session
+        (async () => {
+            await initPersistenceAndCloud();
+            const savedUserId = localStorage.getItem(SESSION_KEY);
+            if (savedUserId) {
+                const existingUser = users.find(u => u.id === savedUserId && u.active);
+                if (existingUser) {
+                    enterApp(existingUser);
+                }
+            }
+            setInterval(() => {
+                if (currentUser) checkPermitExpiryReminders();
+            }, 60000);
+        })();
+    </script>
+</body>
+</html>
