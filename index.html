@@ -1011,7 +1011,7 @@
         const CUSTOM_CLOUD_KEY = 'tgs_ptw_custom_firebase_cfg_v1';
         const PUBLIC_SYNC_URL = 'https://jsonblob.com/api/jsonBlob';
         const GLOBAL_BLOB_ID = '019a0c8e-7f2a-7d1b-9c4e-5a8b3d6e1f02';
-        const NTFY_TOPIC = 'tgs_ptw_hamzaayad309_master_v4';
+        const NTFY_TOPIC = 'tgs_ptw_hamzaayad309_master_v5';
         const LEGACY_SAMPLE_PERMITS = ['PTW-2026-1041', 'PTW-2026-1042', 'PTW-2026-1043', 'PTW-2026-1044', 'PTW-2026-1045'];
         const LEGACY_SAMPLE_USERS = ['Ahmed Hassan (Lead Eng)', 'Omar Khalid (Area Issuer)', 'Sara Mahmood (HSE Officer)', 'Khaled Noor (Supervisor)'];
 
@@ -1152,17 +1152,51 @@
                 n: remoteData.notifications || []
             });
             if (remoteHash === lastRemoteSyncHash) return false;
-            if (stateUpdatedAt > 0 && remoteUpdatedAt > 0 && remoteUpdatedAt < stateUpdatedAt) {
-                return false;
-            }
             lastRemoteSyncHash = remoteHash;
-            stateUpdatedAt = remoteUpdatedAt || Date.now();
 
-            deletedUserIds = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
-            deletedPermitIds = Array.isArray(remoteData.deletedPermitIds) ? remoteData.deletedPermitIds : [];
-            users = remoteData.users.filter(u => u && u.id && !deletedUserIds.includes(u.id));
-            permits = (remoteData.permits || []).filter(p => p && p.id && !deletedPermitIds.includes(p.id));
-            notifications = Array.isArray(remoteData.notifications) ? remoteData.notifications : [];
+            // Merge deleted IDs safely (never delete admin)
+            const remoteDeletedUsers = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
+            const remoteDeletedPermits = Array.isArray(remoteData.deletedPermitIds) ? remoteData.deletedPermitIds : [];
+            deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteDeletedUsers])).filter(id => id !== 'usr_admin_1');
+            deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...remoteDeletedPermits]));
+
+            // Protected Merge for Users: NEVER wipe locally created accounts!
+            const mergedUsersMap = new Map();
+            users.forEach(u => {
+                if (u && u.id && !deletedUserIds.includes(u.id)) mergedUsersMap.set(u.id, u);
+            });
+            remoteData.users.forEach(ru => {
+                if (ru && ru.id && !deletedUserIds.includes(ru.id)) {
+                    const existing = mergedUsersMap.get(ru.id);
+                    if (!existing || remoteUpdatedAt >= stateUpdatedAt) {
+                        mergedUsersMap.set(ru.id, ru);
+                    }
+                }
+            });
+            users = Array.from(mergedUsersMap.values());
+
+            // Protected Merge for Permits
+            const mergedPermitsMap = new Map();
+            permits.forEach(p => {
+                if (p && p.id && !deletedPermitIds.includes(p.id)) mergedPermitsMap.set(p.id, p);
+            });
+            (remoteData.permits || []).forEach(rp => {
+                if (rp && rp.id && !deletedPermitIds.includes(rp.id)) {
+                    const existing = mergedPermitsMap.get(rp.id);
+                    if (!existing || remoteUpdatedAt >= stateUpdatedAt) {
+                        mergedPermitsMap.set(rp.id, rp);
+                    }
+                }
+            });
+            permits = Array.from(mergedPermitsMap.values());
+
+            if (Array.isArray(remoteData.notifications) && remoteData.notifications.length > 0 && remoteUpdatedAt >= stateUpdatedAt) {
+                notifications = remoteData.notifications;
+            }
+
+            if (remoteUpdatedAt > stateUpdatedAt) {
+                stateUpdatedAt = remoteUpdatedAt;
+            }
             sanitizeLegacySampleData();
             persistToLocalStorage();
             return true;
