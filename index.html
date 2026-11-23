@@ -1009,28 +1009,76 @@
         const STORAGE_KEY = 'tgs_ptw_system_state_v1';
         const SESSION_KEY = 'tgs_ptw_active_user_id_v1';
         const CUSTOM_CLOUD_KEY = 'tgs_ptw_custom_firebase_cfg_v1';
-        const PUBLIC_SYNC_URL = 'https://kvdb.io/A9xT7mP2qL8vR4nK6wZ3jB';
-        const GLOBAL_SYNC_CHANNEL = 'tgs_ptw_hamzaayad309_prod_v2';
+        const PUBLIC_SYNC_URL = 'https://jsonblob.com/api/jsonBlob';
+        const GLOBAL_BLOB_ID = '019a0c8e-7f2a-7d1b-9c4e-5a8b3d6e1f02';
+        const NTFY_TOPIC = 'tgs_ptw_hamzaayad309_sync_v3';
 
         let users = [];
         let permits = [];
         let notifications = [];
         let deletedUserIds = [];
         let deletedPermitIds = [];
-        let db = null;
-        let auth = null;
-        let cloudUser = null;
         let isCloudReady = false;
         let isPublicRestSyncReady = false;
         let lastRemoteSyncHash = '';
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'tgs-ptw-portal';
+        let db = null;
+        let auth = null;
+        let appId = typeof __app_id !== 'undefined' ? __app_id : 'tgs-ptw-portal';
 
-        function getPublicCollection(colName) {
-            return collection(db, 'artifacts', appId, 'public', 'data', colName);
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
-        function getPublicDoc(colName, docId) {
-            return doc(db, 'artifacts', appId, 'public', 'data', colName, docId);
+        function normalizeDigits(str) {
+            const arabicNums = '٠١٢٣٤٥٦٧٨٩';
+            const persianNums = '۰۱۲۳۴۵۶۷۸۹';
+            return String(str ?? '').trim().replace(/[٠-٩۰-۹]/g, d => {
+                const idxA = arabicNums.indexOf(d);
+                if (idxA >= 0) return String(idxA);
+                const idxP = persianNums.indexOf(d);
+                if (idxP >= 0) return String(idxP);
+                return d;
+            });
+        }
+
+        function setCloudStatus(connected, labelText) {
+            const statusEl = document.getElementById('cloud-sync-status');
+            const textEl = document.getElementById('cloud-sync-text');
+            if (!statusEl || !textEl) return;
+            textEl.textContent = labelText;
+            statusEl.className = connected
+                ? 'flex items-center gap-1.5 font-semibold text-emerald-700'
+                : 'flex items-center gap-1.5 font-semibold text-amber-700';
+        }
+
+        function seedDefaultData() {
+            if (users.length === 0) {
+                users = [
+                    { id: 'usr_admin_1', fullName: 'System Admin', role: 'Admin', username: 'admin', password: '123', active: true }
+                ];
+            }
+        }
+
+        function loadFromLocalStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return false;
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+                    deletedUserIds = Array.isArray(parsed.deletedUserIds) ? parsed.deletedUserIds : [];
+                    deletedPermitIds = Array.isArray(parsed.deletedPermitIds) ? parsed.deletedPermitIds : [];
+                    users = parsed.users.filter(u => !deletedUserIds.includes(u.id));
+                    permits = (Array.isArray(parsed.permits) ? parsed.permits : []).filter(p => !deletedPermitIds.includes(p.id));
+                    notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+                    return true;
+                }
+            } catch (e) {}
+            return false;
         }
 
         function persistToLocalStorage() {
@@ -1042,360 +1090,235 @@
                     deletedUserIds,
                     deletedPermitIds
                 }));
-            } catch (e) {
-                console.warn('Local storage write failed:', e);
+            } catch (e) {}
+        }
+
+        async function initPersistenceAndCloud() {
+            const loadedLocal = loadFromLocalStorage();
+            if (!loadedLocal) {
+                seedDefaultData();
+                persistToLocalStorage();
             }
-        }
 
-        function t(key) {
-            return (translations[currentLang] && translations[currentLang][key]) || translations.en[key] || key;
-        }
-
-        function isAdminUser() {
-            return Boolean(currentUser && currentUser.role === 'Admin');
-        }
-
-        function getUserName(userId) {
-            const u = users.find(x => x.id === userId);
-            return u ? u.fullName : (userId || 'Unknown');
-        }
-
-        function formatDateTime(isoStr) {
-            if (!isoStr) return '-';
-            const d = new Date(isoStr);
-            if (isNaN(d.getTime())) return isoStr;
-            return d.toLocaleString(currentLang === 'ar' ? 'ar-IQ' : 'en-GB', {
-                year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
-            });
-        }
-
-        function setCloudStatus(connected, text) {
-            const badge = document.getElementById('cloud-sync-status');
-            const txt = document.getElementById('cloud-sync-text');
-            if (!badge || !txt) return;
-            badge.className = `flex items-center gap-1.5 font-semibold ${connected ? 'text-emerald-700' : 'text-amber-700'}`;
-            txt.textContent = text;
-        }
-
-        function showToast(message, type = 'info') {
-            const container = document.getElementById('toast-container');
-            if (!container) return;
-            const styles = {
-                success: 'bg-emerald-600 text-white border-emerald-700',
-                error: 'bg-red-600 text-white border-red-700',
-                warning: 'bg-amber-600 text-white border-amber-700',
-                info: 'bg-navy-900 text-white border-navy-800'
-            };
-            const icons = {
-                success: 'fa-circle-check',
-                error: 'fa-circle-exclamation',
-                warning: 'fa-triangle-exclamation',
-                info: 'fa-circle-info'
-            };
-            const el = document.createElement('div');
-            el.className = `toast-enter pointer-events-auto border rounded-xl shadow-lg px-4 py-3 text-xs sm:text-sm font-semibold flex items-center gap-2.5 ${styles[type] || styles.info}`;
-            el.innerHTML = `<i class="fa-solid ${icons[type] || icons.info}"></i><span class="flex-1">${message}</span>`;
-            container.appendChild(el);
-            setTimeout(() => el.remove(), 4000);
-        }
-
-        function closeModal(id) {
-            document.getElementById(id)?.classList.add('hidden');
-        }
-
-        function togglePasswordVisibility(inputId, btn) {
-            const inp = document.getElementById(inputId);
-            if (!inp) return;
-            const isPass = inp.type === 'password';
-            inp.type = isPass ? 'text' : 'password';
-            if (btn) btn.innerHTML = `<i class="fa-solid ${isPass ? 'fa-eye-slash' : 'fa-eye'}"></i>`;
-        }
-
-        function copyTextToClipboard(text, successMsg) {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
+            let firebaseConfig = null;
             try {
-                document.execCommand('copy');
-                showToast(successMsg, 'success');
-            } catch (e) {
-                showToast(currentLang === 'ar' ? 'تعذر النسخ التلقائي' : 'Copy failed', 'error');
-            }
-            document.body.removeChild(ta);
-        }
-
-        function applyTranslations() {
-            document.documentElement.lang = currentLang;
-            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-            const toggleLabel = currentLang === 'ar' ? 'English' : 'العربية';
-            const loginBtn = document.getElementById('login-lang-btn-text');
-            const navBtn = document.getElementById('nav-lang-btn-text');
-            if (loginBtn) loginBtn.textContent = toggleLabel;
-            if (navBtn) navBtn.textContent = toggleLabel;
-
-            document.querySelectorAll('[data-i18n]').forEach(el => {
-                const key = el.getAttribute('data-i18n');
-                if (key) el.textContent = t(key);
-            });
-            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
-                const key = el.getAttribute('data-i18n-placeholder');
-                if (key) el.placeholder = t(key);
-            });
-            const searchInp = document.getElementById('permit-search');
-            if (searchInp) {
-                searchInp.placeholder = currentLang === 'ar' ? 'ابحث برقم التصريح، الموقع، الحائز...' : 'Search permit #, location, holder...';
-            }
-        }
-
-        function toggleLanguage() {
-            currentLang = currentLang === 'en' ? 'ar' : 'en';
-            applyTranslations();
-            if (currentUser) renderAll();
-        }
-
-        function seedDefaultData() {
-            users = [
-                { id: 'u-admin', fullName: 'System Administrator', role: 'Admin', username: 'admin', password: '123', active: true },
-                { id: 'u-ahmed', fullName: 'Ahmed Al-Basri', role: 'PA', username: 'ahmed.eng', password: '123', active: true },
-                { id: 'u-sara', fullName: 'Sara Al-Mansoor', role: 'PA', username: 'sara.hse', password: '123', active: true },
-                { id: 'u-omar', fullName: 'Omar Al-Khatib', role: 'PA', username: 'omar.ops', password: '123', active: true }
-            ];
-            permits = [];
-            notifications = [];
-            deletedUserIds = [];
-            deletedPermitIds = [];
-            persistToLocalStorage();
-        }
-
-        function loadFromLocalStorage() {
-            try {
-                const raw = localStorage.getItem(STORAGE_KEY);
-                if (raw) {
-                    const parsed = JSON.parse(raw);
-                    if (Array.isArray(parsed.deletedUserIds)) deletedUserIds = parsed.deletedUserIds;
-                    if (Array.isArray(parsed.deletedPermitIds)) deletedPermitIds = parsed.deletedPermitIds;
-                    if (Array.isArray(parsed.users) && parsed.users.length > 0) {
-                        users = parsed.users.filter(u => !deletedUserIds.includes(u.id));
-                    }
-                    if (Array.isArray(parsed.permits)) {
-                        permits = parsed.permits.filter(p => !deletedPermitIds.includes(p.id));
-                    }
-                    if (Array.isArray(parsed.notifications)) notifications = parsed.notifications;
-                }
-            } catch (e) {
-                console.warn('LocalStorage read failed:', e);
-            }
-            if (!users || users.length === 0) seedDefaultData();
-        }
-
-        function processUrlActivationParams() {
-            const params = new URLSearchParams(window.location.search);
-            const cloudParam = params.get('cloud');
-            if (cloudParam) {
-                try {
-                    const decoded = decodeURIComponent(escape(atob(cloudParam)));
-                    const parsed = JSON.parse(decoded);
-                    if (parsed.apiKey && parsed.projectId) {
-                        localStorage.setItem(CUSTOM_CLOUD_KEY, JSON.stringify(parsed));
-                    }
-                } catch (e) {
-                    console.warn('Invalid cloud URL param', e);
-                }
-            }
-            const userParam = params.get('activateUser');
-            if (userParam) {
-                try {
-                    const decodedUser = JSON.parse(decodeURIComponent(escape(atob(userParam))));
-                    if (decodedUser && decodedUser.id && decodedUser.username) {
-                        deletedUserIds = deletedUserIds.filter(id => id !== decodedUser.id);
-                        const idx = users.findIndex(u => u.id === decodedUser.id || u.username.toLowerCase() === decodedUser.username.toLowerCase());
-                        if (idx >= 0) users[idx] = { ...users[idx], ...decodedUser, active: true };
-                        else users.push({ ...decodedUser, active: true });
-                        persistToLocalStorage();
-                        // Pre-fill login inputs as well in case user signs out and logs in manually
-                        const loginUserInp = document.getElementById('login-username');
-                        const loginPassInp = document.getElementById('login-password');
-                        if (loginUserInp) loginUserInp.value = decodedUser.username;
-                        if (loginPassInp) loginPassInp.value = decodedUser.password;
-                        if (params.get('autoLogin') !== '0') {
-                            localStorage.setItem(SESSION_KEY, decodedUser.id);
-                        }
-                    }
-                } catch (e) {
-                    console.warn('Invalid user activation URL param', e);
-                }
-            }
-            if (cloudParam || userParam) {
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }
-        }
-
-        async function initCloudSync() {
-            let cfg = null;
-            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
-                try { cfg = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config; } catch (e) {}
-            }
-            if (!cfg) {
-                const customRaw = localStorage.getItem(CUSTOM_CLOUD_KEY);
-                if (customRaw) {
-                    try { cfg = JSON.parse(customRaw); } catch (e) {}
-                }
-            }
-            const loginBadge = document.getElementById('login-sync-badge');
-            if (!cfg || !cfg.apiKey) {
-                await initPublicMultiDeviceSync();
-                return;
-            }
-            try {
-                const app = initializeApp(cfg);
-                auth = getAuth(app);
-                db = getFirestore(app);
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    firebaseConfig = typeof __firebase_config === 'string' ? JSON.parse(__firebase_config) : __firebase_config;
                 } else {
-                    await signInAnonymously(auth);
+                    const customRaw = localStorage.getItem(CUSTOM_CLOUD_KEY);
+                    if (customRaw) firebaseConfig = JSON.parse(customRaw);
                 }
-                cloudUser = auth.currentUser;
-                isCloudReady = true;
-                setCloudStatus(true, currentLang === 'ar' ? 'متصل بالسحابة (مزامنة حية)' : 'Cloud Live Sync Active');
-                if (loginBadge) loginBadge.textContent = currentLang === 'ar' ? '✓ متصل بالمزامنة السحابية' : '✓ Cloud Live Sync Connected';
+            } catch (e) {}
 
-                onSnapshot(getPublicCollection('ptw_users'), (snap) => {
-                    if (!snap.empty) {
-                        const cloudUsers = snap.docs.map(d => d.data()).filter(u => !deletedUserIds.includes(u.id));
+            if (firebaseConfig && firebaseConfig.apiKey) {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    isCloudReady = true;
+                    setCloudStatus(true, currentLang === 'ar' ? 'متصل بقاعدة بيانات Firebase' : 'Firebase Cloud Connected');
+                    const loginBadge = document.getElementById('login-sync-badge');
+                    if (loginBadge) loginBadge.textContent = currentLang === 'ar' ? '✓ متصل بالمزامنة الفورية (Firebase)' : '✓ Firebase Multi-Device Sync Active';
+
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'users'), snap => {
+                        const cloudUsers = [];
+                        snap.forEach(d => {
+                            const data = d.data();
+                            if (data && data.id && !deletedUserIds.includes(data.id)) cloudUsers.push(data);
+                        });
                         if (cloudUsers.length > 0) {
                             users = cloudUsers;
                             persistToLocalStorage();
                             if (currentUser) renderAll();
                         }
-                    } else {
-                        users.forEach(u => setDoc(getPublicDoc('ptw_users', u.id), u, { merge: true }).catch(() => {}));
-                    }
-                }, (err) => console.warn('Users snapshot error:', err));
+                    });
 
-                onSnapshot(getPublicCollection('ptw_permits'), (snap) => {
-                    permits = snap.docs.map(d => d.data()).filter(p => !deletedPermitIds.includes(p.id));
-                    persistToLocalStorage();
-                    if (currentUser) renderAll();
-                }, (err) => console.warn('Permits snapshot error:', err));
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'permits'), snap => {
+                        const cloudPermits = [];
+                        snap.forEach(d => {
+                            const data = d.data();
+                            if (data && data.id && !deletedPermitIds.includes(data.id)) cloudPermits.push(data);
+                        });
+                        permits = cloudPermits;
+                        persistToLocalStorage();
+                        if (currentUser) renderAll();
+                    });
 
-                onSnapshot(getPublicCollection('ptw_notifs'), (snap) => {
-                    if (!snap.empty) {
-                        notifications = snap.docs.map(d => d.data());
+                    onSnapshot(collection(db, 'artifacts', appId, 'public', 'data', 'notifications'), snap => {
+                        const cloudNotifs = [];
+                        snap.forEach(d => {
+                            const data = d.data();
+                            if (data && data.id) cloudNotifs.push(data);
+                        });
+                        notifications = cloudNotifs;
                         persistToLocalStorage();
                         if (currentUser) renderNotifications();
-                    }
-                }, (err) => console.warn('Notifs snapshot error:', err));
-            } catch (err) {
-                console.warn('Cloud init skipped:', err);
-                await initPublicMultiDeviceSync();
+                    });
+                    return;
+                } catch (e) {
+                    console.warn('Firebase init fallback:', e);
+                }
             }
+
+            await initPublicMultiDeviceSync();
         }
 
         async function initPublicMultiDeviceSync() {
             const loginBadge = document.getElementById('login-sync-badge');
-            const endpoint = `${PUBLIC_SYNC_URL}/${GLOBAL_SYNC_CHANNEL}`;
             try {
-                const res = await fetch(endpoint, { cache: 'no-store' });
-                if (res.ok || res.status === 404) {
-                    isPublicRestSyncReady = true;
-                    let remoteData = null;
-                    if (res.ok) {
-                        const txt = await res.text();
-                        if (txt) {
-                            try { remoteData = JSON.parse(txt); } catch (e) {}
-                        }
-                    }
-                    if (remoteData && Array.isArray(remoteData.users) && remoteData.users.length > 0) {
-                        if (Array.isArray(remoteData.deletedUserIds)) {
-                            deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteData.deletedUserIds]));
-                        }
-                        if (Array.isArray(remoteData.deletedPermitIds)) {
-                            deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...remoteData.deletedPermitIds]));
-                        }
-                        const mergedMap = new Map();
-                        remoteData.users.forEach(u => {
-                            if (!deletedUserIds.includes(u.id)) mergedMap.set(u.id, u);
-                        });
-                        const activeSessionId = localStorage.getItem(SESSION_KEY);
-                        if (activeSessionId) {
-                            const localSessionUser = users.find(u => u.id === activeSessionId);
-                            if (localSessionUser && !mergedMap.has(localSessionUser.id)) {
-                                mergedMap.set(localSessionUser.id, localSessionUser);
-                            }
-                        }
-                        users = Array.from(mergedMap.values());
-                        permits = (Array.isArray(remoteData.permits) ? remoteData.permits : []).filter(p => !deletedPermitIds.includes(p.id));
-                        notifications = Array.isArray(remoteData.notifications) ? remoteData.notifications : [];
-                        lastRemoteSyncHash = JSON.stringify({ users, permits, notifications, deletedUserIds, deletedPermitIds });
-                        persistToLocalStorage();
-                    } else {
-                        await pushStateToPublicMultiDeviceSync();
-                    }
-                    setCloudStatus(true, currentLang === 'ar' ? 'متصل بالسحابة العالمية (كل الأجهزة)' : 'Global Multi-Device Cloud Active');
-                    if (loginBadge) loginBadge.textContent = currentLang === 'ar' ? '✓ متصل بالمزامنة الفورية بين جميع الأجهزة' : '✓ Global Multi-Device Sync Connected';
-                    startPublicMultiDevicePolling();
-                    return;
+                const remoteData = await fetchLatestCloudState();
+                if (remoteData) {
+                    applyRemoteCloudState(remoteData);
+                } else {
+                    await pushStateToPublicMultiDeviceSync();
                 }
+                isPublicRestSyncReady = true;
+                setCloudStatus(true, currentLang === 'ar' ? 'متصل بالمزامنة السحابية لجميع الأجهزة' : 'Global Multi-Device Sync Active');
+                if (loginBadge) {
+                    loginBadge.textContent = currentLang === 'ar'
+                        ? '✓ متصل بالمزامنة السحابية الفورية بين جميع الأجهزة'
+                        : '✓ Global Multi-Device Sync Connected';
+                }
+                startPublicMultiDevicePolling();
             } catch (e) {
-                console.warn('Public multi-device sync fallback to local:', e);
+                isPublicRestSyncReady = true;
+                setCloudStatus(false, currentLang === 'ar' ? 'وضع التخزين المحلي النشط' : 'Local Device Mode Active');
+                if (loginBadge) {
+                    loginBadge.textContent = currentLang === 'ar'
+                        ? 'وضع الجهاز المحلي نشط'
+                        : 'Local Device Mode Active';
+                }
+                startPublicMultiDevicePolling();
             }
-            setCloudStatus(false, currentLang === 'ar' ? 'حفظ محلي على الجهاز' : 'Local Device Storage');
-            if (loginBadge) loginBadge.textContent = currentLang === 'ar' ? 'وضع التخزين المحلي نشط' : 'Local Device Mode Active';
+        }
+
+        async function fetchLatestCloudState() {
+            // Try primary JSONBlob endpoint
+            try {
+                const res = await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_BLOB_ID}?t=${Date.now()}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' },
+                    cache: 'no-store'
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && Array.isArray(data.users)) return data;
+                }
+            } catch (e) {}
+
+            // Fallback to ntfy topic cache if JSONBlob is unreachable
+            try {
+                const ntfyRes = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=all`, { cache: 'no-store' });
+                if (ntfyRes.ok) {
+                    const text = await ntfyRes.text();
+                    const lines = text.trim().split('\n').filter(Boolean);
+                    for (let i = lines.length - 1; i >= 0; i--) {
+                        const evt = JSON.parse(lines[i]);
+                        if (evt && evt.message) {
+                            const parsed = JSON.parse(evt.message);
+                            if (parsed && Array.isArray(parsed.users)) return parsed;
+                        }
+                    }
+                }
+            } catch (e) {}
+            return null;
+        }
+
+        function applyRemoteCloudState(remoteData) {
+            if (!remoteData || !Array.isArray(remoteData.users)) return false;
+            const remoteHash = JSON.stringify({
+                u: remoteData.users,
+                p: remoteData.permits || [],
+                n: remoteData.notifications || [],
+                du: remoteData.deletedUserIds || [],
+                dp: remoteData.deletedPermitIds || []
+            });
+            if (remoteHash === lastRemoteSyncHash) return false;
+            lastRemoteSyncHash = remoteHash;
+
+            const mergedDeletedUsers = Array.from(new Set([...deletedUserIds, ...(remoteData.deletedUserIds || [])]));
+            const mergedDeletedPermits = Array.from(new Set([...deletedPermitIds, ...(remoteData.deletedPermitIds || [])]));
+            deletedUserIds = mergedDeletedUsers;
+            deletedPermitIds = mergedDeletedPermits;
+
+            const userMap = new Map();
+            users.forEach(u => {
+                if (!deletedUserIds.includes(u.id)) userMap.set(u.id, u);
+            });
+            remoteData.users.forEach(u => {
+                if (u && u.id && !deletedUserIds.includes(u.id)) userMap.set(u.id, u);
+            });
+            if (userMap.size > 0) {
+                users = Array.from(userMap.values());
+            }
+
+            const permitMap = new Map();
+            permits.forEach(p => {
+                if (!deletedPermitIds.includes(p.id)) permitMap.set(p.id, p);
+            });
+            (remoteData.permits || []).forEach(p => {
+                if (p && p.id && !deletedPermitIds.includes(p.id)) permitMap.set(p.id, p);
+            });
+            permits = Array.from(permitMap.values());
+
+            const notifMap = new Map();
+            notifications.forEach(n => notifMap.set(n.id, n));
+            (remoteData.notifications || []).forEach(n => {
+                if (n && n.id) notifMap.set(n.id, n);
+            });
+            notifications = Array.from(notifMap.values());
+
+            persistToLocalStorage();
+            return true;
         }
 
         async function pushStateToPublicMultiDeviceSync() {
-            if (!isPublicRestSyncReady) return;
+            const payload = {
+                users,
+                permits,
+                notifications,
+                deletedUserIds,
+                deletedPermitIds,
+                updatedAt: new Date().toISOString()
+            };
+            lastRemoteSyncHash = JSON.stringify({
+                u: payload.users,
+                p: payload.permits,
+                n: payload.notifications,
+                du: payload.deletedUserIds,
+                dp: payload.deletedPermitIds
+            });
+
             try {
-                const payload = {
-                    users,
-                    permits,
-                    notifications,
-                    deletedUserIds,
-                    deletedPermitIds,
-                    updatedAt: new Date().toISOString()
-                };
-                lastRemoteSyncHash = JSON.stringify({ users, permits, notifications, deletedUserIds, deletedPermitIds });
-                await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_SYNC_CHANNEL}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_BLOB_ID}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
                     body: JSON.stringify(payload)
                 });
-            } catch (e) {
-                console.warn('Public sync push failed:', e);
-            }
+            } catch (e) {}
+
+            try {
+                await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload)
+                });
+            } catch (e) {}
         }
 
         function startPublicMultiDevicePolling() {
             setInterval(async () => {
                 if (!isPublicRestSyncReady) return;
                 try {
-                    const res = await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_SYNC_CHANNEL}`, { cache: 'no-store' });
-                    if (!res.ok) return;
-                    const txt = await res.text();
-                    if (!txt) return;
-                    const remoteData = JSON.parse(txt);
-                    if (!remoteData || !Array.isArray(remoteData.users) || remoteData.users.length === 0) return;
-                    const remoteDelUsers = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
-                    const remoteDelPermits = Array.isArray(remoteData.deletedPermitIds) ? remoteData.deletedPermitIds : [];
-                    const incomingHash = JSON.stringify({
-                        users: remoteData.users,
-                        permits: Array.isArray(remoteData.permits) ? remoteData.permits : [],
-                        notifications: Array.isArray(remoteData.notifications) ? remoteData.notifications : [],
-                        deletedUserIds: remoteDelUsers,
-                        deletedPermitIds: remoteDelPermits
-                    });
-                    if (incomingHash !== lastRemoteSyncHash) {
-                        deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteDelUsers]));
-                        deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...remoteDelPermits]));
-                        users = remoteData.users.filter(u => !deletedUserIds.includes(u.id));
-                        permits = (Array.isArray(remoteData.permits) ? remoteData.permits : []).filter(p => !deletedPermitIds.includes(p.id));
-                        notifications = Array.isArray(remoteData.notifications) ? remoteData.notifications : [];
-                        lastRemoteSyncHash = incomingHash;
-                        persistToLocalStorage();
+                    const remoteData = await fetchLatestCloudState();
+                    if (remoteData && applyRemoteCloudState(remoteData)) {
                         if (currentUser) {
                             const updatedSelf = users.find(u => u.id === currentUser.id && u.active);
                             if (!updatedSelf) {
@@ -1412,175 +1335,69 @@
 
         async function syncUserToCloud(userObj) {
             persistToLocalStorage();
-            if (isCloudReady && cloudUser) {
-                try { await setDoc(getPublicDoc('ptw_users', userObj.id), userObj, { merge: true }); } catch (e) {}
-            } else if (isPublicRestSyncReady) {
-                await pushStateToPublicMultiDeviceSync();
+            pushStateToPublicMultiDeviceSync();
+            if (isCloudReady && db && userObj && userObj.id) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userObj.id), userObj);
+                } catch (e) {}
             }
         }
 
         async function syncPermitToCloud(permitObj) {
             persistToLocalStorage();
-            if (isCloudReady && cloudUser) {
-                try { await setDoc(getPublicDoc('ptw_permits', permitObj.id), permitObj, { merge: true }); } catch (e) {}
-            } else if (isPublicRestSyncReady) {
-                await pushStateToPublicMultiDeviceSync();
+            pushStateToPublicMultiDeviceSync();
+            if (isCloudReady && db && permitObj && permitObj.id) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'permits', permitObj.id), permitObj);
+                } catch (e) {}
             }
         }
 
         async function deletePermitFromCloud(permitId) {
             if (!deletedPermitIds.includes(permitId)) deletedPermitIds.push(permitId);
             persistToLocalStorage();
-            if (isCloudReady && cloudUser) {
-                try { await deleteDoc(getPublicDoc('ptw_permits', permitId)); } catch (e) {}
-            } else if (isPublicRestSyncReady) {
-                await pushStateToPublicMultiDeviceSync();
+            pushStateToPublicMultiDeviceSync();
+            if (isCloudReady && db && permitId) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'permits', permitId));
+                } catch (e) {}
             }
         }
 
         async function resetCloudPermitsAndNotifs() {
-            permits.forEach(p => {
-                if (!deletedPermitIds.includes(p.id)) deletedPermitIds.push(p.id);
-            });
-            if (isCloudReady && cloudUser) {
+            persistToLocalStorage();
+            pushStateToPublicMultiDeviceSync();
+            if (isCloudReady && db) {
                 try {
                     const batch = writeBatch(db);
-                    permits.forEach(p => batch.delete(getPublicDoc('ptw_permits', p.id)));
-                    notifications.forEach(n => batch.delete(getPublicDoc('ptw_notifs', n.id)));
+                    deletedPermitIds.forEach(pid => {
+                        batch.delete(doc(db, 'artifacts', appId, 'public', 'data', 'permits', pid));
+                    });
                     await batch.commit();
                 } catch (e) {}
-            } else if (isPublicRestSyncReady) {
-                await pushStateToPublicMultiDeviceSync();
             }
         }
 
-        async function addNotification(targetUserId, permitId, msgEn, msgAr) {
+        function addNotification(userId, message) {
+            if (!userId || !message) return;
             const notif = {
-                id: 'n-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6),
-                userId: targetUserId,
-                permitId: permitId || null,
-                msgEn,
-                msgAr,
+                id: 'ntf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                userId,
+                message,
                 read: false,
                 createdAt: new Date().toISOString()
             };
             notifications.unshift(notif);
             persistToLocalStorage();
-            if (isCloudReady && cloudUser) {
-                try { await setDoc(getPublicDoc('ptw_notifs', notif.id), notif, { merge: true }); } catch (e) {}
-            } else if (isPublicRestSyncReady) {
-                await pushStateToPublicMultiDeviceSync();
+            pushStateToPublicMultiDeviceSync();
+            if (isCloudReady && db) {
+                setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'notifications', notif.id), notif).catch(() => {});
             }
         }
 
         // ==========================================
-        // EXPIRY REMINDER ENGINE (48 HOURS / 2 DAYS)
+        // 2. AUTHENTICATION & SESSION CONTROL
         // ==========================================
-        async function checkPermitExpiryAlerts() {
-            const now = Date.now();
-            const twoDaysMs = 48 * 60 * 60 * 1000;
-            const adminUsers = users.filter(u => u.role === 'Admin' && u.active);
-            let updatedAnyPermit = false;
-
-            for (const p of permits) {
-                if (p.status === 'CLOSED' || !p.validUntil) continue;
-                const expiryTime = new Date(p.validUntil).getTime();
-                if (isNaN(expiryTime)) continue;
-
-                const remainingMs = expiryTime - now;
-                // Trigger alert if within 48 hours before expiry (or expired) and not yet alerted for current expiry date
-                if (remainingMs <= twoDaysMs && p.expiryAlertSentFor !== p.validUntil) {
-                    p.expiryAlertSentFor = p.validUntil;
-                    updatedAnyPermit = true;
-
-                    const holderName = getUserName(p.currentHolderId);
-                    const formattedExp = formatDateTime(p.validUntil);
-                    const isAlreadyExpired = remainingMs <= 0;
-
-                    const msgEn = isAlreadyExpired
-                        ? `[EXPIRY ALERT] Permit ${p.permitNumber} (${p.location}) held by ${holderName} has EXPIRED (${formattedExp}).`
-                        : `[2-DAY REMINDER] Permit ${p.permitNumber} (${p.location}) held by ${holderName} expires within 48 hours (${formattedExp}).`;
-
-                    const msgAr = isAlreadyExpired
-                        ? `[تنبيه انتهاء] التصريح ${p.permitNumber} (${p.location}) بعهدة ${holderName} قد انتهت صلاحيته (${formattedExp}).`
-                        : `[تذكير قبل يومين] التصريح ${p.permitNumber} (${p.location}) بعهدة ${holderName} ستنتهي صلاحيته خلال أقل من يومين (${formattedExp}).`;
-
-                    const recipientIds = new Set(adminUsers.map(a => a.id));
-                    if (p.currentHolderId) recipientIds.add(p.currentHolderId);
-                    if (p.pendingReceiverId) recipientIds.add(p.pendingReceiverId);
-
-                    for (const uid of recipientIds) {
-                        await addNotification(uid, p.id, msgEn, msgAr);
-                    }
-                }
-            }
-
-            if (updatedAnyPermit) {
-                persistToLocalStorage();
-                if (isCloudReady && cloudUser) {
-                    try {
-                        const batch = writeBatch(db);
-                        permits.forEach(p => batch.set(getPublicDoc('ptw_permits', p.id), p, { merge: true }));
-                        await batch.commit();
-                    } catch (e) {}
-                }
-            }
-        }
-
-        async function initApplication() {
-            loadFromLocalStorage();
-            processUrlActivationParams();
-            applyTranslations();
-            await initCloudSync();
-            // Re-apply URL activation after cloud sync so activated user is guaranteed to exist & auto-login
-            processUrlActivationParams();
-            await checkPermitExpiryAlerts();
-
-            const savedUserId = localStorage.getItem(SESSION_KEY);
-            if (savedUserId) {
-                const found = users.find(u => u.id === savedUserId && u.active);
-                if (found) {
-                    if (isPublicRestSyncReady) await pushStateToPublicMultiDeviceSync();
-                    enterApp(found);
-                    return;
-                }
-            }
-            document.getElementById('login-view').classList.remove('hidden');
-            document.getElementById('app-view').classList.add('hidden');
-        }
-
-        function enterApp(user) {
-            currentUser = user;
-            localStorage.setItem(SESSION_KEY, user.id);
-            document.getElementById('login-view').classList.add('hidden');
-            document.getElementById('app-view').classList.remove('hidden');
-
-            document.getElementById('nav-user-name').textContent = user.fullName;
-            document.getElementById('nav-user-role').textContent = user.role;
-            document.getElementById('mobile-user-name').textContent = user.fullName;
-            document.getElementById('mobile-user-role').textContent = user.role;
-            document.getElementById('nav-user-avatar').textContent = (user.fullName || 'U').charAt(0).toUpperCase();
-
-            const adminTabBtn = document.getElementById('admin-tab-btn');
-            const adminSection = document.getElementById('admin-section');
-            if (isAdminUser()) {
-                adminTabBtn?.classList.remove('hidden');
-            } else {
-                adminTabBtn?.classList.add('hidden');
-                adminSection?.classList.add('hidden');
-            }
-
-            setActiveTab('my-custody');
-            renderAll();
-        }
-
-        function normalizeDigits(str) {
-            return String(str || '')
-                .replace(/[٠-٩]/g, d => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)])
-                .replace(/[۰-۹]/g, d => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(d)])
-                .trim();
-        }
-
         async function handleLogin(e) {
             e.preventDefault();
             const username = normalizeDigits(document.getElementById('login-username').value).toLowerCase();
@@ -1589,39 +1406,22 @@
             const errText = document.getElementById('login-error-text');
 
             // Pull latest users from cloud right before checking credentials so mobile always sees newly created accounts
-            if (isPublicRestSyncReady) {
-                try {
-                    const res = await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_SYNC_CHANNEL}`, { cache: 'no-store' });
-                    if (res.ok) {
-                        const txt = await res.text();
-                        const remoteData = txt ? JSON.parse(txt) : null;
-                        if (remoteData && Array.isArray(remoteData.users) && remoteData.users.length > 0) {
-                            const remoteDelUsers = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
-                            deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteDelUsers]));
-                            const merged = new Map(users.map(u => [u.id, u]));
-                            remoteData.users.forEach(u => {
-                                if (!deletedUserIds.includes(u.id)) merged.set(u.id, u);
-                            });
-                            users = Array.from(merged.values());
-                            persistToLocalStorage();
-                        }
-                    }
-                } catch (err) {}
-            }
+            try {
+                const remoteData = await fetchLatestCloudState();
+                if (remoteData) {
+                    applyRemoteCloudState(remoteData);
+                }
+            } catch (err) {}
 
             const matched = users.find(u =>
                 normalizeDigits(u.username).toLowerCase() === username &&
-                normalizeDigits(u.password) === password
+                normalizeDigits(u.password) === password &&
+                u.active
             );
             if (!matched) {
                 errText.textContent = currentLang === 'ar'
-                    ? 'اسم المستخدم أو الرقم السري غير صحيح. (تأكد من فتح رابط التفعيل الخاص بحسابك إذا كنت تفتحه لأول مرة من هاتف جديد)'
-                    : 'Invalid username or password. (If logging in for the first time on a new device, open the personal link sent by Admin)';
-                errBox.classList.remove('hidden');
-                return;
-            }
-            if (!matched.active) {
-                errText.textContent = currentLang === 'ar' ? 'هذا الحساب موقوف من قبل الإدارة.' : 'This account has been deactivated by Admin.';
+                    ? 'اسم المستخدم أو الرقم السري غير صحيح.'
+                    : 'Invalid username or password.';
                 errBox.classList.remove('hidden');
                 return;
             }
@@ -1629,32 +1429,137 @@
             enterApp(matched);
         }
 
+        function enterApp(user) {
+            currentUser = user;
+            try { sessionStorage.setItem(SESSION_KEY, user.id); } catch (e) {}
+            document.getElementById('login-view').classList.add('hidden');
+            document.getElementById('app-view').classList.remove('hidden');
+
+            document.getElementById('nav-user-avatar').textContent = (user.fullName || 'U').charAt(0).toUpperCase();
+            document.getElementById('nav-user-name').textContent = user.fullName;
+            document.getElementById('nav-user-role').textContent = user.role;
+            document.getElementById('mobile-user-name').textContent = user.fullName;
+            document.getElementById('mobile-user-role').textContent = user.role;
+
+            const adminTabBtn = document.getElementById('admin-tab-btn');
+            const adminSection = document.getElementById('admin-section');
+            if (user.role === 'Admin') {
+                adminTabBtn.classList.remove('hidden');
+            } else {
+                adminTabBtn.classList.add('hidden');
+                adminSection.classList.add('hidden');
+                if (currentTab === 'admin') currentTab = 'my-custody';
+            }
+
+            checkExpiringPermitsAndNotify();
+            setActiveTab(currentTab);
+            renderAll();
+        }
+
         function handleLogout() {
             currentUser = null;
-            localStorage.removeItem(SESSION_KEY);
-            document.getElementById('user-dropdown')?.classList.add('hidden');
+            try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+            document.getElementById('user-dropdown').classList.add('hidden');
+            document.getElementById('notif-dropdown').classList.add('hidden');
             document.getElementById('app-view').classList.add('hidden');
             document.getElementById('login-view').classList.remove('hidden');
             document.getElementById('login-password').value = '';
         }
 
-        function setActiveTab(tab) {
-            if (tab === 'admin' && !isAdminUser()) tab = 'my-custody';
-            currentTab = tab;
+        // ==========================================
+        // 3. UI & NAVIGATION HELPERS
+        // ==========================================
+        function t(key) {
+            return (translations[currentLang] && translations[currentLang][key]) || translations.en[key] || key;
+        }
 
+        function applyTranslations() {
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+            const btnText = currentLang === 'ar' ? 'English' : 'العربية';
+            const loginBtn = document.getElementById('login-lang-btn-text');
+            const navBtn = document.getElementById('nav-lang-btn-text');
+            if (loginBtn) loginBtn.textContent = btnText;
+            if (navBtn) navBtn.textContent = btnText;
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (key) el.textContent = t(key);
+            });
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                if (key) el.placeholder = t(key);
+            });
+        }
+
+        function toggleLanguage() {
+            currentLang = currentLang === 'en' ? 'ar' : 'en';
+            applyTranslations();
+            if (currentUser) renderAll();
+        }
+
+        function togglePasswordVisibility(inputId, btn) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const isPass = input.type === 'password';
+            input.type = isPass ? 'text' : 'password';
+            btn.innerHTML = isPass ? '<i class="fa-solid fa-eye-slash"></i>' : '<i class="fa-solid fa-eye"></i>';
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+            const toast = document.createElement('div');
+            const colors = {
+                success: 'bg-emerald-700 text-white border-emerald-500',
+                error: 'bg-red-700 text-white border-red-500',
+                info: 'bg-navy-900 text-white border-amber-400'
+            };
+            toast.className = `toast-enter pointer-events-auto px-4 py-3 rounded-xl shadow-lg border text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 ${colors[type] || colors.info}`;
+            toast.innerHTML = `<span>${escapeHtml(message)}</span><button onclick="this.parentElement.remove()" class="opacity-75 hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>`;
+            container.appendChild(toast);
+            setTimeout(() => { if (toast.parentElement) toast.remove(); }, 4200);
+        }
+
+        function openModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        }
+
+        function toggleNotifications() {
+            document.getElementById('user-dropdown').classList.add('hidden');
+            document.getElementById('notif-dropdown').classList.toggle('hidden');
+        }
+
+        function toggleUserMenu() {
+            document.getElementById('notif-dropdown').classList.add('hidden');
+            document.getElementById('user-dropdown').classList.toggle('hidden');
+        }
+
+        function setActiveTab(tab) {
+            if (tab === 'admin' && (!currentUser || currentUser.role !== 'Admin')) {
+                tab = 'my-custody';
+            }
+            currentTab = tab;
             document.querySelectorAll('.tab-btn').forEach(btn => {
-                const isSelected = btn.getAttribute('data-tab') === tab;
-                btn.className = isSelected
-                    ? 'tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition bg-navy-900 text-white flex items-center gap-1.5'
-                    : 'tab-btn px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold transition text-slate-600 hover:bg-slate-100 flex items-center gap-1.5';
-                if (btn.id === 'admin-tab-btn' && !isAdminUser()) btn.classList.add('hidden');
+                if (btn.getAttribute('data-tab') === tab) {
+                    btn.classList.add('bg-navy-900', 'text-white');
+                    btn.classList.remove('text-slate-600', 'hover:bg-slate-100');
+                } else {
+                    btn.classList.remove('bg-navy-900', 'text-white');
+                    btn.classList.add('text-slate-600', 'hover:bg-slate-100');
+                }
             });
 
             const permitsSec = document.getElementById('permits-section');
             const adminSec = document.getElementById('admin-section');
             const searchBox = document.getElementById('search-container');
-
-            if (tab === 'admin' && isAdminUser()) {
+            if (tab === 'admin' && currentUser && currentUser.role === 'Admin') {
                 permitsSec.classList.add('hidden');
                 searchBox.classList.add('hidden');
                 adminSec.classList.remove('hidden');
@@ -1669,10 +1574,9 @@
 
         function renderAll() {
             if (!currentUser) return;
-            checkPermitExpiryAlerts();
             updateKPIs();
             renderNotifications();
-            if (currentTab === 'admin' && isAdminUser()) {
+            if (currentTab === 'admin' && currentUser.role === 'Admin') {
                 renderUsersTable();
             } else {
                 renderPermits();
@@ -1682,144 +1586,157 @@
         function updateKPIs() {
             const myCustody = permits.filter(p => p.status !== 'CLOSED' && p.currentHolderId === currentUser.id).length;
             const incoming = permits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingReceiverId === currentUser.id).length;
-            const activeAll = permits.filter(p => p.status !== 'CLOSED').length;
-            const closedAll = permits.filter(p => p.status === 'CLOSED').length;
+            const active = permits.filter(p => p.status !== 'CLOSED').length;
+            const closed = permits.filter(p => p.status === 'CLOSED').length;
 
             document.getElementById('kpi-custody-count').textContent = myCustody;
             document.getElementById('kpi-incoming-count').textContent = incoming;
-            document.getElementById('kpi-active-count').textContent = activeAll;
-            document.getElementById('kpi-closed-count').textContent = closedAll;
+            document.getElementById('kpi-active-count').textContent = active;
+            document.getElementById('kpi-closed-count').textContent = closed;
 
-            const incBadge = document.getElementById('tab-incoming-badge');
+            const tabBadge = document.getElementById('tab-incoming-badge');
             if (incoming > 0) {
-                incBadge.textContent = incoming;
-                incBadge.classList.remove('hidden');
+                tabBadge.textContent = incoming;
+                tabBadge.classList.remove('hidden');
             } else {
-                incBadge.classList.add('hidden');
+                tabBadge.classList.add('hidden');
             }
+        }
+
+        function getUserNameById(id) {
+            const u = users.find(x => x.id === id);
+            return u ? u.fullName : 'Unknown';
+        }
+
+        function formatDateTime(iso) {
+            if (!iso) return '-';
+            try {
+                const d = new Date(iso);
+                return d.toLocaleString(currentLang === 'ar' ? 'ar-IQ' : 'en-GB', {
+                    year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit'
+                });
+            } catch (e) { return iso; }
         }
 
         function renderPermits() {
             const grid = document.getElementById('permits-grid');
-            if (!grid || !currentUser) return;
-            const q = (document.getElementById('permit-search')?.value || '').trim().toLowerCase();
+            const query = (document.getElementById('permit-search').value || '').trim().toLowerCase();
 
-            let list = permits.slice();
-            if (currentTab === 'my-custody') {
-                list = list.filter(p => p.status !== 'CLOSED' && p.currentHolderId === currentUser.id);
-            } else if (currentTab === 'incoming') {
-                list = list.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingReceiverId === currentUser.id);
-            } else if (currentTab === 'all-active') {
-                list = list.filter(p => p.status !== 'CLOSED');
-            } else if (currentTab === 'closed') {
-                list = list.filter(p => p.status === 'CLOSED');
-            }
+            let filtered = permits.filter(p => {
+                if (currentTab === 'my-custody') return p.status !== 'CLOSED' && (p.currentHolderId === currentUser.id || p.pendingReceiverId === currentUser.id);
+                if (currentTab === 'incoming') return p.status === 'PENDING_HANDOVER' && p.pendingReceiverId === currentUser.id;
+                if (currentTab === 'all-active') return p.status !== 'CLOSED';
+                if (currentTab === 'closed') return p.status === 'CLOSED';
+                return true;
+            });
 
-            if (q) {
-                list = list.filter(p =>
-                    (p.permitNumber || '').toLowerCase().includes(q) ||
-                    (p.location || '').toLowerCase().includes(q) ||
-                    (p.type || '').toLowerCase().includes(q) ||
-                    getUserName(p.currentHolderId).toLowerCase().includes(q)
+            if (query) {
+                filtered = filtered.filter(p =>
+                    (p.permitNumber || '').toLowerCase().includes(query) ||
+                    (p.location || '').toLowerCase().includes(query) ||
+                    (p.type || '').toLowerCase().includes(query) ||
+                    getUserNameById(p.currentHolderId).toLowerCase().includes(query)
                 );
             }
 
-            if (list.length === 0) {
-                grid.innerHTML = `<div class="col-span-full bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500 text-sm">${t('noPermitsFound')}</div>`;
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full bg-white rounded-2xl border border-slate-200 p-10 text-center text-slate-500 text-sm">${escapeHtml(t('noPermitsFound'))}</div>`;
                 return;
             }
 
-            const typeColors = {
-                SPARK: 'bg-orange-100 text-orange-800 border-orange-200',
-                HOT: 'bg-red-100 text-red-800 border-red-200',
-                COLD: 'bg-sky-100 text-sky-800 border-sky-200',
-                BREAKING: 'bg-purple-100 text-purple-800 border-purple-200'
-            };
+            const now = Date.now();
+            const twoDaysMs = 48 * 60 * 60 * 1000;
 
-            grid.innerHTML = list.map(p => {
-                const isClosed = p.status === 'CLOSED';
-                const isPending = p.status === 'PENDING_HANDOVER';
+            grid.innerHTML = filtered.map(p => {
+                const validTime = new Date(p.validUntil).getTime();
+                const isExpired = p.status !== 'CLOSED' && !isNaN(validTime) && validTime <= now;
+                const isExpiringSoon = p.status !== 'CLOSED' && !isExpired && !isNaN(validTime) && (validTime - now) <= twoDaysMs;
                 const isHolder = p.currentHolderId === currentUser.id;
-                const isPendingReceiver = isPending && p.pendingReceiverId === currentUser.id;
-                const expMs = p.validUntil ? (new Date(p.validUntil).getTime() - Date.now()) : Infinity;
-                const isExpired = !isClosed && expMs <= 0;
-                const isExpiringSoon = !isClosed && expMs > 0 && expMs <= 48 * 60 * 60 * 1000;
+                const isPendingReceiver = p.status === 'PENDING_HANDOVER' && p.pendingReceiverId === currentUser.id;
+                const canDelete = currentUser.role === 'Admin' || isHolder || p.createdBy === currentUser.id;
 
-                const statusBadge = isClosed
-                    ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-slate-200 text-slate-700">${t('statusClosed')}</span>`
-                    : isPending
-                        ? `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800">${t('statusPending')}</span>`
-                        : `<span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800">${t('statusActive')}</span>`;
+                let statusBadge = `<span class="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full">${escapeHtml(t('statusActive'))}</span>`;
+                if (p.status === 'PENDING_HANDOVER') {
+                    statusBadge = `<span class="bg-amber-100 text-amber-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full">${escapeHtml(t('statusPending'))}</span>`;
+                } else if (p.status === 'CLOSED') {
+                    statusBadge = `<span class="bg-slate-200 text-slate-700 text-[10px] font-extrabold px-2.5 py-1 rounded-full">${escapeHtml(t('statusClosed'))}</span>`;
+                }
 
-                const expiryWarningBadge = isExpired
-                    ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-600 text-white animate-pulse">${t('expiredBadge')}</span>`
-                    : isExpiringSoon
-                        ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500 text-white">${t('expiringSoonBadge')}</span>`
-                        : '';
+                let expiryAlertBadge = '';
+                if (isExpired) {
+                    expiryAlertBadge = `<span class="bg-red-600 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full animate-pulse">${escapeHtml(t('expiredBadge'))}</span>`;
+                } else if (isExpiringSoon) {
+                    expiryAlertBadge = `<span class="bg-orange-500 text-white text-[10px] font-extrabold px-2 py-0.5 rounded-full">${escapeHtml(t('expiringSoonBadge'))}</span>`;
+                }
 
                 return `
-                <div class="bg-white rounded-2xl border ${isPendingReceiver ? 'border-blue-400 ring-2 ring-blue-100' : isExpired ? 'border-red-300' : isExpiringSoon ? 'border-amber-300' : 'border-slate-200'} shadow-sm p-5 flex flex-col justify-between gap-4">
+                <div class="bg-white rounded-2xl border ${isPendingReceiver ? 'border-blue-400 ring-2 ring-blue-100' : 'border-slate-200'} shadow-sm p-5 flex flex-col justify-between gap-4">
                     <div class="space-y-3">
                         <div class="flex items-start justify-between gap-2">
                             <div>
                                 <div class="flex items-center gap-2 flex-wrap">
-                                    <span class="font-mono font-extrabold text-navy-900 text-base">${p.permitNumber}</span>
-                                    <span class="px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${typeColors[p.type] || 'bg-slate-100 text-slate-800'}">${p.type}</span>
-                                    ${expiryWarningBadge}
+                                    <span class="font-mono font-extrabold text-navy-900 text-sm sm:text-base">${escapeHtml(p.permitNumber)}</span>
+                                    <span class="bg-navy-900 text-amber-400 text-[10px] font-extrabold px-2 py-0.5 rounded-md">${escapeHtml(p.type)}</span>
                                 </div>
-                                <p class="text-xs font-bold text-slate-700 mt-1"><i class="fa-solid fa-location-dot text-amber-500 mr-1"></i>${p.location}</p>
+                                <div class="text-xs font-bold text-slate-700 mt-1"><i class="fa-solid fa-location-dot text-amber-500 mr-1"></i>${escapeHtml(p.location)}</div>
                             </div>
-                            ${statusBadge}
+                            <div class="flex flex-col items-end gap-1">
+                                ${statusBadge}
+                                ${expiryAlertBadge}
+                            </div>
                         </div>
 
-                        <p class="text-xs text-slate-600 line-clamp-2">${p.description}</p>
+                        <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 line-clamp-2">${escapeHtml(p.description)}</p>
 
-                        <div class="bg-slate-50 rounded-xl p-3 space-y-1.5 text-xs border border-slate-100">
+                        <div class="space-y-1.5 text-xs">
                             <div class="flex items-center justify-between">
-                                <span class="text-slate-500">${t('currentCustody')}:</span>
-                                <span class="font-bold text-navy-900">${getUserName(p.currentHolderId)}</span>
+                                <span class="text-slate-500">${escapeHtml(t('currentCustody'))}:</span>
+                                <span class="font-bold text-navy-900">${escapeHtml(getUserNameById(p.currentHolderId))}</span>
                             </div>
-                            ${isPending ? `
-                            <div class="flex items-center justify-between text-blue-700">
-                                <span>${t('pendingReceiver')}:</span>
-                                <span class="font-bold">${getUserName(p.pendingReceiverId)}</span>
+                            ${p.status === 'PENDING_HANDOVER' ? `
+                            <div class="flex items-center justify-between bg-amber-50 px-2.5 py-1.5 rounded-lg border border-amber-200">
+                                <span class="text-amber-800 font-semibold">${escapeHtml(t('pendingReceiver'))}:</span>
+                                <span class="font-extrabold text-amber-950">${escapeHtml(getUserNameById(p.pendingReceiverId))}</span>
                             </div>` : ''}
                             <div class="flex items-center justify-between">
-                                <span class="text-slate-500">${t('validUntil')}:</span>
-                                <span class="font-mono font-semibold text-slate-700">${formatDateTime(p.validUntil)}</span>
+                                <span class="text-slate-500">${escapeHtml(t('validUntil'))}:</span>
+                                <span class="font-mono font-semibold ${isExpired ? 'text-red-600' : isExpiringSoon ? 'text-orange-600' : 'text-slate-700'}">${escapeHtml(formatDateTime(p.validUntil))}</span>
                             </div>
                         </div>
                     </div>
 
                     <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
                         ${isPendingReceiver ? `
-                            <button onclick="acceptHandover('${p.id}')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-xs flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-check"></i><span>${t('acceptBtn')}</span>
+                            <button onclick="acceptHandover('${p.id}')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-xs transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-check"></i><span>${escapeHtml(t('acceptBtn'))}</span>
                             </button>
-                            <button onclick="openRejectModal('${p.id}')" class="bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold py-2 px-3 rounded-xl flex items-center justify-center gap-1.5">
-                                <i class="fa-solid fa-xmark"></i><span>${t('rejectBtn')}</span>
-                            </button>
-                        ` : ''}
-
-                        ${!isClosed && (isHolder || isAdminUser()) ? `
-                            <button onclick="openHandoverModal('${p.id}')" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold py-2 px-3 rounded-xl shadow-xs flex items-center gap-1.5">
-                                <i class="fa-solid fa-right-left"></i><span>${t('handoverBtn')}</span>
-                            </button>
-                            <button onclick="openRenewModal('${p.id}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold py-2 px-3 rounded-xl flex items-center gap-1.5">
-                                <i class="fa-solid fa-clock-rotate-left"></i><span>${t('renewPermitBtn')}</span>
-                            </button>
-                            <button onclick="openClosePermitModal('${p.id}')" class="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-2 px-3 rounded-xl flex items-center gap-1.5">
-                                <i class="fa-solid fa-lock"></i><span>${t('closePermitBtn')}</span>
+                            <button onclick="openRejectModal('${p.id}')" class="bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1">
+                                <i class="fa-solid fa-xmark"></i><span>${escapeHtml(t('rejectBtn'))}</span>
                             </button>
                         ` : ''}
 
-                        <button onclick="openTimelineModal('${p.id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3 rounded-xl flex items-center gap-1.5">
-                            <i class="fa-solid fa-timeline"></i><span>${t('viewHistoryBtn')}</span>
+                        ${p.status !== 'CLOSED' ? `
+                            <button onclick="openHandoverModal('${p.id}')" class="bg-amber-500 hover:bg-amber-600 text-navy-950 text-xs font-extrabold py-2 px-3 rounded-xl transition flex items-center gap-1.5">
+                                <i class="fa-solid fa-right-left"></i><span>${escapeHtml(t('handoverBtn'))}</span>
+                            </button>
+                        ` : ''}
+
+                        ${p.status !== 'CLOSED' && (isHolder || currentUser.role === 'Admin') ? `
+                            <button onclick="openRenewModal('${p.id}')" class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold py-2 px-2.5 rounded-xl transition flex items-center gap-1">
+                                <i class="fa-solid fa-clock-rotate-left"></i><span>${escapeHtml(t('renewPermitBtn'))}</span>
+                            </button>
+                            <button onclick="openClosePermitModal('${p.id}')" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-2.5 rounded-xl transition flex items-center gap-1">
+                                <i class="fa-solid fa-lock"></i><span>${escapeHtml(t('closePermitBtn'))}</span>
+                            </button>
+                        ` : ''}
+
+                        <button onclick="openTimelineModal('${p.id}')" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-2.5 rounded-xl transition flex items-center gap-1">
+                            <i class="fa-solid fa-clock-rotate-left"></i><span>${escapeHtml(t('viewHistoryBtn'))}</span>
                         </button>
 
-                        ${(isHolder || p.issuedBy === currentUser.id || isAdminUser()) ? `
-                            <button onclick="openDeletePermitModal('${p.id}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold py-2 px-3 rounded-xl ml-auto flex items-center gap-1.5" title="${t('deletePermitBtn')}">
-                                <i class="fa-solid fa-trash-can"></i><span>${t('deletePermitBtn')}</span>
+                        ${canDelete ? `
+                            <button onclick="openDeletePermitModal('${p.id}')" class="bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 text-xs font-bold py-2 px-2.5 rounded-xl transition flex items-center gap-1" title="${escapeHtml(t('deletePermitBtn'))}">
+                                <i class="fa-solid fa-trash"></i><span>${escapeHtml(t('deletePermitBtn'))}</span>
                             </button>
                         ` : ''}
                     </div>
@@ -1827,478 +1744,138 @@
             }).join('');
         }
 
-        function toggleNotifications() {
-            document.getElementById('user-dropdown')?.classList.add('hidden');
-            document.getElementById('notif-dropdown')?.classList.toggle('hidden');
-            renderNotifications();
-        }
-
         function renderNotifications() {
-            if (!currentUser) return;
-            const myNotifs = notifications.filter(n => n.userId === currentUser.id);
+            const myNotifs = notifications
+                .filter(n => n.userId === currentUser.id)
+                .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             const unreadCount = myNotifs.filter(n => !n.read).length;
+
             const badge = document.getElementById('notif-badge');
-            if (badge) {
-                if (unreadCount > 0) {
-                    badge.textContent = unreadCount;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
+            if (unreadCount > 0) {
+                badge.textContent = unreadCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
             }
-            const listEl = document.getElementById('notif-list');
-            if (!listEl) return;
+
+            const list = document.getElementById('notif-list');
             if (myNotifs.length === 0) {
-                listEl.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">${t('noNotifications')}</div>`;
+                list.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">${escapeHtml(t('noNotifications'))}</div>`;
                 return;
             }
-            listEl.innerHTML = myNotifs.slice(0, 25).map(n => `
-                <div class="p-3.5 text-xs ${n.read ? 'bg-white text-slate-600' : 'bg-amber-50/70 text-slate-900 font-semibold'}">
-                    <p>${currentLang === 'ar' ? (n.msgAr || n.msgEn) : n.msgEn}</p>
-                    <span class="text-[10px] text-slate-400 block mt-1">${formatDateTime(n.createdAt)}</span>
+
+            list.innerHTML = myNotifs.slice(0, 30).map(n => `
+                <div onclick="markNotificationRead('${n.id}')" class="p-3.5 cursor-pointer hover:bg-slate-50 transition ${n.read ? 'opacity-70' : 'bg-amber-50/50'}">
+                    <div class="flex items-start justify-between gap-2">
+                        <p class="text-xs text-slate-800 ${n.read ? 'font-medium' : 'font-bold'}">${escapeHtml(n.message)}</p>
+                        ${!n.read ? '<span class="w-2 h-2 rounded-full bg-amber-500 shrink-0 mt-1"></span>' : ''}
+                    </div>
+                    <span class="text-[10px] text-slate-400 mt-1 block">${escapeHtml(formatDateTime(n.createdAt))}</span>
                 </div>
             `).join('');
         }
 
-        async function markAllNotificationsRead() {
-            if (!currentUser) return;
-            notifications.forEach(n => {
-                if (n.userId === currentUser.id) n.read = true;
-            });
-            persistToLocalStorage();
-            if (isCloudReady && cloudUser) {
-                try {
-                    const batch = writeBatch(db);
-                    notifications.filter(n => n.userId === currentUser.id).forEach(n => batch.set(getPublicDoc('ptw_notifs', n.id), n, { merge: true }));
-                    await batch.commit();
-                } catch (e) {}
+        function markNotificationRead(id) {
+            const n = notifications.find(x => x.id === id);
+            if (n && !n.read) {
+                n.read = true;
+                persistToLocalStorage();
+                pushStateToPublicMultiDeviceSync();
+                renderNotifications();
             }
+        }
+
+        function markAllNotificationsRead() {
+            notifications.forEach(n => { if (n.userId === currentUser.id) n.read = true; });
+            persistToLocalStorage();
+            pushStateToPublicMultiDeviceSync();
             renderNotifications();
         }
 
-        function toggleUserMenu() {
-            document.getElementById('notif-dropdown')?.classList.add('hidden');
-            document.getElementById('user-dropdown')?.classList.toggle('hidden');
-        }
-
-        function openChangePasswordModal() {
-            document.getElementById('user-dropdown')?.classList.add('hidden');
-            document.getElementById('cpw-current').value = '';
-            document.getElementById('cpw-new').value = '';
-            document.getElementById('cpw-confirm').value = '';
-            document.getElementById('change-password-modal').classList.remove('hidden');
-        }
-
-        async function handleChangeOwnPassword(e) {
-            e.preventDefault();
-            const curr = document.getElementById('cpw-current').value;
-            const next = document.getElementById('cpw-new').value;
-            const conf = document.getElementById('cpw-confirm').value;
-
-            if (curr !== currentUser.password) {
-                showToast(currentLang === 'ar' ? 'الرقم السري الحالي غير صحيح' : 'Current password is incorrect', 'error');
-                return;
-            }
-            if (next !== conf) {
-                showToast(currentLang === 'ar' ? 'تأكيد الرقم السري غير متطابق' : 'New passwords do not match', 'error');
-                return;
-            }
-            currentUser.password = next;
-            await syncUserToCloud(currentUser);
-            closeModal('change-password-modal');
-            showToast(currentLang === 'ar' ? 'تم تحديث الرقم السري بنجاح' : 'Password updated successfully', 'success');
-        }
-
+        // ==========================================
+        // 4. PERMIT WORKFLOW ACTIONS
+        // ==========================================
         function openCreatePermitModal() {
             document.getElementById('cp-number').value = '';
             document.getElementById('cp-type').value = 'SPARK';
             document.getElementById('cp-location').value = '';
             document.getElementById('cp-description').value = '';
-            document.getElementById('cp-valid-until').value = new Date(Date.now() + 12 * 3600 * 1000).toISOString().slice(0, 16);
-            document.getElementById('cp-handover-notes').value = '';
+            const defaultValid = new Date(Date.now() + 12 * 3600 * 1000);
+            defaultValid.setMinutes(defaultValid.getMinutes() - defaultValid.getTimezoneOffset());
+            document.getElementById('cp-valid-until').value = defaultValid.toISOString().slice(0, 16);
 
             const activeUsers = users.filter(u => u.active);
-            const holderSel = document.getElementById('cp-holder');
-            holderSel.innerHTML = activeUsers.map(u =>
-                `<option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${u.fullName} (${u.role})</option>`
-            ).join('');
+            const holderSelect = document.getElementById('cp-holder');
+            holderSelect.innerHTML = activeUsers.map(u => `<option value="${u.id}" ${u.id === currentUser.id ? 'selected' : ''}>${escapeHtml(u.fullName)} (${escapeHtml(u.role)})</option>`).join('');
 
-            const handoverSel = document.getElementById('cp-handover-to');
+            const handoverSelect = document.getElementById('cp-handover-to');
             const otherUsers = activeUsers.filter(u => u.id !== currentUser.id);
-            handoverSel.innerHTML = `<option value="">${currentLang === 'ar' ? '-- بدون تسليم فوري (يبقى في عهدة المستلم الحالي) --' : '-- Keep with Current Holder (No immediate handover) --'}</option>` +
-                otherUsers.map(u => `<option value="${u.id}">${u.fullName} (${u.username}) — ${u.role}</option>`).join('');
+            handoverSelect.innerHTML = `<option value="">-- ${currentLang === 'ar' ? 'ابقاء التصريح في عهدتي حالياً' : 'Keep in my custody for now'} --</option>` +
+                otherUsers.map(u => `<option value="${u.id}">${escapeHtml(u.fullName)} (${escapeHtml(u.username)} - ${escapeHtml(u.role)})</option>`).join('');
+            document.getElementById('cp-handover-notes').value = '';
 
-            document.getElementById('create-permit-modal').classList.remove('hidden');
+            openModal('create-permit-modal');
         }
 
-        async function handleCreatePermit(e) {
+        function handleCreatePermit(e) {
             e.preventDefault();
             const permitNumber = document.getElementById('cp-number').value.trim();
             const type = document.getElementById('cp-type').value;
             const location = document.getElementById('cp-location').value.trim();
             const description = document.getElementById('cp-description').value.trim();
-            const validUntil = document.getElementById('cp-valid-until').value;
-            const holderId = document.getElementById('cp-holder').value;
+            const validUntil = new Date(document.getElementById('cp-valid-until').value).toISOString();
+            const holderId = document.getElementById('cp-holder').value || currentUser.id;
             const handoverToId = document.getElementById('cp-handover-to').value;
             const handoverNotes = document.getElementById('cp-handover-notes').value.trim();
 
-            if (!permitNumber) {
-                showToast(currentLang === 'ar' ? 'يرجى إدخال رقم التصريح' : 'Please enter permit number', 'warning');
-                return;
-            }
-
             const nowIso = new Date().toISOString();
-            const hasHandover = Boolean(handoverToId && handoverToId !== holderId);
+            const hasPendingHandover = handoverToId && handoverToId !== holderId;
             const newPermit = {
-                id: 'ptw-' + Date.now(),
+                id: 'ptw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
                 permitNumber,
                 type,
                 location,
                 description,
                 validUntil,
-                issuedBy: currentUser.id,
-                issuedAt: nowIso,
+                createdBy: currentUser.id,
+                createdAt: nowIso,
                 currentHolderId: holderId,
-                pendingReceiverId: hasHandover ? handoverToId : null,
-                pendingNotes: hasHandover ? handoverNotes : '',
-                status: hasHandover ? 'PENDING_HANDOVER' : 'ACTIVE',
-                history: [{
-                    timestamp: nowIso,
-                    action: 'ISSUED',
-                    actorId: currentUser.id,
-                    details: `Permit ${permitNumber} (${type}) issued by ${currentUser.fullName} to ${getUserName(holderId)}${hasHandover ? ` and sent for handover to ${getUserName(handoverToId)}` : ''}.`
-                }]
+                status: hasPendingHandover ? 'PENDING_HANDOVER' : 'ACTIVE',
+                pendingReceiverId: hasPendingHandover ? handoverToId : null,
+                pendingFromId: hasPendingHandover ? holderId : null,
+                pendingNotes: hasPendingHandover ? (handoverNotes || 'Initial handover upon permit issuance') : '',
+                expiryNotified48h: false,
+                history: [
+                    {
+                        action: 'ISSUED',
+                        byUserId: currentUser.id,
+                        toUserId: holderId,
+                        timestamp: nowIso,
+                        notes: `Permit issued (${type})`
+                    }
+                ]
             };
+
+            if (hasPendingHandover) {
+                newPermit.history.push({
+                    action: 'HANDOVER_REQUESTED',
+                    byUserId: holderId,
+                    toUserId: handoverToId,
+                    timestamp: nowIso,
+                    notes: newPermit.pendingNotes
+                });
+                addNotification(handoverToId, currentLang === 'ar'
+                    ? `طلب تسليم تصريح عمل جديد (${permitNumber}) من ${getUserNameById(holderId)} بانتظار تأكيد الاستلام.`
+                    : `New permit handover request (${permitNumber}) from ${getUserNameById(holderId)} awaiting your confirmation.`
+                );
+            }
 
             permits.unshift(newPermit);
-            await syncPermitToCloud(newPermit);
-
-            if (hasHandover) {
-                await addNotification(
-                    handoverToId,
-                    newPermit.id,
-                    `${currentUser.fullName} assigned permit ${permitNumber} to you for handover confirmation.`,
-                    `أرسل لك ${currentUser.fullName} التصريح ${permitNumber} لتأكيد استلامه.`
-                );
-            }
-
+            syncPermitToCloud(newPermit);
+            checkExpiringPermitsAndNotify();
             closeModal('create-permit-modal');
             renderAll();
-            showToast(
-                hasHandover
-                    ? (currentLang === 'ar' ? `تم إصدار التصريح وإرساله إلى ${getUserName(handoverToId)} بانتظار تأكيد الاستلام` : `Permit issued & sent to ${getUserName(handoverToId)} awaiting confirmation`)
-                    : (currentLang === 'ar' ? `تم حفظ وإصدار التصريح ${permitNumber} بنجاح` : `Permit ${permitNumber} issued successfully`),
-                'success'
-            );
-        }
-
-        async function acceptHandover(permitId) {
-            const p = permits.find(x => x.id === permitId);
-            if (!p || p.pendingReceiverId !== currentUser.id) return;
-
-            const previousHolderId = p.currentHolderId;
-            const previousHolderName = getUserName(previousHolderId);
-            const newHolderName = currentUser.fullName;
-            const notes = p.pendingNotes || '-';
-            const confirmedAt = new Date().toISOString();
-
-            p.currentHolderId = currentUser.id;
-            p.pendingReceiverId = null;
-            p.pendingNotes = '';
-            p.status = 'ACTIVE';
-            p.history.push({
-                timestamp: confirmedAt,
-                action: 'HANDOVER_ACCEPTED',
-                actorId: currentUser.id,
-                details: `Custody confirmed & accepted by ${newHolderName} from ${previousHolderName}. Notes: "${notes}"`
-            });
-
-            await syncPermitToCloud(p);
-
-            // Notify previous holder
-            await addNotification(
-                previousHolderId,
-                p.id,
-                `${newHolderName} confirmed receipt of permit ${p.permitNumber}.`,
-                `أكد ${newHolderName} استلام التصريح ${p.permitNumber}.`
-            );
-
-            // Automatically transmit handover confirmation directly to all Admin accounts
-            const adminUsers = users.filter(u => u.role === 'Admin' && u.active);
-            for (const adm of adminUsers) {
-                await addNotification(
-                    adm.id,
-                    p.id,
-                    `[ADMIN LOG] Permit ${p.permitNumber} (${p.type}) handed over from ${previousHolderName} to ${newHolderName} at ${formatDateTime(confirmedAt)}.`,
-                    `[سجل الإدارة] تم تسليم التصريح ${p.permitNumber} (${p.type}) من ${previousHolderName} إلى ${newHolderName} بتاريخ ${formatDateTime(confirmedAt)}.`
-                );
-            }
-
-            lastConfirmedHandoverData = {
-                permitNumber: p.permitNumber,
-                type: p.type,
-                location: p.location,
-                description: p.description,
-                fromUser: previousHolderName,
-                toUser: newHolderName,
-                notes,
-                confirmedAt: formatDateTime(confirmedAt),
-                validUntil: formatDateTime(p.validUntil)
-            };
-
-            const summaryEl = document.getElementById('handover-receipt-summary');
-            if (summaryEl) {
-                summaryEl.innerHTML = `
-                    <div class="flex justify-between"><span class="text-slate-500">Permit #:</span><span class="font-mono font-bold text-navy-900">${lastConfirmedHandoverData.permitNumber} (${lastConfirmedHandoverData.type})</span></div>
-                    <div class="flex justify-between"><span class="text-slate-500">Location:</span><span class="font-bold">${lastConfirmedHandoverData.location}</span></div>
-                    <div class="flex justify-between"><span class="text-slate-500">Handed Over By:</span><span class="font-bold">${lastConfirmedHandoverData.fromUser}</span></div>
-                    <div class="flex justify-between"><span class="text-slate-500">Confirmed Receiver:</span><span class="font-bold text-emerald-700">${lastConfirmedHandoverData.toUser}</span></div>
-                    <div class="flex justify-between"><span class="text-slate-500">Confirmed At:</span><span class="font-mono">${lastConfirmedHandoverData.confirmedAt}</span></div>
-                    <div><span class="text-slate-500 block">Notes:</span><span class="text-slate-700">${lastConfirmedHandoverData.notes}</span></div>
-                `;
-            }
-
-            renderAll();
-            document.getElementById('handover-receipt-modal').classList.remove('hidden');
-        }
-
-        function downloadHandoverPDF() {
-            if (!lastConfirmedHandoverData) return;
-            const d = lastConfirmedHandoverData;
-            const printWin = window.open('', '_blank', 'width=800,height=900');
-            if (!printWin) {
-                showToast(currentLang === 'ar' ? 'يرجى السماح بالنوافذ المنبثقة لحفظ ملف PDF' : 'Please allow pop-ups to export PDF', 'warning');
-                return;
-            }
-            printWin.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <title>PTW Handover Receipt - ${d.permitNumber}</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; padding: 32px; color: #0f172a; }
-                        .header { border-bottom: 3px solid #091b33; padding-bottom: 14px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-                        .brand { font-size: 28px; font-weight: 900; color: #091b33; letter-spacing: 2px; }
-                        .badge { background: #f59e0b; color: #091b33; padding: 4px 10px; font-weight: bold; border-radius: 6px; font-size: 12px; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-                        th, td { border: 1px solid #cbd5e1; padding: 12px; text-align: left; font-size: 13px; }
-                        th { background: #f1f5f9; width: 35%; color: #334155; }
-                        .footer { margin-top: 32px; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 12px; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <div>
-                            <div class="brand">TGS — PTW PORTAL</div>
-                            <div style="font-size:13px;color:#475569;">Official Work Permit Custody Handover Receipt</div>
-                        </div>
-                        <div class="badge">CONFIRMED & SENT TO ADMIN</div>
-                    </div>
-                    <table>
-                        <tr><th>Permit Number</th><td><strong>${d.permitNumber}</strong></td></tr>
-                        <tr><th>Permit Category</th><td>${d.type}</td></tr>
-                        <tr><th>Unit / Location</th><td>${d.location}</td></tr>
-                        <tr><th>Scope of Work</th><td>${d.description}</td></tr>
-                        <tr><th>Previous Holder (From)</th><td>${d.fromUser}</td></tr>
-                        <tr><th>Confirmed Receiver (To)</th><td><strong>${d.toUser}</strong></td></tr>
-                        <tr><th>Confirmation Timestamp</th><td>${d.confirmedAt}</td></tr>
-                        <tr><th>Valid Until</th><td>${d.validUntil}</td></tr>
-                        <tr><th>Handover Notes</th><td>${d.notes}</td></tr>
-                    </table>
-                    <div class="footer">Generated by TGS Work Permit Handover & Closure Portal. Transmitted to Administration.</div>
-                    <script>window.onload = function() { window.print(); };<\/script>
-                </body>
-                </html>
-            `);
-            printWin.document.close();
-        }
-
-        function shareHandoverViaWhatsApp() {
-            if (!lastConfirmedHandoverData) return;
-            const d = lastConfirmedHandoverData;
-            const msg = [
-                `*TGS PTW — Work Permit Handover Receipt (PDF Record)*`,
-                `• *Permit #:* ${d.permitNumber} (${d.type})`,
-                `• *Location:* ${d.location}`,
-                `• *From:* ${d.fromUser}`,
-                `• *Confirmed Receiver:* ${d.toUser}`,
-                `• *Confirmed At:* ${d.confirmedAt}`,
-                `• *Valid Until:* ${d.validUntil}`,
-                `• *Notes:* ${d.notes}`,
-                `✅ _Confirmed & Transmitted to Administration_`
-            ].join('\n');
-            const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
-            window.open(waUrl, '_blank');
-        }
-
-        // ==========================================
-        // ADMIN USER & CREDENTIALS MANAGEMENT
-        // ==========================================
-        function generateUsername() {
-            const full = document.getElementById('new-user-fullname').value.trim().toLowerCase();
-            const clean = full.replace(/[^a-z0-9\s]/g, '').split(/\s+/).filter(Boolean);
-            const base = clean.length >= 2 ? `${clean[0]}.${clean[1].charAt(0)}` : (clean[0] || 'user');
-            const suffix = Math.floor(10 + Math.random() * 89);
-            document.getElementById('new-user-username').value = `${base}${suffix}`;
-        }
-
-        function generatePassword() {
-            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#';
-            let pass = '';
-            for (let i = 0; i < 8; i++) pass += chars.charAt(Math.floor(Math.random() * chars.length));
-            document.getElementById('new-user-password').value = pass;
-        }
-
-        async function handleCreateUser(e) {
-            e.preventDefault();
-            if (!isAdminUser()) return;
-            const fullName = document.getElementById('new-user-fullname').value.trim();
-            const role = document.getElementById('new-user-role').value;
-            const username = document.getElementById('new-user-username').value.trim();
-            const password = document.getElementById('new-user-password').value.trim();
-
-            if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
-                showToast(currentLang === 'ar' ? 'اسم المستخدم مستخدم مسبقاً!' : 'Username already exists!', 'error');
-                return;
-            }
-
-            const newUser = {
-                id: 'u-' + Date.now(),
-                fullName,
-                role,
-                username,
-                password,
-                active: true
-            };
-            users.push(newUser);
-            await syncUserToCloud(newUser);
-
-            const encodedUser = btoa(unescape(encodeURIComponent(JSON.stringify(newUser))));
-            const baseUrl = window.location.origin + window.location.pathname;
-            lastCreatedActivationLink = `${baseUrl}?activateUser=${encodeURIComponent(encodedUser)}`;
-            lastCreatedCredString = `Portal Link: ${lastCreatedActivationLink}\nName: ${fullName} | Role: ${role} | Username: ${username} | Password: ${password}`;
-
-            document.getElementById('created-cred-text').textContent = `Name: ${fullName} | Role: ${role} | Username: ${username} | Password: ${password}`;
-            document.getElementById('created-cred-box').classList.remove('hidden');
-            document.getElementById('create-user-form').reset();
-            renderUsersTable();
-            showToast(currentLang === 'ar' ? 'تم إنشاء وحفظ حساب المستخدم بنجاح' : 'User account created & saved', 'success');
-        }
-
-        function copyCreatedCredentials() {
-            if (!lastCreatedCredString) return;
-            copyTextToClipboard(lastCreatedCredString, currentLang === 'ar' ? 'تم نسخ بيانات الدخول والرابط المباشر!' : 'Credentials & direct link copied!');
-        }
-
-        function copyCreatedActivationLink() {
-            if (!lastCreatedActivationLink) return;
-            copyTextToClipboard(lastCreatedActivationLink, currentLang === 'ar' ? 'تم نسخ رابط الجوال المباشر!' : 'Direct device activation link copied!');
-        }
-
-        function copyUserRowCredentials(userId) {
-            const u = users.find(x => x.id === userId);
-            if (!u) return;
-            const encodedUser = btoa(unescape(encodeURIComponent(JSON.stringify(u))));
-            const baseUrl = window.location.origin + window.location.pathname;
-            const link = `${baseUrl}?activateUser=${encodeURIComponent(encodedUser)}`;
-            const text = `Portal Link: ${link}\nName: ${u.fullName} | Role: ${u.role} | Username: ${u.username} | Password: ${u.password}`;
-            copyTextToClipboard(text, currentLang === 'ar' ? 'تم نسخ بيانات دخول الموظف والرابط!' : 'User credentials & link copied!');
-        }
-
-        function copyUserActivationLink(userId) {
-            const u = users.find(x => x.id === userId);
-            if (!u) return;
-            const encodedUser = btoa(unescape(encodeURIComponent(JSON.stringify(u))));
-            const baseUrl = window.location.origin + window.location.pathname;
-            const link = `${baseUrl}?activateUser=${encodeURIComponent(encodedUser)}`;
-            copyTextToClipboard(link, currentLang === 'ar' ? 'تم نسخ رابط الجوال المباشر للموظف!' : 'Direct device link copied!');
-        }
-
-        async function toggleUserStatus(userId) {
-            if (!isAdminUser()) return;
-            if (userId === currentUser.id) {
-                showToast(currentLang === 'ar' ? 'لا يمكنك تعطيل حسابك النشط' : 'Cannot deactivate your own active account', 'warning');
-                return;
-            }
-            const u = users.find(x => x.id === userId);
-            if (!u) return;
-            u.active = !u.active;
-            await syncUserToCloud(u);
-            renderUsersTable();
-            showToast(currentLang === 'ar' ? 'تم تحديث حالة الحساب' : 'Account status updated', 'info');
-        }
-
-        function deleteUserAccount(userId) {
-            if (!isAdminUser()) return;
-            if (userId === currentUser.id) {
-                showToast(currentLang === 'ar' ? 'لا يمكنك حذف حسابك النشط' : 'Cannot delete your own active account', 'warning');
-                return;
-            }
-            const u = users.find(x => x.id === userId);
-            if (!u) return;
-
-            document.getElementById('cam-title').innerHTML = `<i class="fa-solid fa-user-xmark"></i><span>${currentLang === 'ar' ? 'حذف حساب المستخدم نهائياً' : 'Delete User Account'}</span>`;
-            document.getElementById('cam-message').textContent = currentLang === 'ar'
-                ? `هل أنت متأكد من حذف حساب (${u.fullName} - ${u.username}) نهائياً؟`
-                : `Are you sure you want to permanently delete user (${u.fullName} - ${u.username})?`;
-
-            const confirmBtn = document.getElementById('cam-confirm-btn');
-            confirmBtn.textContent = currentLang === 'ar' ? 'نعم، احذف المستخدم' : 'Yes, Delete User';
-            confirmBtn.onclick = async () => {
-                if (!deletedUserIds.includes(userId)) deletedUserIds.push(userId);
-                users = users.filter(x => x.id !== userId);
-                persistToLocalStorage();
-                if (isCloudReady && cloudUser) {
-                    try { await deleteDoc(getPublicDoc('ptw_users', userId)); } catch (e) {}
-                } else if (isPublicRestSyncReady) {
-                    await pushStateToPublicMultiDeviceSync();
-                }
-                closeModal('confirm-action-modal');
-                renderUsersTable();
-                showToast(currentLang === 'ar' ? 'تم حذف حساب المستخدم نهائياً من جميع الأجهزة' : 'User account permanently deleted across devices', 'warning');
-            };
-            document.getElementById('confirm-action-modal').classList.remove('hidden');
-        }
-
-        function renderUsersTable() {
-            if (!isAdminUser()) return;
-            const tbody = document.getElementById('users-table-body');
-            const countBadge = document.getElementById('users-count-badge');
-            if (!tbody) return;
-            if (countBadge) countBadge.textContent = `${users.length} ${currentLang === 'ar' ? 'مستخدم' : 'Users'}`;
-
-            tbody.innerHTML = users.map(u => `
-                <tr class="hover:bg-slate-50">
-                    <td class="py-3 px-4 font-bold text-slate-800">${u.fullName}</td>
-                    <td class="py-3 px-4">
-                        <span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold ${u.role === 'Admin' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">${u.role}</span>
-                    </td>
-                    <td class="py-3 px-4 font-mono text-xs text-slate-700">${u.username}</td>
-                    <td class="py-3 px-4 font-mono text-xs text-slate-700">${u.password}</td>
-                    <td class="py-3 px-4">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
-                            ${u.active ? (currentLang === 'ar' ? 'نشط' : 'Active') : (currentLang === 'ar' ? 'موقوف' : 'Disabled')}
-                        </span>
-                    </td>
-                    <td class="py-3 px-4 text-right space-x-1 rtl:space-x-reverse whitespace-nowrap">
-                        <button type="button" onclick="copyUserRowCredentials('${u.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold" title="${t('copyCredBtn')}">
-                            <i class="fa-solid fa-copy"></i>
-                        </button>
-                        <button type="button" onclick="copyUserActivationLink('${u.id}')" class="px-2.5 py-1.5 rounded-lg bg-navy-900 hover:bg-navy-800 text-amber-400 text-xs font-bold" title="${t('copyDeviceLinkBtn')}">
-                            <i class="fa-solid fa-link"></i>
-                        </button>
-                        ${u.id !== currentUser.id ? `
-                            <button type="button" onclick="toggleUserStatus('${u.id}')" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold" title="Toggle Active">
-                                <i class="fa-solid ${u.active ? 'fa-user-slash' : 'fa-user-check'}"></i>
-                            </button>
-                            <button type="button" onclick="deleteUserAccount('${u.id}')" class="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold" title="Delete User">
-                                <i class="fa-solid fa-trash-can"></i>
-                            </button>
-                        ` : ''}
-                    </td>
-                </tr>
-            `).join('');
+            showToast(currentLang === 'ar' ? 'تم حفظ وإصدار التصريح بنجاح.' : 'Work permit issued and saved.');
         }
 
         function openHandoverModal(permitId) {
@@ -2309,96 +1886,209 @@
             document.getElementById('ho-permit-loc').textContent = p.location;
             document.getElementById('ho-notes').value = '';
 
-            const eligibleReceivers = users.filter(u => u.active && u.id !== p.currentHolderId);
-            const selectEl = document.getElementById('ho-receiver');
-            if (eligibleReceivers.length === 0) {
-                selectEl.innerHTML = `<option value="">${currentLang === 'ar' ? '-- لا يوجد مستخدمون آخرون (أنشئ حساب PA من الإدارة) --' : '-- No other active users (create PA user in Admin) --'}</option>`;
+            const receiverSelect = document.getElementById('ho-receiver');
+            const candidates = users.filter(u => u.active && u.id !== p.currentHolderId);
+            if (candidates.length === 0) {
+                receiverSelect.innerHTML = `<option value="">${currentLang === 'ar' ? 'لا يوجد مستخدمون آخرون — أنشئ حساب PA من لوحة الإدارة' : 'No other active users — create a PA account in Admin'}</option>`;
             } else {
-                selectEl.innerHTML = eligibleReceivers.map(u =>
-                    `<option value="${u.id}">${u.fullName} (${u.username}) — ${u.role}</option>`
-                ).join('');
+                receiverSelect.innerHTML = candidates.map(u => `<option value="${u.id}">${escapeHtml(u.fullName)} (${escapeHtml(u.username)} - ${escapeHtml(u.role)})</option>`).join('');
             }
-            document.getElementById('handover-modal').classList.remove('hidden');
+            openModal('handover-modal');
         }
 
-        async function handleInitiateHandover(e) {
+        function handleInitiateHandover(e) {
             e.preventDefault();
             const permitId = document.getElementById('ho-permit-id').value;
             const receiverId = document.getElementById('ho-receiver').value;
             const notes = document.getElementById('ho-notes').value.trim();
-
             if (!receiverId) {
-                showToast(currentLang === 'ar' ? 'يرجى اختيار الموظف المستلم' : 'Please select a receiving user', 'warning');
+                showToast(currentLang === 'ar' ? 'يرجى اختيار الموظف المستلم.' : 'Please select a receiving user.', 'error');
                 return;
             }
-
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
 
-            p.pendingReceiverId = receiverId;
-            p.pendingNotes = notes;
+            const nowIso = new Date().toISOString();
             p.status = 'PENDING_HANDOVER';
+            p.pendingReceiverId = receiverId;
+            p.pendingFromId = p.currentHolderId;
+            p.pendingNotes = notes;
             p.history.push({
-                timestamp: new Date().toISOString(),
-                action: 'HANDOVER_INITIATED',
-                actorId: currentUser.id,
-                targetId: receiverId,
-                details: `Handover initiated by ${currentUser.fullName} to ${getUserName(receiverId)} (awaiting receiver confirmation): "${notes}"`
+                action: 'HANDOVER_REQUESTED',
+                byUserId: currentUser.id,
+                toUserId: receiverId,
+                timestamp: nowIso,
+                notes
             });
 
-            await syncPermitToCloud(p);
-            await addNotification(
-                receiverId,
-                p.id,
-                `${currentUser.fullName} sent you permit ${p.permitNumber} for handover confirmation.`,
-                `أرسل لك ${currentUser.fullName} التصريح ${p.permitNumber} لتأكيد استلامه.`
+            addNotification(receiverId, currentLang === 'ar'
+                ? `لديك طلب تسليم تصريح العمل ${p.permitNumber} من ${getUserNameById(currentUser.id)}. يرجى تأكيد الاستلام.`
+                : `Permit ${p.permitNumber} handover initiated by ${getUserNameById(currentUser.id)}. Please confirm receipt.`
             );
 
+            syncPermitToCloud(p);
             closeModal('handover-modal');
             renderAll();
-            showToast(
-                currentLang === 'ar'
-                    ? `تم إرسال طلب التسليم إلى ${getUserName(receiverId)} وبانتظار تأكيد الاستلام`
-                    : `Handover request sent to ${getUserName(receiverId)} (awaiting confirmation)`,
-                'info'
-            );
+            showToast(currentLang === 'ar' ? 'تم إرسال طلب التسليم وبانتظار تأكيد المستلم.' : 'Handover sent; awaiting receiver confirmation.');
+        }
+
+        function acceptHandover(permitId) {
+            const p = permits.find(x => x.id === permitId);
+            if (!p || p.status !== 'PENDING_HANDOVER') return;
+
+            const fromUserId = p.pendingFromId || p.currentHolderId;
+            const receiverId = currentUser.id;
+            const nowIso = new Date().toISOString();
+            const handoverNotes = p.pendingNotes || '-';
+
+            p.currentHolderId = receiverId;
+            p.status = 'ACTIVE';
+            p.pendingReceiverId = null;
+            p.pendingFromId = null;
+            p.pendingNotes = '';
+            p.history.push({
+                action: 'HANDOVER_ACCEPTED',
+                byUserId: receiverId,
+                fromUserId,
+                timestamp: nowIso,
+                notes: handoverNotes
+            });
+
+            const fromName = getUserNameById(fromUserId);
+            const toName = getUserNameById(receiverId);
+
+            // Notify previous holder
+            if (fromUserId && fromUserId !== receiverId) {
+                addNotification(fromUserId, currentLang === 'ar'
+                    ? `تم تأكيد استلام التصريح ${p.permitNumber} بواسطة ${toName}.`
+                    : `Permit ${p.permitNumber} custody accepted by ${toName}.`
+                );
+            }
+
+            // Automatically transmit handover details to all Admin accounts
+            users.filter(u => u.active && u.role === 'Admin').forEach(adminUser => {
+                addNotification(adminUser.id, currentLang === 'ar'
+                    ? `[إشعار للإدارة] تم تسليم التصريح ${p.permitNumber} (${p.type} - ${p.location}) من ${fromName} إلى ${toName} بتاريخ ${formatDateTime(nowIso)}.`
+                    : `[Admin Notice] Permit ${p.permitNumber} (${p.type} - ${p.location}) handed over from ${fromName} to ${toName} at ${formatDateTime(nowIso)}.`
+                );
+            });
+
+            syncPermitToCloud(p);
+            renderAll();
+
+            lastConfirmedHandoverData = {
+                permitNumber: p.permitNumber,
+                type: p.type,
+                location: p.location,
+                description: p.description,
+                fromName,
+                toName,
+                timestamp: formatDateTime(nowIso),
+                validUntil: formatDateTime(p.validUntil),
+                notes: handoverNotes
+            };
+
+            const summaryEl = document.getElementById('handover-receipt-summary');
+            summaryEl.innerHTML = `
+                <div><strong>${currentLang === 'ar' ? 'رقم التصريح:' : 'Permit #:'}</strong> <span class="font-mono">${escapeHtml(lastConfirmedHandoverData.permitNumber)}</span> (${escapeHtml(lastConfirmedHandoverData.type)})</div>
+                <div><strong>${currentLang === 'ar' ? 'الموقع:' : 'Location:'}</strong> ${escapeHtml(lastConfirmedHandoverData.location)}</div>
+                <div><strong>${currentLang === 'ar' ? 'المسلّم:' : 'Handed Over By:'}</strong> ${escapeHtml(lastConfirmedHandoverData.fromName)}</div>
+                <div><strong>${currentLang === 'ar' ? 'المستلم المؤكِّد:' : 'Confirmed Receiver:'}</strong> ${escapeHtml(lastConfirmedHandoverData.toName)}</div>
+                <div><strong>${currentLang === 'ar' ? 'وقت التأكيد:' : 'Confirmed At:'}</strong> ${escapeHtml(lastConfirmedHandoverData.timestamp)}</div>
+                <div><strong>${currentLang === 'ar' ? 'ملاحظات:' : 'Notes:'}</strong> ${escapeHtml(lastConfirmedHandoverData.notes)}</div>
+            `;
+            openModal('handover-receipt-modal');
+        }
+
+        function downloadHandoverPDF() {
+            if (!lastConfirmedHandoverData) return;
+            const d = lastConfirmedHandoverData;
+            const win = window.open('', '_blank', 'width=800,height=900');
+            if (!win) {
+                showToast(currentLang === 'ar' ? 'يرجى السماح بالنوافذ المنبثقة لحفظ ملف PDF.' : 'Please allow pop-ups to print/save PDF.', 'error');
+                return;
+            }
+            win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>PTW Handover Receipt - ${escapeHtml(d.permitNumber)}</title>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 32px; color: #091b33; }
+                    .header { border-bottom: 3px solid #091b33; padding-bottom: 14px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+                    .badge { background: #f59e0b; color: #091b33; padding: 4px 10px; font-weight: bold; border-radius: 6px; font-size: 12px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+                    td { border: 1px solid #cbd5e1; padding: 10px 14px; font-size: 14px; }
+                    td.label { background: #f8fafc; font-weight: bold; width: 35%; }
+                    .footer { margin-top: 40px; font-size: 12px; color: #475569; border-top: 1px solid #cbd5e1; padding-top: 12px; }
+                </style></head><body>
+                <div class="header">
+                    <div><h2 style="margin:0;">TGS — Work Permit Handover Receipt</h2><p style="margin:4px 0 0;font-size:12px;color:#475569;">Official Custody Transfer Record (Sent to Administration)</p></div>
+                    <span class="badge">${escapeHtml(d.type)}</span>
+                </div>
+                <table>
+                    <tr><td class="label">Permit Number</td><td><strong>${escapeHtml(d.permitNumber)}</strong></td></tr>
+                    <tr><td class="label">Location / Equipment</td><td>${escapeHtml(d.location)}</td></tr>
+                    <tr><td class="label">Scope of Work</td><td>${escapeHtml(d.description)}</td></tr>
+                    <tr><td class="label">Handed Over By (Sender)</td><td>${escapeHtml(d.fromName)}</td></tr>
+                    <tr><td class="label">Accepted By (Receiver)</td><td><strong>${escapeHtml(d.toName)}</strong></td></tr>
+                    <tr><td class="label">Confirmation Timestamp</td><td>${escapeHtml(d.timestamp)}</td></tr>
+                    <tr><td class="label">Valid Until</td><td>${escapeHtml(d.validUntil)}</td></tr>
+                    <tr><td class="label">Handover Notes</td><td>${escapeHtml(d.notes)}</td></tr>
+                </table>
+                <div class="footer">Generated automatically by TGS Work Permit Handover & Closure System.</div>
+                <script>window.onload = function(){ window.print(); };<\/script>
+            </body></html>`);
+            win.document.close();
+        }
+
+        function shareHandoverViaWhatsApp() {
+            if (!lastConfirmedHandoverData) return;
+            const d = lastConfirmedHandoverData;
+            const msg = `*TGS - إيصال تأكيد تسليم تصريح عمل (PTW Handover)*\n` +
+                `• *رقم التصريح:* ${d.permitNumber} (${d.type})\n` +
+                `• *الموقع:* ${d.location}\n` +
+                `• *المسلّم:* ${d.fromName}\n` +
+                `• *المستلم المؤكِّد:* ${d.toName}\n` +
+                `• *وقت التأكيد:* ${d.timestamp}\n` +
+                `• *صالح لغاية:* ${d.validUntil}\n` +
+                `• *ملاحظات:* ${d.notes}\n` +
+                `_(تم إرسال النسخة تلقائياً إلى الإدارة)_`;
+            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
         }
 
         function openRejectModal(permitId) {
             document.getElementById('rej-permit-id').value = permitId;
             document.getElementById('rej-reason').value = '';
-            document.getElementById('reject-modal').classList.remove('hidden');
+            openModal('reject-modal');
         }
 
-        async function handleRejectHandover(e) {
+        function handleRejectHandover(e) {
             e.preventDefault();
             const permitId = document.getElementById('rej-permit-id').value;
             const reason = document.getElementById('rej-reason').value.trim();
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
 
-            const holderId = p.currentHolderId;
-            p.pendingReceiverId = null;
-            p.pendingNotes = '';
+            const prevHolderId = p.pendingFromId || p.currentHolderId;
             p.status = 'ACTIVE';
+            p.pendingReceiverId = null;
+            p.pendingFromId = null;
+            p.pendingNotes = '';
             p.history.push({
-                timestamp: new Date().toISOString(),
                 action: 'HANDOVER_REJECTED',
-                actorId: currentUser.id,
-                details: `Handover rejected by ${currentUser.fullName}: "${reason}"`
+                byUserId: currentUser.id,
+                timestamp: new Date().toISOString(),
+                notes: reason
             });
 
-            await syncPermitToCloud(p);
-            await addNotification(
-                holderId,
-                p.id,
-                `${currentUser.fullName} rejected handover of ${p.permitNumber}: "${reason}"`,
-                `رفض ${currentUser.fullName} استلام التصريح ${p.permitNumber}: "${reason}"`
-            );
+            if (prevHolderId) {
+                addNotification(prevHolderId, currentLang === 'ar'
+                    ? `تم رفض استلام التصريح ${p.permitNumber} من قِبل ${currentUser.fullName}. السبب: ${reason}`
+                    : `Handover for permit ${p.permitNumber} was rejected by ${currentUser.fullName}. Reason: ${reason}`
+                );
+            }
 
+            syncPermitToCloud(p);
             closeModal('reject-modal');
             renderAll();
-            showToast(currentLang === 'ar' ? 'تم رفض التسليم وإشعار الحائز السابق' : 'Handover rejected and holder notified', 'warning');
+            showToast(currentLang === 'ar' ? 'تم رفض التسليم وإعادة التصريح للمسلّم.' : 'Handover rejected and returned to holder.');
         }
 
         function openClosePermitModal(permitId) {
@@ -2408,34 +2098,31 @@
             document.getElementById('cl-permit-label').textContent = p.permitNumber;
             document.getElementById('cl-notes').value = '';
             document.querySelectorAll('#close-permit-modal input[type="checkbox"]').forEach(cb => cb.checked = false);
-            document.getElementById('close-permit-modal').classList.remove('hidden');
+            openModal('close-permit-modal');
         }
 
-        async function handleClosePermit(e) {
+        function handleClosePermit(e) {
             e.preventDefault();
             const permitId = document.getElementById('cl-permit-id').value;
             const notes = document.getElementById('cl-notes').value.trim();
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
 
-            const nowIso = new Date().toISOString();
             p.status = 'CLOSED';
             p.pendingReceiverId = null;
-            p.pendingNotes = '';
-            p.closedAt = nowIso;
+            p.closedAt = new Date().toISOString();
             p.closedBy = currentUser.id;
-            p.closureNotes = notes;
             p.history.push({
-                timestamp: nowIso,
                 action: 'CLOSED',
-                actorId: currentUser.id,
-                details: `Permit permanently closed by ${currentUser.fullName}: "${notes}"`
+                byUserId: currentUser.id,
+                timestamp: p.closedAt,
+                notes
             });
 
-            await syncPermitToCloud(p);
+            syncPermitToCloud(p);
             closeModal('close-permit-modal');
             renderAll();
-            showToast(currentLang === 'ar' ? `تم إغلاق التصريح ${p.permitNumber} نهائياً` : `Permit ${p.permitNumber} permanently closed`, 'success');
+            showToast(currentLang === 'ar' ? 'تم إغلاق التصريح نهائياً.' : 'Permit permanently closed.');
         }
 
         function openRenewModal(permitId) {
@@ -2445,233 +2132,463 @@
             document.getElementById('rn-permit-label').textContent = p.permitNumber;
             document.getElementById('rn-permit-loc').textContent = p.location;
             document.getElementById('rn-current-expiry').textContent = formatDateTime(p.validUntil);
-            document.getElementById('rn-new-expiry').value = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 16);
+
+            const nextExpiry = new Date(Math.max(Date.now(), new Date(p.validUntil).getTime()) + 12 * 3600 * 1000);
+            nextExpiry.setMinutes(nextExpiry.getMinutes() - nextExpiry.getTimezoneOffset());
+            document.getElementById('rn-new-expiry').value = nextExpiry.toISOString().slice(0, 16);
             document.getElementById('rn-notes').value = '';
-            document.getElementById('renew-permit-modal').classList.remove('hidden');
+            openModal('renew-permit-modal');
         }
 
-        async function handleRenewPermit(e) {
+        function handleRenewPermit(e) {
             e.preventDefault();
             const permitId = document.getElementById('rn-permit-id').value;
-            const newExpiry = document.getElementById('rn-new-expiry').value;
+            const newExpiryIso = new Date(document.getElementById('rn-new-expiry').value).toISOString();
             const notes = document.getElementById('rn-notes').value.trim();
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
 
-            p.validUntil = newExpiry;
-            p.expiryAlertSentFor = null;
+            p.validUntil = newExpiryIso;
+            p.expiryNotified48h = false;
             p.history.push({
-                timestamp: new Date().toISOString(),
                 action: 'RENEWED',
-                actorId: currentUser.id,
-                details: `Permit renewed until ${formatDateTime(newExpiry)} by ${currentUser.fullName}: "${notes}"`
+                byUserId: currentUser.id,
+                timestamp: new Date().toISOString(),
+                notes: `${notes} (New expiry: ${formatDateTime(newExpiryIso)})`
             });
 
-            await syncPermitToCloud(p);
+            syncPermitToCloud(p);
+            checkExpiringPermitsAndNotify();
             closeModal('renew-permit-modal');
             renderAll();
-            showToast(currentLang === 'ar' ? `تم تجديد صلاحية التصريح ${p.permitNumber}` : `Permit ${p.permitNumber} renewed`, 'success');
+            showToast(currentLang === 'ar' ? 'تم تجديد صلاحية التصريح بنجاح.' : 'Permit validity extended.');
         }
 
         function openDeletePermitModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-            const canDelete = isAdminUser() || p.currentHolderId === currentUser.id || p.issuedBy === currentUser.id;
-            if (!canDelete) return;
-
-            document.getElementById('cam-title').innerHTML = `<i class="fa-solid fa-trash-can"></i><span>${currentLang === 'ar' ? 'حذف التصريح نهائياً' : 'Delete Work Permit'}</span>`;
+            document.getElementById('cam-title').innerHTML = `<i class="fa-solid fa-trash"></i><span>${currentLang === 'ar' ? 'تأكيد حذف التصريح' : 'Confirm Delete Permit'}</span>`;
             document.getElementById('cam-message').textContent = currentLang === 'ar'
-                ? `هل أنت متأكد من حذف التصريح (${p.permitNumber}) نهائياً؟`
-                : `Are you sure you want to permanently delete permit (${p.permitNumber})?`;
-
-            const confirmBtn = document.getElementById('cam-confirm-btn');
-            confirmBtn.textContent = currentLang === 'ar' ? 'نعم، احذف التصريح' : 'Yes, Delete Permit';
-            confirmBtn.onclick = async () => {
+                ? `هل أنت متأكد من حذف التصريح (${p.permitNumber}) نهائياً؟ لا يمكن التراجع عن هذا الإجراء.`
+                : `Are you sure you want to permanently delete permit (${p.permitNumber})? This action cannot be undone.`;
+            document.getElementById('cam-confirm-btn').onclick = () => {
                 permits = permits.filter(x => x.id !== permitId);
-                await deletePermitFromCloud(permitId);
+                deletePermitFromCloud(permitId);
                 closeModal('confirm-action-modal');
                 renderAll();
-                showToast(currentLang === 'ar' ? `تم حذف التصريح ${p.permitNumber}` : `Permit ${p.permitNumber} deleted`, 'warning');
+                showToast(currentLang === 'ar' ? 'تم حذف التصريح.' : 'Permit deleted.');
             };
-
-            document.getElementById('confirm-action-modal').classList.remove('hidden');
-        }
-
-        function openResetSystemModal() {
-            if (!isAdminUser()) return;
-            document.getElementById('cam-title').innerHTML = `<i class="fa-solid fa-rotate-left"></i><span>${currentLang === 'ar' ? 'تصفير جميع التصاريح' : 'Reset All Permits'}</span>`;
-            document.getElementById('cam-message').textContent = currentLang === 'ar'
-                ? 'سيتم حذف جميع التصاريح والإشعارات الحالية مع الإبقاء على حسابات المستخدمين. هل تريد المتابعة؟'
-                : 'This will clear all existing permits and notifications while keeping user accounts. Continue?';
-
-            const confirmBtn = document.getElementById('cam-confirm-btn');
-            confirmBtn.textContent = currentLang === 'ar' ? 'نعم، صفّر التصاريح' : 'Yes, Reset Permits';
-            confirmBtn.onclick = async () => {
-                await resetCloudPermitsAndNotifs();
-                permits = [];
-                notifications = [];
-                persistToLocalStorage();
-                closeModal('confirm-action-modal');
-                renderAll();
-                showToast(currentLang === 'ar' ? 'تم تصفير التصاريح بنجاح' : 'All permits reset successfully', 'warning');
-            };
-
-            document.getElementById('confirm-action-modal').classList.remove('hidden');
+            openModal('confirm-action-modal');
         }
 
         function openTimelineModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-
             document.getElementById('tl-permit-number').textContent = p.permitNumber;
-            const content = document.getElementById('timeline-content');
-            const historyItems = (p.history || []).slice().reverse().map(h => `
-                <div class="border-l-2 border-amber-500 pl-3.5 py-1 space-y-0.5">
-                    <div class="flex items-center justify-between text-[11px] text-slate-400">
-                        <span class="font-bold text-navy-900 uppercase">${h.action}</span>
-                        <span class="font-mono">${formatDateTime(h.timestamp)}</span>
+            const container = document.getElementById('timeline-content');
+            const historyHtml = (p.history || []).map(item => `
+                <div class="border-l-2 border-amber-500 pl-4 py-1 space-y-1">
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="font-extrabold text-navy-900">${escapeHtml(item.action)}</span>
+                        <span class="text-slate-400 font-mono text-[11px]">${escapeHtml(formatDateTime(item.timestamp))}</span>
                     </div>
-                    <p class="text-xs text-slate-700">${h.details}</p>
+                    <div class="text-xs text-slate-600">
+                        By: <strong>${escapeHtml(getUserNameById(item.byUserId))}</strong>
+                        ${item.toUserId ? ` → To: <strong>${escapeHtml(getUserNameById(item.toUserId))}</strong>` : ''}
+                    </div>
+                    ${item.notes ? `<p class="text-xs text-slate-500 bg-slate-50 p-2 rounded-lg border border-slate-100">${escapeHtml(item.notes)}</p>` : ''}
                 </div>
             `).join('');
 
-            content.innerHTML = `
-                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div><span class="text-slate-500 block">${t('permitTypeLabel')}</span><span class="font-bold text-navy-900">${p.type}</span></div>
-                    <div><span class="text-slate-500 block">${t('currentCustody')}</span><span class="font-bold text-navy-900">${getUserName(p.currentHolderId)}</span></div>
-                    <div class="sm:col-span-2"><span class="text-slate-500 block">${t('locationLabel')}</span><span class="font-bold text-slate-800">${p.location}</span></div>
-                    <div class="sm:col-span-2"><span class="text-slate-500 block">${t('workDescLabel')}</span><span class="text-slate-700">${p.description}</span></div>
+            container.innerHTML = `
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs space-y-1.5">
+                    <div><strong>Category:</strong> ${escapeHtml(p.type)} | <strong>Status:</strong> ${escapeHtml(p.status)}</div>
+                    <div><strong>Location:</strong> ${escapeHtml(p.location)}</div>
+                    <div><strong>Description:</strong> ${escapeHtml(p.description)}</div>
+                    <div><strong>Current Holder:</strong> ${escapeHtml(getUserNameById(p.currentHolderId))}</div>
+                    <div><strong>Valid Until:</strong> ${escapeHtml(formatDateTime(p.validUntil))}</div>
                 </div>
-                <div class="space-y-3">
-                    <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-500">${t('viewHistoryBtn')}</h4>
-                    <div class="space-y-3">${historyItems}</div>
-                </div>
+                <div class="space-y-3">${historyHtml}</div>
             `;
-            document.getElementById('timeline-modal').classList.remove('hidden');
+            openModal('timeline-modal');
+        }
+
+        function checkExpiringPermitsAndNotify() {
+            const now = Date.now();
+            const twoDaysMs = 48 * 60 * 60 * 1000;
+            let changed = false;
+
+            permits.forEach(p => {
+                if (p.status === 'CLOSED' || p.expiryNotified48h) return;
+                const validTime = new Date(p.validUntil).getTime();
+                if (!isNaN(validTime) && (validTime - now) <= twoDaysMs) {
+                    p.expiryNotified48h = true;
+                    changed = true;
+                    const msgAr = `⚠️ تنبيه: تصريح العمل ${p.permitNumber} (${p.location}) سينتهي خلال أقل من يومين (${formatDateTime(p.validUntil)}).`;
+                    const msgEn = `⚠️ Alert: Work permit ${p.permitNumber} (${p.location}) expires in less than 48 hours (${formatDateTime(p.validUntil)}).`;
+                    const msg = currentLang === 'ar' ? msgAr : msgEn;
+
+                    if (p.currentHolderId) addNotification(p.currentHolderId, msg);
+                    users.filter(u => u.active && u.role === 'Admin' && u.id !== p.currentHolderId).forEach(admin => {
+                        addNotification(admin.id, msg);
+                    });
+                }
+            });
+
+            if (changed) {
+                persistToLocalStorage();
+                pushStateToPublicMultiDeviceSync();
+            }
+        }
+
+        // ==========================================
+        // 5. ADMIN USER & CREDENTIAL MANAGEMENT
+        // ==========================================
+        function generateUsername() {
+            const name = (document.getElementById('new-user-fullname').value || 'user').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+            const base = name.slice(0, 6) || 'user';
+            document.getElementById('new-user-username').value = `${base}${Math.floor(100 + Math.random() * 900)}`;
+        }
+
+        function generatePassword() {
+            document.getElementById('new-user-password').value = String(Math.floor(100000 + Math.random() * 900000));
+        }
+
+        function buildUserActivationLink(userObj) {
+            const payload = btoa(unescape(encodeURIComponent(JSON.stringify({
+                id: userObj.id,
+                fullName: userObj.fullName,
+                role: userObj.role,
+                username: userObj.username,
+                password: userObj.password,
+                active: true
+            }))));
+            const baseUrl = window.location.origin + window.location.pathname;
+            return `${baseUrl}?u=${encodeURIComponent(payload)}`;
+        }
+
+        function handleCreateUser(e) {
+            e.preventDefault();
+            if (!currentUser || currentUser.role !== 'Admin') return;
+
+            const fullName = document.getElementById('new-user-fullname').value.trim();
+            const role = document.getElementById('new-user-role').value === 'Admin' ? 'Admin' : 'PA';
+            const username = normalizeDigits(document.getElementById('new-user-username').value).toLowerCase();
+            const password = normalizeDigits(document.getElementById('new-user-password').value);
+
+            if (!fullName || !username || !password) return;
+            if (users.some(u => normalizeDigits(u.username).toLowerCase() === username)) {
+                showToast(currentLang === 'ar' ? 'اسم المستخدم موجود مسبقاً!' : 'Username already exists!', 'error');
+                return;
+            }
+
+            const newUser = {
+                id: 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                fullName,
+                role,
+                username,
+                password,
+                active: true
+            };
+
+            users.push(newUser);
+            syncUserToCloud(newUser);
+
+            lastCreatedActivationLink = buildUserActivationLink(newUser);
+            lastCreatedCredString = `Portal: ${window.location.origin + window.location.pathname}\nName: ${fullName} (${role})\nUsername: ${username}\nPassword: ${password}\nDirect Mobile Link: ${lastCreatedActivationLink}`;
+
+            document.getElementById('created-cred-text').textContent = `Username: ${username} | Password: ${password}`;
+            document.getElementById('created-cred-box').classList.remove('hidden');
+
+            document.getElementById('new-user-fullname').value = '';
+            document.getElementById('new-user-username').value = '';
+            document.getElementById('new-user-password').value = '';
+
+            renderUsersTable();
+            showToast(currentLang === 'ar' ? 'تم إنشاء الحساب ومزامنته لجميع الأجهزة.' : 'User account created & synced to all devices.');
+        }
+
+        function copyTextToClipboard(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            showToast(currentLang === 'ar' ? 'تم النسخ إلى الحافظة!' : 'Copied to clipboard!');
+        }
+
+        function copyCreatedCredentials() {
+            if (lastCreatedCredString) copyTextToClipboard(lastCreatedCredString);
+        }
+
+        function copyCreatedActivationLink() {
+            if (lastCreatedActivationLink) copyTextToClipboard(lastCreatedActivationLink);
+        }
+
+        function copyUserRowCredentials(userId) {
+            const u = users.find(x => x.id === userId);
+            if (!u) return;
+            const link = buildUserActivationLink(u);
+            const text = `Portal: ${window.location.origin + window.location.pathname}\nName: ${u.fullName} (${u.role})\nUsername: ${u.username}\nPassword: ${u.password}\nDirect Mobile Link: ${link}`;
+            copyTextToClipboard(text);
+        }
+
+        function copyUserRowLink(userId) {
+            const u = users.find(x => x.id === userId);
+            if (!u) return;
+            copyTextToClipboard(buildUserActivationLink(u));
+        }
+
+        function renderUsersTable() {
+            if (!currentUser || currentUser.role !== 'Admin') return;
+            const tbody = document.getElementById('users-table-body');
+            document.getElementById('users-count-badge').textContent = `${users.length} Users`;
+
+            tbody.innerHTML = users.map(u => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(u.fullName)}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ${u.role === 'Admin' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}">${escapeHtml(u.role)}</span>
+                    </td>
+                    <td class="py-3 px-4 font-mono text-xs">${escapeHtml(u.username)}</td>
+                    <td class="py-3 px-4 font-mono text-xs">${escapeHtml(u.password)}</td>
+                    <td class="py-3 px-4">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${u.active ? 'Active' : 'Disabled'}</span>
+                    </td>
+                    <td class="py-3 px-4 text-right space-x-1">
+                        <button onclick="copyUserRowCredentials('${u.id}')" class="px-2 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 text-xs" title="Copy Credentials"><i class="fa-solid fa-copy"></i></button>
+                        <button onclick="copyUserRowLink('${u.id}')" class="px-2 py-1 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-700 text-xs" title="Copy Direct Mobile Link"><i class="fa-solid fa-link"></i></button>
+                        ${u.id !== currentUser.id ? `
+                            <button onclick="deleteUserAccount('${u.id}')" class="px-2 py-1 bg-red-50 hover:bg-red-100 rounded-lg text-red-600 text-xs" title="Delete User"><i class="fa-solid fa-trash"></i></button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function deleteUserAccount(userId) {
+            if (!currentUser || currentUser.role !== 'Admin' || userId === currentUser.id) return;
+            const u = users.find(x => x.id === userId);
+            if (!u) return;
+            document.getElementById('cam-title').innerHTML = `<i class="fa-solid fa-user-xmark"></i><span>${currentLang === 'ar' ? 'حذف حساب المستخدم' : 'Delete User Account'}</span>`;
+            document.getElementById('cam-message').textContent = currentLang === 'ar'
+                ? `هل تريد حذف حساب (${u.fullName}) نهائياً من جميع الأجهزة؟`
+                : `Are you sure you want to permanently delete (${u.fullName}) from all devices?`;
+            document.getElementById('cam-confirm-btn').onclick = () => {
+                users = users.filter(x => x.id !== userId);
+                if (!deletedUserIds.includes(userId)) deletedUserIds.push(userId);
+                persistToLocalStorage();
+                pushStateToPublicMultiDeviceSync();
+                if (isCloudReady && db) {
+                    deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userId)).catch(() => {});
+                }
+                closeModal('confirm-action-modal');
+                renderUsersTable();
+                showToast(currentLang === 'ar' ? 'تم حذف المستخدم ومزامنة الحذف.' : 'User account deleted & synced.');
+            };
+            openModal('confirm-action-modal');
+        }
+
+        function openChangePasswordModal() {
+            document.getElementById('user-dropdown').classList.add('hidden');
+            document.getElementById('cpw-current').value = '';
+            document.getElementById('cpw-new').value = '';
+            document.getElementById('cpw-confirm').value = '';
+            openModal('change-password-modal');
+        }
+
+        function handleChangeOwnPassword(e) {
+            e.preventDefault();
+            const curr = normalizeDigits(document.getElementById('cpw-current').value);
+            const next = normalizeDigits(document.getElementById('cpw-new').value);
+            const conf = normalizeDigits(document.getElementById('cpw-confirm').value);
+
+            if (curr !== normalizeDigits(currentUser.password)) {
+                showToast(currentLang === 'ar' ? 'الرقم السري الحالي غير صحيح.' : 'Current password is incorrect.', 'error');
+                return;
+            }
+            if (next !== conf) {
+                showToast(currentLang === 'ar' ? 'الرقم السري الجديد غير متطابق.' : 'New passwords do not match.', 'error');
+                return;
+            }
+            currentUser.password = next;
+            const idx = users.findIndex(u => u.id === currentUser.id);
+            if (idx >= 0) users[idx].password = next;
+            syncUserToCloud(currentUser);
+            closeModal('change-password-modal');
+            if (currentTab === 'admin') renderUsersTable();
+            showToast(currentLang === 'ar' ? 'تم تحديث الرقم السري بنجاح.' : 'Password updated successfully.');
+        }
+
+        function manualSaveAll() {
+            persistToLocalStorage();
+            pushStateToPublicMultiDeviceSync();
+            showToast(currentLang === 'ar' ? 'تم حفظ ومزامنة كافة البيانات بنجاح.' : 'All data saved & synced to cloud.');
+        }
+
+        function exportBackupFile() {
+            const data = JSON.stringify({ users, permits, notifications, exportedAt: new Date().toISOString() }, null, 2);
+            const blob = new Blob([data], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `ptw-backup-${new Date().toISOString().slice(0, 10)}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function importBackupFile(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                try {
+                    const parsed = JSON.parse(reader.result);
+                    if (Array.isArray(parsed.users) && parsed.users.length > 0) {
+                        users = parsed.users;
+                        permits = Array.isArray(parsed.permits) ? parsed.permits : [];
+                        notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+                        deletedUserIds = [];
+                        deletedPermitIds = [];
+                        persistToLocalStorage();
+                        pushStateToPublicMultiDeviceSync();
+                        renderAll();
+                        showToast(currentLang === 'ar' ? 'تمت استعادة النسخة الاحتياطية ومزامنتها.' : 'Backup restored and synced.');
+                    }
+                } catch (err) {
+                    showToast(currentLang === 'ar' ? 'ملف النسخة الاحتياطية غير صالح.' : 'Invalid backup JSON file.', 'error');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function openResetSystemModal() {
+            document.getElementById('cam-title').innerHTML = `<i class="fa-solid fa-rotate-left"></i><span>${currentLang === 'ar' ? 'تصفير جميع التصاريح' : 'Reset All Permits'}</span>`;
+            document.getElementById('cam-message').textContent = currentLang === 'ar'
+                ? 'سيتم مسح جميع التصاريح والإشعارات مع الإبقاء على حسابات المستخدمين. هل تريد المتابعة؟'
+                : 'All permits and notifications will be cleared while keeping user accounts. Continue?';
+            document.getElementById('cam-confirm-btn').onclick = () => {
+                permits.forEach(p => { if (!deletedPermitIds.includes(p.id)) deletedPermitIds.push(p.id); });
+                permits = [];
+                notifications = [];
+                resetCloudPermitsAndNotifs();
+                closeModal('confirm-action-modal');
+                renderAll();
+                showToast(currentLang === 'ar' ? 'تم تصفير التصاريح ومزامنتها.' : 'Permits reset and synced.');
+            };
+            openModal('confirm-action-modal');
         }
 
         function openCloudConfigModal() {
-            if (!isAdminUser()) return;
-            const saved = localStorage.getItem(CUSTOM_CLOUD_KEY) || '';
-            document.getElementById('cloud-config-input').value = saved;
-            const shareBox = document.getElementById('cloud-share-link-box');
-            if (saved) {
-                const encoded = btoa(unescape(encodeURIComponent(saved)));
-                const baseUrl = window.location.origin + window.location.pathname;
-                document.getElementById('cloud-share-url').value = `${baseUrl}?cloud=${encodeURIComponent(encoded)}`;
-                shareBox.classList.remove('hidden');
+            const existing = localStorage.getItem(CUSTOM_CLOUD_KEY) || '';
+            document.getElementById('cloud-config-input').value = existing;
+            if (existing) {
+                const link = `${window.location.origin + window.location.pathname}?cfg=${encodeURIComponent(btoa(existing))}`;
+                document.getElementById('cloud-share-url').value = link;
+                document.getElementById('cloud-share-link-box').classList.remove('hidden');
             } else {
-                shareBox.classList.add('hidden');
+                document.getElementById('cloud-share-link-box').classList.add('hidden');
             }
-            document.getElementById('cloud-config-modal').classList.remove('hidden');
+            openModal('cloud-config-modal');
         }
 
-        async function handleSaveCloudConfig(e) {
+        function handleSaveCloudConfig(e) {
             e.preventDefault();
             const raw = document.getElementById('cloud-config-input').value.trim();
             try {
                 const parsed = JSON.parse(raw);
-                if (!parsed.apiKey || !parsed.projectId) {
-                    showToast(currentLang === 'ar' ? 'إعدادات Firebase غير مكتملة' : 'Missing apiKey or projectId in JSON', 'error');
-                    return;
-                }
+                if (!parsed.apiKey || !parsed.projectId) throw new Error('Invalid');
                 localStorage.setItem(CUSTOM_CLOUD_KEY, JSON.stringify(parsed));
-                closeModal('cloud-config-modal');
-                showToast(currentLang === 'ar' ? 'تم حفظ إعدادات السحابة! جاري إعادة التحميل للاتصال...' : 'Cloud config saved! Reloading to connect...', 'success');
+                const link = `${window.location.origin + window.location.pathname}?cfg=${encodeURIComponent(btoa(JSON.stringify(parsed)))}`;
+                document.getElementById('cloud-share-url').value = link;
+                document.getElementById('cloud-share-link-box').classList.remove('hidden');
+                showToast(currentLang === 'ar' ? 'تم حفظ إعدادات السحابة. أعد تحميل الصفحة للاتصال.' : 'Cloud config saved. Reloading to connect...');
                 setTimeout(() => window.location.reload(), 900);
             } catch (err) {
-                showToast(currentLang === 'ar' ? 'صيغة JSON غير صحيحة' : 'Invalid JSON format', 'error');
+                showToast(currentLang === 'ar' ? 'صيغة JSON غير صحيحة.' : 'Invalid Firebase JSON configuration.', 'error');
             }
         }
 
         function copyCloudPortalLink() {
             const url = document.getElementById('cloud-share-url').value;
-            if (!url) return;
-            copyTextToClipboard(url, currentLang === 'ar' ? 'تم نسخ رابط البوابة السحابية للفريق!' : 'Team cloud portal link copied!');
+            if (url) copyTextToClipboard(url);
         }
 
         function clearCustomCloudConfig() {
             localStorage.removeItem(CUSTOM_CLOUD_KEY);
-            closeModal('cloud-config-modal');
-            showToast(currentLang === 'ar' ? 'تم فصل الربط السحابي' : 'Cloud config disconnected', 'info');
-            setTimeout(() => window.location.reload(), 700);
+            document.getElementById('cloud-config-input').value = '';
+            document.getElementById('cloud-share-link-box').classList.add('hidden');
+            showToast(currentLang === 'ar' ? 'تم فصل السحابة المخصصة.' : 'Custom cloud disconnected.');
         }
 
-        function exportBackupFile() {
-            if (!isAdminUser()) return;
-            const payload = JSON.stringify({ users, permits, notifications, exportedAt: new Date().toISOString() }, null, 2);
-            const blob = new Blob([payload], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `TGS-PTW-Backup-${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast(currentLang === 'ar' ? 'تم تنزيل النسخة الاحتياطية بنجاح' : 'Backup file downloaded', 'success');
-        }
-
-        function importBackupFile(event) {
-            if (!isAdminUser()) return;
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = async (ev) => {
-                try {
-                    const data = JSON.parse(ev.target.result);
-                    if (Array.isArray(data.users)) users = data.users;
-                    if (Array.isArray(data.permits)) permits = data.permits;
-                    if (Array.isArray(data.notifications)) notifications = data.notifications;
-                    persistToLocalStorage();
-                    await manualSaveAll();
-                    renderAll();
-                    showToast(currentLang === 'ar' ? 'تمت استعادة النسخة الاحتياطية بنجاح' : 'Backup restored successfully', 'success');
-                } catch (err) {
-                    showToast(currentLang === 'ar' ? 'ملف النسخة الاحتياطية غير صالح' : 'Invalid backup file', 'error');
+        function processUrlActivationParams() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const cfgParam = params.get('cfg');
+                if (cfgParam) {
+                    const decodedCfg = atob(cfgParam);
+                    JSON.parse(decodedCfg);
+                    localStorage.setItem(CUSTOM_CLOUD_KEY, decodedCfg);
                 }
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        }
-
-        function saveAllData() {
-            persistToLocalStorage();
-        }
-
-        async function manualSaveAll() {
-            persistToLocalStorage();
-            if (isCloudReady && cloudUser) {
-                try {
-                    const batch = writeBatch(db);
-                    users.forEach(u => batch.set(getPublicDoc('ptw_users', u.id), u, { merge: true }));
-                    permits.forEach(p => batch.set(getPublicDoc('ptw_permits', p.id), p, { merge: true }));
-                    notifications.forEach(n => batch.set(getPublicDoc('ptw_notifs', n.id), n, { merge: true }));
-                    await batch.commit();
-                } catch (err) {
-                    console.error('Manual cloud save error:', err);
+                const userParam = params.get('u');
+                if (userParam) {
+                    const decodedUser = JSON.parse(decodeURIComponent(escape(atob(userParam))));
+                    if (decodedUser && decodedUser.username && decodedUser.password) {
+                        const existingIdx = users.findIndex(u => normalizeDigits(u.username).toLowerCase() === normalizeDigits(decodedUser.username).toLowerCase());
+                        if (existingIdx >= 0) {
+                            users[existingIdx] = { ...users[existingIdx], ...decodedUser, active: true };
+                        } else {
+                            users.push({ ...decodedUser, active: true });
+                        }
+                        deletedUserIds = deletedUserIds.filter(id => id !== decodedUser.id);
+                        persistToLocalStorage();
+                        pushStateToPublicMultiDeviceSync();
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        const targetUser = users.find(u => normalizeDigits(u.username).toLowerCase() === normalizeDigits(decodedUser.username).toLowerCase());
+                        if (targetUser) enterApp(targetUser);
+                    }
                 }
-            } else if (isPublicRestSyncReady) {
-                await pushStateToPublicMultiDeviceSync();
+            } catch (e) {
+                console.warn('URL activation param parse skipped:', e);
             }
-            const timeLabel = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            setCloudStatus(true, currentLang === 'ar' ? `تم الحفظ (${timeLabel})` : `Saved (${timeLabel})`);
-            showToast(currentLang === 'ar' ? 'تم حفظ جميع البيانات والعمليات بنجاح!' : 'All data and operations saved successfully!', 'success');
         }
 
+        // Bind global handlers for inline HTML events
         Object.assign(window, {
-            manualSaveAll,
             toggleLanguage,
             handleLogin,
             handleLogout,
             togglePasswordVisibility,
-            setActiveTab,
+            manualSaveAll,
+            openCreatePermitModal,
+            handleCreatePermit,
             toggleNotifications,
+            markNotificationRead,
             markAllNotificationsRead,
             toggleUserMenu,
             openChangePasswordModal,
             handleChangeOwnPassword,
-            openCreatePermitModal,
-            handleCreatePermit,
+            setActiveTab,
             renderPermits,
+            openCloudConfigModal,
+            handleSaveCloudConfig,
+            copyCloudPortalLink,
+            clearCustomCloudConfig,
+            exportBackupFile,
+            importBackupFile,
+            openResetSystemModal,
+            handleCreateUser,
+            generateUsername,
+            generatePassword,
+            copyCreatedCredentials,
+            copyCreatedActivationLink,
+            copyUserRowCredentials,
+            copyUserRowLink,
+            deleteUserAccount,
+            closeModal,
             openHandoverModal,
             handleInitiateHandover,
             acceptHandover,
@@ -2684,41 +2601,27 @@
             openDeletePermitModal,
             openTimelineModal,
             downloadHandoverPDF,
-            shareHandoverViaWhatsApp,
-            handleCreateUser,
-            generateUsername,
-            generatePassword,
-            copyCreatedCredentials,
-            copyCreatedActivationLink,
-            copyUserRowCredentials,
-            copyUserActivationLink,
-            toggleUserStatus,
-            deleteUserAccount,
-            openCloudConfigModal,
-            handleSaveCloudConfig,
-            copyCloudPortalLink,
-            clearCustomCloudConfig,
-            exportBackupFile,
-            importBackupFile,
-            openResetSystemModal,
-            closeModal
+            shareHandoverViaWhatsApp
         });
 
-        window.addEventListener('click', (e) => {
-            if (!e.target.closest('#notif-dropdown') && !e.target.closest('button[onclick="toggleNotifications()"]')) {
-                document.getElementById('notif-dropdown')?.classList.add('hidden');
+        // Initialize application
+        (async function initApplication() {
+            applyTranslations();
+            await initPersistenceAndCloud();
+            processUrlActivationParams();
+            if (!currentUser) {
+                try {
+                    const savedSessionId = sessionStorage.getItem(SESSION_KEY);
+                    if (savedSessionId) {
+                        const found = users.find(u => u.id === savedSessionId && u.active);
+                        if (found) enterApp(found);
+                    }
+                } catch (e) {}
             }
-            if (!e.target.closest('#user-dropdown') && !e.target.closest('button[onclick="toggleUserMenu()"]')) {
-                document.getElementById('user-dropdown')?.classList.add('hidden');
-            }
-        });
-
-        window.addEventListener('DOMContentLoaded', () => {
-            initApplication();
             setInterval(() => {
-                if (currentUser) checkPermitExpiryAlerts();
-            }, 60 * 1000);
-        });
+                if (currentUser) checkExpiringPermitsAndNotify();
+            }, 60000);
+        })();
     </script>
 </body>
 </html>
