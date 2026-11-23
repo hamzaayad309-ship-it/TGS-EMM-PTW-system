@@ -1210,6 +1210,7 @@
                 try {
                     const decodedUser = JSON.parse(decodeURIComponent(escape(atob(userParam))));
                     if (decodedUser && decodedUser.id && decodedUser.username) {
+                        deletedUserIds = deletedUserIds.filter(id => id !== decodedUser.id);
                         const idx = users.findIndex(u => u.id === decodedUser.id || u.username.toLowerCase() === decodedUser.username.toLowerCase());
                         if (idx >= 0) users[idx] = { ...users[idx], ...decodedUser, active: true };
                         else users.push({ ...decodedUser, active: true });
@@ -1301,12 +1302,25 @@
                         if (Array.isArray(remoteData.deletedPermitIds)) {
                             deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...remoteData.deletedPermitIds]));
                         }
-                        users = remoteData.users.filter(u => !deletedUserIds.includes(u.id));
+                        // Merge remote users with any newly activated user from URL without overwriting remote data
+                        const mergedMap = new Map();
+                        remoteData.users.forEach(u => {
+                            if (!deletedUserIds.includes(u.id)) mergedMap.set(u.id, u);
+                        });
+                        const activeSessionId = localStorage.getItem(SESSION_KEY);
+                        if (activeSessionId) {
+                            const localSessionUser = users.find(u => u.id === activeSessionId);
+                            if (localSessionUser && !mergedMap.has(localSessionUser.id)) {
+                                mergedMap.set(localSessionUser.id, localSessionUser);
+                            }
+                        }
+                        users = Array.from(mergedMap.values());
                         permits = (Array.isArray(remoteData.permits) ? remoteData.permits : []).filter(p => !deletedPermitIds.includes(p.id));
                         notifications = Array.isArray(remoteData.notifications) ? remoteData.notifications : [];
                         lastRemoteSyncHash = JSON.stringify({ users, permits, notifications, deletedUserIds, deletedPermitIds });
                         persistToLocalStorage();
-                    } else {
+                    } else if (remoteData === null) {
+                        // Only initialize cloud workspace if completely empty on server
                         await pushStateToPublicMultiDeviceSync();
                     }
                     setCloudStatus(true, currentLang === 'ar' ? 'متصل بالسحابة العالمية (كل الأجهزة)' : 'Global Multi-Device Cloud Active');
@@ -1504,12 +1518,15 @@
             processUrlActivationParams();
             applyTranslations();
             await initCloudSync();
+            // Re-apply URL activation after cloud sync so activated user is guaranteed to exist & auto-login
+            processUrlActivationParams();
             await checkPermitExpiryAlerts();
 
             const savedUserId = localStorage.getItem(SESSION_KEY);
             if (savedUserId) {
                 const found = users.find(u => u.id === savedUserId && u.active);
                 if (found) {
+                    if (isPublicRestSyncReady) await pushStateToPublicMultiDeviceSync();
                     enterApp(found);
                     return;
                 }
