@@ -83,7 +83,7 @@
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                             <i class="fa-solid fa-user"></i>
                         </span>
-                        <input type="text" id="login-username" required autocomplete="username"
+                        <input type="text" id="login-username" required autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false"
                             class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
                             placeholder="Enter username">
                     </div>
@@ -95,7 +95,7 @@
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400">
                             <i class="fa-solid fa-lock"></i>
                         </span>
-                        <input type="password" id="login-password" required autocomplete="current-password"
+                        <input type="password" id="login-password" required autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false"
                             class="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition"
                             placeholder="••••••••">
                         <button type="button" onclick="togglePasswordVisibility('login-password', this)" class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-slate-400 hover:text-slate-600">
@@ -1548,26 +1548,41 @@
             document.getElementById('nav-user-avatar').textContent = (user.fullName || 'U').charAt(0).toUpperCase();
 
             const adminTabBtn = document.getElementById('admin-tab-btn');
-            const adminSection = document.getElementById('admin-section');
             if (isAdminUser()) {
-                adminTabBtn.classList.remove('hidden');
+                adminTabBtn?.classList.remove('hidden');
             } else {
-                adminTabBtn.classList.add('hidden');
-                adminSection.classList.add('hidden');
+                adminTabBtn?.classList.add('hidden');
                 if (currentTab === 'admin') currentTab = 'my-custody';
             }
+
             setActiveTab(currentTab);
             renderAll();
         }
 
-        function handleLogin(e) {
+        async function handleLogin(e) {
             e.preventDefault();
             const username = document.getElementById('login-username').value.trim().toLowerCase();
-            const password = document.getElementById('login-password').value;
+            const password = document.getElementById('login-password').value.trim();
             const errBox = document.getElementById('login-error');
             const errText = document.getElementById('login-error-text');
 
-            const matched = users.find(u => u.username.toLowerCase() === username && u.password === password);
+            // Pull latest users from cloud right before checking credentials so mobile always sees newly created accounts
+            if (isPublicRestSyncReady) {
+                try {
+                    const res = await fetch(`${PUBLIC_SYNC_URL}/workspaces/${GLOBAL_SYNC_CHANNEL}.json`);
+                    if (res.ok) {
+                        const remoteData = await res.json();
+                        if (remoteData && Array.isArray(remoteData.users) && remoteData.users.length > 0) {
+                            const remoteDelUsers = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
+                            deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteDelUsers]));
+                            users = remoteData.users.filter(u => !deletedUserIds.includes(u.id));
+                            persistToLocalStorage();
+                        }
+                    }
+                } catch (err) {}
+            }
+
+            const matched = users.find(u => (u.username || '').trim().toLowerCase() === username && String(u.password || '').trim() === password);
             if (!matched) {
                 errText.textContent = currentLang === 'ar' ? 'اسم المستخدم أو الرقم السري غير صحيح.' : 'Invalid username or password.';
                 errBox.classList.remove('hidden');
