@@ -1294,7 +1294,12 @@
                         const changed = applyRemoteCloudState(remoteData);
                         if (changed && currentUser) {
                             const refreshedMe = users.find(u => u.id === currentUser.id);
-                            if (refreshedMe) currentUser = refreshedMe;
+                            if (!refreshedMe || !refreshedMe.active || deletedUserIds.includes(currentUser.id)) {
+                                handleLogout();
+                                showToast(currentLang === 'ar' ? 'تم حذف أو تعطيل هذا الحساب من قبل الإدارة' : 'This account has been deleted or disabled by Admin', 'error');
+                                return;
+                            }
+                            currentUser = refreshedMe;
                             checkPermitExpiryReminders();
                             refreshAllUI();
                         }
@@ -1316,16 +1321,17 @@
                 const userParam = params.get('u');
                 if (userParam) {
                     const importedUser = JSON.parse(decodeURIComponent(escape(atob(userParam))));
-                    if (importedUser && importedUser.id && importedUser.username) {
-                        const idx = users.findIndex(u => u.id === importedUser.id || u.username.toLowerCase() === importedUser.username.toLowerCase());
+                    const impUname = String(importedUser?.username || '').trim().toLowerCase();
+                    if (importedUser && importedUser.id && impUname && !deletedUserIds.includes(importedUser.id) && !deletedUsernames.includes(impUname)) {
+                        const idx = users.findIndex(u => u.id === importedUser.id || u.username.toLowerCase() === impUname);
                         if (idx === -1) users.push(importedUser);
                         else users[idx] = importedUser;
                         persistToLocalStorage();
                         if (isCloudReady) syncUserToCloud(importedUser);
                         if (isPublicRestSyncReady) pushStateToPublicMultiDeviceSync();
                         localStorage.setItem(SESSION_KEY, importedUser.id);
-                        window.history.replaceState({}, document.title, window.location.pathname);
                     }
+                    window.history.replaceState({}, document.title, window.location.pathname);
                 }
             } catch (e) {}
         }
@@ -1753,6 +1759,9 @@
                 return;
             }
             const title = currentLang === 'ar' ? 'حذف حساب المستخدم' : 'Delete User Account';
+            const msg = currentLang === 'ar'
+                ? `هل أنت متأكد من حذف حساب (${u.fullName} - ${u.username}) نهائياً؟ لن يتمكن من تسجيل الدخول بعد الآن.`
+                : `Are you sure you want to permanently delete (${u.fullName} - ${u.username})? They will no longer be able to sign in.`;
             openConfirmActionModal(title, msg, async () => {
                 const unameLower = String(u.username || '').trim().toLowerCase();
                 if (!deletedUserIds.includes(userId)) deletedUserIds.push(userId);
@@ -2968,11 +2977,19 @@
         (async () => {
             await initPersistenceAndCloud();
             const savedUserId = localStorage.getItem(SESSION_KEY);
-            if (savedUserId) {
-                const existingUser = users.find(u => u.id === savedUserId && u.active);
+            if (savedUserId && !deletedUserIds.includes(savedUserId)) {
+                const existingUser = users.find(u =>
+                    u.id === savedUserId &&
+                    u.active &&
+                    !deletedUsernames.includes(String(u.username || '').trim().toLowerCase())
+                );
                 if (existingUser) {
                     enterApp(existingUser);
+                } else {
+                    localStorage.removeItem(SESSION_KEY);
                 }
+            } else {
+                localStorage.removeItem(SESSION_KEY);
             }
             setInterval(() => {
                 if (currentUser) checkPermitExpiryReminders();
