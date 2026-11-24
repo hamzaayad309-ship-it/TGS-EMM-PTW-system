@@ -50,9 +50,6 @@
                 <h1 id="login-title" class="text-xl font-extrabold tracking-tight">Work Permit Handover & Closure</h1>
                 <p id="login-subtitle" class="text-xs text-slate-300 mt-1">Industrial PTW Tracking & Custody Control</p>
             </div>
-                <h1 id="login-title" class="text-xl font-extrabold tracking-tight">نظام تسليم وإغلاق تصاريح العمل</h1>
-                <p id="login-subtitle" class="text-xs text-slate-300 mt-1">بوابة تتبع عهدة تصاريح العمل الصناعية (PTW)</p>
-            </div>
 
             <!-- Form -->
             <form onsubmit="handleLogin(event)" class="p-7 space-y-5">
@@ -1098,38 +1095,6 @@
             );
         }
 
-        async function handleCreatePermit(e) {
-            e.preventDefault();
-            const permit = {
-                id: 'ptw_' + Date.now(),
-                number: document.getElementById('np-number').value.trim(),
-                type: document.getElementById('np-type').value,
-                location: document.getElementById('np-location').value.trim(),
-                description: document.getElementById('np-desc').value.trim(),
-                validUntil: document.getElementById('np-valid').value,
-                status: 'ACTIVE', // ACTIVE | PENDING_HANDOVER | CLOSED
-                createdById: currentUser.id,
-                createdByName: currentUser.fullName,
-                holderId: currentUser.id,
-                holderName: currentUser.fullName,
-                pendingToId: null,
-                pendingToName: null,
-                handoverNotes: '',
-                auditLog: [{
-                    action: 'ISSUED',
-                    by: currentUser.fullName,
-                    at: new Date().toISOString(),
-                    note: 'تم إصدار التصريح واستلام العهدة'
-                }]
-            };
-
-            permits.unshift(permit);
-            closeModal('modal-new-permit');
-            refreshAllUI();
-            await pushCloudState(true);
-            showToast('تم إصدار التصريح ومزامنته بنجاح');
-        }
-
         function openHandoverModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
@@ -1479,8 +1444,9 @@
             }
 
             const container = document.getElementById('permits-section');
+            const isAr = currentLang === 'ar';
             if (listToShow.length === 0) {
-                container.innerHTML = `<div class="col-span-full glass-card rounded-2xl p-10 text-center text-slate-400 text-sm font-bold">لا توجد تصاريح مطابقة لهذا العرض حالياً.</div>`;
+                container.innerHTML = `<div class="col-span-full glass-card rounded-2xl p-10 text-center text-slate-400 text-sm font-bold">${isAr ? 'لا توجد تصاريح مطابقة لهذا العرض حالياً.' : 'No matching permits found for this view.'}</div>`;
                 return;
             }
 
@@ -1491,6 +1457,11 @@
                 const canDelete = currentUser.role === 'Admin' || p.createdById === currentUser.id || p.holderId === currentUser.id;
 
                 const typeBadgeClass = p.type === 'HOT' ? 'badge-hot' : p.type === 'COLD' ? 'badge-cold' : p.type === 'BREAKING' ? 'badge-breaking' : 'badge-spark';
+                const statusLabel = p.status === 'CLOSED'
+                    ? (isAr ? 'مغلق' : 'Closed')
+                    : p.status === 'PENDING_HANDOVER'
+                        ? (isAr ? 'بانتظار الاستلام' : 'Pending Handover')
+                        : (isAr ? 'نشط' : 'Active');
 
                 return `
                 <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-4">
@@ -1502,9 +1473,9 @@
                             </div>
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-[10px] font-extrabold px-2.5 py-1 rounded-lg ${p.status === 'CLOSED' ? 'bg-slate-200 text-slate-700' : p.status === 'PENDING_HANDOVER' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
-                                    ${p.status === 'CLOSED' ? 'مغلق' : p.status === 'PENDING_HANDOVER' ? 'بانتظار الاستلام' : 'نشط'}
+                                    ${statusLabel}
                                 </span>
-                                ${isExpired ? '<span class="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-red-600 text-white">منتهي الصلاحية</span>' : ''}
+                                ${isExpired ? `<span class="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-red-600 text-white">${isAr ? 'منتهي الصلاحية' : 'Expired'}</span>` : ''}
                             </div>
                         </div>
 
@@ -1519,16 +1490,16 @@
 
                         <div class="mt-3 space-y-1 text-xs">
                             <div class="flex justify-between">
-                                <span class="text-slate-500">حامل العهدة الحالي:</span>
+                                <span class="text-slate-500">${isAr ? 'حامل العهدة الحالي:' : 'Current Holder:'}</span>
                                 <span class="font-bold text-slate-900">${p.holderName}</span>
                             </div>
                             ${p.pendingToName ? `
                             <div class="flex justify-between text-amber-700">
-                                <span>موجه للاستلام إلى:</span>
+                                <span>${isAr ? 'موجه للاستلام إلى:' : 'Pending Handover To:'}</span>
                                 <span class="font-bold">${p.pendingToName}</span>
                             </div>` : ''}
                             <div class="flex justify-between">
-                                <span class="text-slate-500">صالح لغاية:</span>
+                                <span class="text-slate-500">${isAr ? 'صالح لغاية:' : 'Valid Until:'}</span>
                                 <span class="font-bold ${isExpired ? 'text-red-600' : 'text-slate-800'}">${String(p.validUntil || '').replace('T', ' ')}</span>
                             </div>
                         </div>
@@ -1539,40 +1510,40 @@
                         ${isIncomingForMe ? `
                             <button onclick="acceptHandover('${p.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm">
                                 <i class="fa-solid fa-check"></i>
-                                <span>قبول واستلام العهدة</span>
+                                <span>${isAr ? 'قبول واستلام العهدة' : 'Accept Custody'}</span>
                             </button>
                         ` : ''}
 
                         ${p.status !== 'CLOSED' && (isMyCustody || currentUser.role === 'Admin') ? `
                             <button onclick="openHandoverModal('${p.id}')" class="px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-extrabold flex items-center gap-1.5">
                                 <i class="fa-solid fa-right-left"></i>
-                                <span>تسليم</span>
+                                <span>${isAr ? 'تسليم' : 'Handover'}</span>
                             </button>
                             <button onclick="openRenewPermitModal('${p.id}')" class="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold flex items-center gap-1">
                                 <i class="fa-solid fa-clock-rotate-left"></i>
-                                <span>تجديد</span>
+                                <span>${isAr ? 'تجديد' : 'Renew'}</span>
                             </button>
                             <button onclick="openClosePermitModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1">
                                 <i class="fa-solid fa-lock"></i>
-                                <span>إغلاق</span>
+                                <span>${isAr ? 'إغلاق' : 'Close'}</span>
                             </button>
                         ` : ''}
 
                         <button onclick="openAuditModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1">
                             <i class="fa-solid fa-list-ul"></i>
-                            <span>السجل</span>
+                            <span>${isAr ? 'السجل' : 'Audit Log'}</span>
                         </button>
 
-                        <button onclick="downloadHandoverReceiptPDF('${p.id}')" title="تحميل PDF" class="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
+                        <button onclick="downloadHandoverReceiptPDF('${p.id}')" title="${isAr ? 'تحميل PDF' : 'Download PDF'}" class="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
                             <i class="fa-solid fa-file-pdf text-red-600"></i>
                         </button>
 
-                        <button onclick="shareHandoverViaWhatsApp('${p.id}')" title="مشاركة واتساب" class="px-2.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold">
+                        <button onclick="shareHandoverViaWhatsApp('${p.id}')" title="${isAr ? 'مشاركة واتساب' : 'Share via WhatsApp'}" class="px-2.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold">
                             <i class="fa-brands fa-whatsapp text-sm"></i>
                         </button>
 
                         ${canDelete ? `
-                            <button onclick="deletePermitRecord('${p.id}')" title="حذف التصريح" class="mr-auto px-2.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold">
+                            <button onclick="deletePermitRecord('${p.id}')" title="${isAr ? 'حذف التصريح' : 'Delete Permit'}" class="${isAr ? 'mr-auto' : 'ml-auto'} px-2.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold">
                                 <i class="fa-solid fa-trash"></i>
                             </button>
                         ` : ''}
