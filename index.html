@@ -1010,8 +1010,8 @@
         const SESSION_KEY = 'tgs_ptw_active_user_id_v1';
         const CUSTOM_CLOUD_KEY = 'tgs_ptw_custom_firebase_cfg_v1';
         const PUBLIC_SYNC_URL = 'https://jsonblob.com/api/jsonBlob';
-        const GLOBAL_BLOB_ID = '019a0c8e-7f2a-7d1b-9c4e-5a8b3d6e1f02';
-        const NTFY_TOPIC = 'tgs_ptw_hamzaayad309_master_v5';
+        const NTFY_TOPIC = 'tgs_ptw_hamzaayad309_master_v6';
+        const BLOB_ID_STORAGE_KEY = 'tgs_ptw_dynamic_blob_id_v1';
         const LEGACY_SAMPLE_PERMITS = ['PTW-2026-1041', 'PTW-2026-1042', 'PTW-2026-1043', 'PTW-2026-1044', 'PTW-2026-1045'];
         const LEGACY_SAMPLE_USERS = ['Ahmed Hassan (Lead Eng)', 'Omar Khalid (Area Issuer)', 'Sara Mahmood (HSE Officer)', 'Khaled Noor (Supervisor)'];
 
@@ -1021,6 +1021,7 @@
         let deletedUserIds = [];
         let deletedPermitIds = [];
         let stateUpdatedAt = 0;
+        let activeBlobId = localStorage.getItem(BLOB_ID_STORAGE_KEY) || '';
         let isCloudReady = false;
         let isPublicRestSyncReady = false;
         let lastRemoteSyncHash = '';
@@ -1113,33 +1114,59 @@
         }
 
         async function fetchLatestCloudState() {
+            let discoveredBlobId = activeBlobId;
+            let bestNtfyState = null;
+
+            // 1. Read from ntfy.sh (supports both inline messages AND >4KB attachment payloads!)
             try {
                 const ntfyRes = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=all`, { cache: 'no-store' });
                 if (ntfyRes.ok) {
                     const text = await ntfyRes.text();
                     const lines = text.trim().split('\n').filter(Boolean);
                     for (let i = lines.length - 1; i >= 0; i--) {
-                        const evt = JSON.parse(lines[i]);
-                        if (evt && evt.message) {
-                            const parsed = JSON.parse(evt.message);
-                            if (parsed && Array.isArray(parsed.users)) return parsed;
-                        }
+                        try {
+                            const evt = JSON.parse(lines[i]);
+                            let parsed = null;
+                            if (evt && evt.attachment && evt.attachment.url) {
+                                const attRes = await fetch(evt.attachment.url, { cache: 'no-store' });
+                                if (attRes.ok) parsed = await attRes.json();
+                            } else if (evt && evt.message) {
+                                parsed = JSON.parse(evt.message);
+                            }
+                            if (parsed && Array.isArray(parsed.users)) {
+                                if (parsed.blobId && !discoveredBlobId) {
+                                    discoveredBlobId = parsed.blobId;
+                                    activeBlobId = parsed.blobId;
+                                    localStorage.setItem(BLOB_ID_STORAGE_KEY, activeBlobId);
+                                }
+                                bestNtfyState = parsed;
+                                break;
+                            }
+                        } catch (innerErr) {}
                     }
                 }
             } catch (e) {}
 
-            try {
-                const res = await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_BLOB_ID}?t=${Date.now()}`, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' },
-                    cache: 'no-store'
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && Array.isArray(data.users)) return data;
-                }
-            } catch (e) {}
-            return null;
+            // 2. Also fetch from persistent JSONBlob storage if discovered
+            if (discoveredBlobId) {
+                try {
+                    const res = await fetch(`${PUBLIC_SYNC_URL}/${discoveredBlobId}?t=${Date.now()}`, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json' },
+                        cache: 'no-store'
+                    });
+                    if (res.ok) {
+                        const blobData = await res.json();
+                        if (blobData && Array.isArray(blobData.users)) {
+                            if (!bestNtfyState || Number(blobData.stateUpdatedAt || 0) >= Number(bestNtfyState.stateUpdatedAt || 0)) {
+                                return blobData;
+                            }
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            return bestNtfyState;
         }
 
         function applyRemoteCloudState(remoteData) {
@@ -1206,6 +1233,7 @@
             stateUpdatedAt = Date.now();
             sanitizeLegacySampleData();
             const payload = {
+                blobId: activeBlobId,
                 users,
                 permits,
                 notifications,
@@ -1222,20 +1250,40 @@
             });
             persistToLocalStorage();
 
+            // 1. Persist to permanent JSONBlob (create via POST if not yet provisioned, else PUT)
+            try {
+                if (!activeBlobId) {
+                    const createRes = await fetch(PUBLIC_SYNC_URL, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (createRes.ok) {
+                        const locHeader = createRes.headers.get('Location') || createRes.headers.get('X-jsonblob') || '';
+                        const extractedId = locHeader.split('/').pop();
+                        if (extractedId) {
+                            activeBlobId = extractedId;
+                            payload.blobId = activeBlobId;
+                            localStorage.setItem(BLOB_ID_STORAGE_KEY, activeBlobId);
+                        }
+                    }
+                } else {
+                    const putRes = await fetch(`${PUBLIC_SYNC_URL}/${activeBlobId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (putRes.status === 404) {
+                        activeBlobId = '';
+                        localStorage.removeItem(BLOB_ID_STORAGE_KEY);
+                    }
+                }
+            } catch (e) {}
+
+            // 2. Broadcast full state & blobId to ntfy.sh (works even when > 4KB via attachment support)
             try {
                 await fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
                     method: 'POST',
-                    body: JSON.stringify(payload)
-                });
-            } catch (e) {}
-
-            try {
-                await fetch(`${PUBLIC_SYNC_URL}/${GLOBAL_BLOB_ID}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
                     body: JSON.stringify(payload)
                 });
             } catch (e) {}
