@@ -1019,6 +1019,7 @@
         let permits = [];
         let notifications = [];
         let deletedUserIds = [];
+        let deletedUsernames = [];
         let deletedPermitIds = [];
         let stateUpdatedAt = 0;
         let isCloudReady = false;
@@ -1062,7 +1063,15 @@
 
         function sanitizeLegacySampleData() {
             deletedUserIds = deletedUserIds.filter(id => id !== 'usr_admin_1');
-            users = users.filter(u => u && u.id && !deletedUserIds.includes(u.id) && !LEGACY_SAMPLE_USERS.includes(u.fullName));
+            deletedUsernames = deletedUsernames.map(un => String(un || '').trim().toLowerCase()).filter(un => un && un !== 'admin');
+            users = users.filter(u => {
+                if (!u || !u.id) return false;
+                const uname = String(u.username || '').trim().toLowerCase();
+                if (deletedUserIds.includes(u.id)) return false;
+                if (uname && deletedUsernames.includes(uname)) return false;
+                if (LEGACY_SAMPLE_USERS.includes(u.fullName)) return false;
+                return true;
+            });
             permits = permits.filter(p => p && p.id && !deletedPermitIds.includes(p.id) && !LEGACY_SAMPLE_PERMITS.includes(p.permitNumber));
             seedDefaultData();
         }
@@ -1074,6 +1083,7 @@
                 const parsed = JSON.parse(raw);
                 if (Array.isArray(parsed.users) && parsed.users.length > 0) {
                     deletedUserIds = Array.isArray(parsed.deletedUserIds) ? parsed.deletedUserIds : [];
+                    deletedUsernames = Array.isArray(parsed.deletedUsernames) ? parsed.deletedUsernames : [];
                     deletedPermitIds = Array.isArray(parsed.deletedPermitIds) ? parsed.deletedPermitIds : [];
                     stateUpdatedAt = Number(parsed.stateUpdatedAt || 0);
                     users = parsed.users;
@@ -1094,6 +1104,7 @@
                     permits,
                     notifications,
                     deletedUserIds,
+                    deletedUsernames,
                     deletedPermitIds,
                     stateUpdatedAt
                 }));
@@ -1165,28 +1176,27 @@
         function applyRemoteCloudState(remoteData) {
             if (!remoteData || !Array.isArray(remoteData.users)) return false;
             const remoteUpdatedAt = Number(remoteData.stateUpdatedAt || 0);
-            const remoteHash = JSON.stringify({
-                t: remoteUpdatedAt,
-                u: remoteData.users,
-                p: remoteData.permits || [],
-                n: remoteData.notifications || []
-            });
-            if (remoteHash === lastRemoteSyncHash) return false;
-            lastRemoteSyncHash = remoteHash;
-
-            // Merge deleted IDs safely (never delete admin)
+            // Merge deleted IDs & usernames safely (never delete admin)
             const remoteDeletedUsers = Array.isArray(remoteData.deletedUserIds) ? remoteData.deletedUserIds : [];
+            const remoteDeletedUsernames = Array.isArray(remoteData.deletedUsernames) ? remoteData.deletedUsernames : [];
             const remoteDeletedPermits = Array.isArray(remoteData.deletedPermitIds) ? remoteData.deletedPermitIds : [];
             deletedUserIds = Array.from(new Set([...deletedUserIds, ...remoteDeletedUsers])).filter(id => id !== 'usr_admin_1');
+            deletedUsernames = Array.from(new Set([...deletedUsernames, ...remoteDeletedUsernames]))
+                .map(un => String(un || '').trim().toLowerCase())
+                .filter(un => un && un !== 'admin');
             deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...remoteDeletedPermits]));
 
-            // Protected Merge for Users: NEVER wipe locally created accounts!
+            // Protected Merge for Users: NEVER restore deleted accounts!
             const mergedUsersMap = new Map();
             users.forEach(u => {
-                if (u && u.id && !deletedUserIds.includes(u.id)) mergedUsersMap.set(u.id, u);
+                const uname = String(u?.username || '').trim().toLowerCase();
+                if (u && u.id && !deletedUserIds.includes(u.id) && !deletedUsernames.includes(uname)) {
+                    mergedUsersMap.set(u.id, u);
+                }
             });
             remoteData.users.forEach(ru => {
-                if (ru && ru.id && !deletedUserIds.includes(ru.id)) {
+                const uname = String(ru?.username || '').trim().toLowerCase();
+                if (ru && ru.id && !deletedUserIds.includes(ru.id) && !deletedUsernames.includes(uname)) {
                     const existing = mergedUsersMap.get(ru.id);
                     if (!existing || remoteUpdatedAt >= stateUpdatedAt) {
                         mergedUsersMap.set(ru.id, ru);
@@ -1230,6 +1240,7 @@
                 permits,
                 notifications,
                 deletedUserIds,
+                deletedUsernames,
                 deletedPermitIds,
                 stateUpdatedAt,
                 updatedAt: new Date(stateUpdatedAt).toISOString()
@@ -1515,7 +1526,25 @@
             const errBox = document.getElementById('login-error');
             const errText = document.getElementById('login-error-text');
 
+            // Fetch latest cloud state first so deleted/updated accounts are immediately respected
+            try {
+                const remoteData = await fetchLatestCloudState();
+                if (remoteData) {
+                    applyRemoteCloudState(remoteData);
+                }
+            } catch (err) {}
+
+            if (deletedUsernames.includes(usernameInput)) {
+                errText.textContent = currentLang === 'ar'
+                    ? 'تم حذف هذا الحساب من قبل الإدارة ولا يمكن تسجيل الدخول به.'
+                    : 'This account has been permanently deleted by Admin.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+
             let user = users.find(u =>
+                !deletedUserIds.includes(u.id) &&
+                !deletedUsernames.includes(normalizeDigits(u.username).trim().toLowerCase()) &&
                 normalizeDigits(u.username).trim().toLowerCase() === usernameInput &&
                 (normalizeDigits(u.password).trim() === passwordInput || String(u.password).trim() === rawPassword.trim())
             );
@@ -1648,6 +1677,10 @@
                 return;
             }
 
+            // If this username was previously deleted, allow re-creating it fresh
+            const lowerNewUname = username.toLowerCase();
+            deletedUsernames = deletedUsernames.filter(un => un !== lowerNewUname);
+
             const newUser = {
                 id: 'usr_' + Date.now(),
                 fullName,
@@ -1720,20 +1753,20 @@
                 return;
             }
             const title = currentLang === 'ar' ? 'حذف حساب المستخدم' : 'Delete User Account';
-            const msg = currentLang === 'ar'
-                ? `هل أنت متأكد من حذف حساب "${u.fullName}" (${u.username}) نهائياً؟`
-                : `Are you sure you want to permanently delete user "${u.fullName}" (${u.username})?`;
-
-            openConfirmActionModal(title, msg, () => {
+            openConfirmActionModal(title, msg, async () => {
+                const unameLower = String(u.username || '').trim().toLowerCase();
                 if (!deletedUserIds.includes(userId)) deletedUserIds.push(userId);
-                users = users.filter(item => item.id !== userId);
+                if (unameLower && unameLower !== 'admin' && !deletedUsernames.includes(unameLower)) {
+                    deletedUsernames.push(unameLower);
+                }
+                users = users.filter(item => item.id !== userId && String(item.username || '').trim().toLowerCase() !== unameLower);
                 persistToLocalStorage();
-                pushStateToPublicMultiDeviceSync();
+                await pushStateToPublicMultiDeviceSync();
                 if (isCloudReady && db) {
                     deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', userId)).catch(() => {});
                 }
                 renderUsersTable();
-                showToast(currentLang === 'ar' ? 'تم حذف حساب المستخدم ومزامنة الحذف' : 'User account deleted & synced across devices', 'success');
+                showToast(currentLang === 'ar' ? 'تم حذف حساب المستخدم نهائياً ومنع دخوله' : 'User account permanently deleted & blocked', 'success');
             });
         }
 
