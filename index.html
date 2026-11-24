@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -29,8 +29,8 @@
         }
         .badge-hot { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
         .badge-cold { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-        .badge-confined { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
         .badge-breaking { background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; }
+        .badge-spark { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
@@ -42,11 +42,14 @@
             <div class="bg-slate-900 text-white p-7 text-center relative">
                 <button type="button" onclick="toggleLanguage()" class="absolute top-4 left-4 bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-white/20 transition flex items-center gap-1.5">
                     <i class="fa-solid fa-globe"></i>
-                    <span id="login-lang-btn">English</span>
+                    <span id="login-lang-btn">العربية</span>
                 </button>
                 <div class="w-16 h-16 bg-white rounded-2xl mx-auto mb-3 flex items-center justify-center shadow-lg border-2 border-amber-400">
                     <span class="text-slate-900 font-black text-xl tracking-wider">TGS</span>
                 </div>
+                <h1 id="login-title" class="text-xl font-extrabold tracking-tight">Work Permit Handover & Closure</h1>
+                <p id="login-subtitle" class="text-xs text-slate-300 mt-1">Industrial PTW Tracking & Custody Control</p>
+            </div>
                 <h1 id="login-title" class="text-xl font-extrabold tracking-tight">نظام تسليم وإغلاق تصاريح العمل</h1>
                 <p id="login-subtitle" class="text-xs text-slate-300 mt-1">بوابة تتبع عهدة تصاريح العمل الصناعية (PTW)</p>
             </div>
@@ -345,41 +348,47 @@
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
                 <h3 class="font-extrabold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-file-circle-plus text-emerald-400"></i>
-                    <span>إصدار تصريح عمل جديد</span>
+                    <span id="np-modal-title">Issue New Work Permit</span>
                 </h3>
                 <button onclick="closeModal('modal-new-permit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <form onsubmit="handleCreatePermit(event)" class="p-5 space-y-4 text-xs">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="block font-bold text-slate-600 mb-1">رقم التصريح</label>
-                        <input id="np-number" type="text" required placeholder="PTW-2026-1001" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
+                        <label id="np-lbl-number" class="block font-bold text-slate-600 mb-1">Permit Number</label>
+                        <input id="np-number" type="text" required placeholder="Enter Permit Number..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
                     </div>
                     <div>
-                        <label class="block font-bold text-slate-600 mb-1">نوع التصريح</label>
+                        <label id="np-lbl-type" class="block font-bold text-slate-600 mb-1">Permit Type</label>
                         <select id="np-type" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
-                            <option value="HOT">عمل ساخن (HOT)</option>
-                            <option value="COLD">عمل بارد (COLD)</option>
-                            <option value="CONFINED">مكان مغلق (CONFINED)</option>
-                            <option value="BREAKING">كسر احتواء (BREAKING)</option>
+                            <option value="HOT">HOT</option>
+                            <option value="COLD">COLD</option>
+                            <option value="BREAKING">BREAKING</option>
+                            <option value="SPARK">SPARK</option>
                         </select>
                     </div>
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">موقع العمل / الوحدة</label>
-                    <input id="np-location" type="text" required placeholder="مثال: CDU-02 Flare Header" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                    <label id="np-lbl-location" class="block font-bold text-slate-600 mb-1">Work Location</label>
+                    <input id="np-location" type="text" required placeholder="e.g., CDU-02 Flare Header" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">وصف العمل</label>
-                    <textarea id="np-desc" rows="2" required placeholder="تفاصيل العمل وإجراءات السلامة..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
+                    <label id="np-lbl-handover" class="block font-bold text-slate-600 mb-1">Handover Permit To User (Optional - Sends Acceptance Notification)</label>
+                    <select id="np-handover-user" class="w-full p-2.5 bg-amber-50/60 border border-amber-300 rounded-xl font-bold text-slate-800">
+                        <option value="">-- Keep in My Custody --</option>
+                    </select>
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">صالح لغاية (التاريخ والوقت)</label>
+                    <label id="np-lbl-desc" class="block font-bold text-slate-600 mb-1">Work Description</label>
+                    <textarea id="np-desc" rows="2" required placeholder="Work details and safety precautions..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
+                </div>
+                <div>
+                    <label id="np-lbl-valid" class="block font-bold text-slate-600 mb-1">Valid Until (Date & Time)</label>
                     <input id="np-valid" type="datetime-local" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('modal-new-permit')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">إلغاء</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow">إصدار وحفظ التصريح</button>
+                    <button type="button" onclick="closeModal('modal-new-permit')" id="np-btn-cancel" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
+                    <button type="submit" id="np-btn-submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow">Issue & Save Permit</button>
                 </div>
             </form>
         </div>
@@ -534,7 +543,7 @@
         const NTFY_TOPIC = 'tgs_ptw_global_sync_998122_prod';
         const KV_SYNC_URL = 'https://kvdb.io/A9x7PqLmN2vK8wRtY5zB3c/tgs_ptw_state_v4';
 
-        let currentLang = 'ar';
+        let currentLang = 'en';
         let activeTab = 'my';
         let currentUser = null;
 
@@ -624,6 +633,15 @@
             setTxt('tab-lbl-all', 'جميع تصاريح الموقع', 'All Active');
             setTxt('tab-lbl-closed', 'الأرشيف المغلق', 'Closed Archive');
             setTxt('tab-lbl-admin', 'لوحة الإدارة والتحكم', 'Admin Control');
+            setTxt('np-modal-title', 'إصدار تصريح عمل جديد', 'Issue New Work Permit');
+            setTxt('np-lbl-number', 'رقم التصريح', 'Permit Number');
+            setTxt('np-lbl-type', 'نوع التصريح', 'Permit Type');
+            setTxt('np-lbl-location', 'موقع العمل', 'Work Location');
+            setTxt('np-lbl-handover', 'تسليم التصريح إلى مستخدم آخر (يصل إشعار للمستلم لقبول التسليم)', 'Handover Permit To Another User (Sends Acceptance Notification)');
+            setTxt('np-lbl-desc', 'وصف العمل', 'Work Description');
+            setTxt('np-lbl-valid', 'صالح لغاية (التاريخ والوقت)', 'Valid Until (Date & Time)');
+            setTxt('np-btn-cancel', 'إلغاء', 'Cancel');
+            setTxt('np-btn-submit', 'إصدار وحفظ التصريح', 'Issue & Save Permit');
         }
 
         // ==================== LOCAL & CLOUD PERSISTENCE ====================
@@ -1011,13 +1029,73 @@
         }
 
         function openNewPermitModal() {
-            document.getElementById('np-number').value = 'PTW-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+            document.getElementById('np-number').value = '';
             document.getElementById('np-location').value = '';
             document.getElementById('np-desc').value = '';
+            const handoverSel = document.getElementById('np-handover-user');
+            if (handoverSel) {
+                const otherUsers = users.filter(u => u && u.active && currentUser && u.id !== currentUser.id);
+                const defaultOpt = currentLang === 'ar' ? '-- إبقاء التصريح في عهدتي --' : '-- Keep in My Custody --';
+                handoverSel.innerHTML = `<option value="">${defaultOpt}</option>` +
+                    otherUsers.map(u => `<option value="${u.id}">${u.fullName} (${u.username} - ${u.role})</option>`).join('');
+            }
             const defaultValid = new Date(Date.now() + 8 * 3600 * 1000);
             defaultValid.setMinutes(defaultValid.getMinutes() - defaultValid.getTimezoneOffset());
             document.getElementById('np-valid').value = defaultValid.toISOString().slice(0, 16);
             document.getElementById('modal-new-permit').classList.remove('hidden');
+        }
+
+        async function handleCreatePermit(e) {
+            e.preventDefault();
+            const targetHandoverId = document.getElementById('np-handover-user')?.value || '';
+            const targetUser = targetHandoverId ? users.find(u => u.id === targetHandoverId) : null;
+            const permitNumber = document.getElementById('np-number').value.trim();
+            const permitLocation = document.getElementById('np-location').value.trim();
+
+            const permit = {
+                id: 'ptw_' + Date.now(),
+                number: permitNumber,
+                type: document.getElementById('np-type').value,
+                location: permitLocation,
+                description: document.getElementById('np-desc').value.trim(),
+                validUntil: document.getElementById('np-valid').value,
+                status: targetUser ? 'PENDING_HANDOVER' : 'ACTIVE', // ACTIVE | PENDING_HANDOVER | CLOSED
+                createdById: currentUser.id,
+                createdByName: currentUser.fullName,
+                holderId: currentUser.id,
+                holderName: currentUser.fullName,
+                pendingToId: targetUser ? targetUser.id : null,
+                pendingToName: targetUser ? targetUser.fullName : null,
+                handoverNotes: targetUser ? (currentLang === 'ar' ? 'تسليم مباشر عند الإصدار' : 'Direct handover upon issuance') : '',
+                auditLog: [{
+                    action: 'ISSUED',
+                    by: currentUser.fullName,
+                    at: new Date().toISOString(),
+                    note: targetUser
+                        ? `Issued and sent for handover acceptance to ${targetUser.fullName}`
+                        : 'Permit issued and custody retained'
+                }]
+            };
+
+            if (targetUser) {
+                addNotification(
+                    targetUser.id,
+                    currentLang === 'ar' ? 'طلب قبول استلام تصريح عمل' : 'Permit Handover Acceptance Request',
+                    currentLang === 'ar'
+                        ? `قام ${currentUser.fullName} بإرسال التصريح (${permitNumber}) في موقع (${permitLocation}) إليك. يرجى قبول التسليم لإتمام نقل العهدة.`
+                        : `${currentUser.fullName} sent permit (${permitNumber}) at (${permitLocation}) to you. Please accept handover to complete transfer.`,
+                    'handover'
+                );
+            }
+
+            permits.unshift(permit);
+            closeModal('modal-new-permit');
+            refreshAllUI();
+            await pushCloudState(true);
+            showToast(targetUser
+                ? (currentLang === 'ar' ? `تم إصدار التصريح وإرسال إشعار القبول إلى ${targetUser.fullName}` : `Permit issued & handover request sent to ${targetUser.fullName}`)
+                : (currentLang === 'ar' ? 'تم إصدار التصريح ومزامنته بنجاح' : 'Permit issued & synced successfully')
+            );
         }
 
         async function handleCreatePermit(e) {
@@ -1412,7 +1490,7 @@
                 const isIncomingForMe = p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id;
                 const canDelete = currentUser.role === 'Admin' || p.createdById === currentUser.id || p.holderId === currentUser.id;
 
-                const typeBadgeClass = p.type === 'HOT' ? 'badge-hot' : p.type === 'COLD' ? 'badge-cold' : p.type === 'CONFINED' ? 'badge-confined' : 'badge-breaking';
+                const typeBadgeClass = p.type === 'HOT' ? 'badge-hot' : p.type === 'COLD' ? 'badge-cold' : p.type === 'BREAKING' ? 'badge-breaking' : 'badge-spark';
 
                 return `
                 <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-4">
