@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TGS | Work Permit Handover & Closure System (PTW)</title>
+    <title>TGS - Work Permit Handover & Closure System (PTW)</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap');
         body {
             font-family: 'Inter', 'Cairo', sans-serif;
             background-color: #f1f5f9;
@@ -17,83 +17,69 @@
         [dir="rtl"] body {
             font-family: 'Cairo', 'Inter', sans-serif;
         }
-        .glass-card {
-            background: rgba(255, 255, 255, 0.96);
-            backdrop-filter: blur(10px);
-            border: 1px solid #e2e8f0;
+        .card-shadow {
+            box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.04);
         }
-        .tab-active {
-            background-color: #0f172a;
-            color: #ffffff;
-            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
-        }
-        .badge-hot { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
-        .badge-cold { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
-        .badge-breaking { background: #f3e8ff; color: #7e22ce; border: 1px solid #e9d5ff; }
-        .badge-spark { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+        .status-badge-active { background-color: #dcfce7; color: #166534; border: 1px solid #86efac; }
+        .status-badge-pending { background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+        .status-badge-closed { background-color: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
     </style>
 </head>
 <body class="min-h-screen flex flex-col">
 
     <!-- ==================== LOGIN SCREEN ==================== -->
-    <div id="login-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-        <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-            <!-- Header -->
-            <div class="bg-slate-900 text-white p-7 text-center relative">
-                <button type="button" onclick="toggleLanguage()" class="absolute top-4 left-4 bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-1.5 rounded-xl border border-white/20 transition flex items-center gap-1.5">
-                    <i class="fa-solid fa-globe"></i>
-                    <span id="login-lang-btn">العربية</span>
-                </button>
-                <div class="w-16 h-16 bg-white rounded-2xl mx-auto mb-3 flex items-center justify-center shadow-lg border-2 border-amber-400">
-                    <span class="text-slate-900 font-black text-xl tracking-wider">TGS</span>
+    <div id="login-screen" class="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950">
+        <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-100">
+            <div class="bg-slate-900 p-6 text-white flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-11 h-11 rounded-2xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 font-extrabold text-lg">
+                        PTW
+                    </div>
+                    <div>
+                        <h1 id="login-brand-title" class="text-base font-extrabold tracking-tight">TGS Permit System</h1>
+                        <p id="login-brand-sub" class="text-xs text-slate-400">Work Permit Handover & Closure</p>
+                    </div>
                 </div>
-                <h1 id="login-title" class="text-xl font-extrabold tracking-tight">Work Permit Handover & Closure</h1>
-                <p id="login-subtitle" class="text-xs text-slate-300 mt-1">Industrial PTW Tracking & Custody Control</p>
+                <button type="button" onclick="toggleLanguage()" class="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-language"></i>
+                    <span id="login-lang-label">العربية</span>
+                </button>
             </div>
 
-            <!-- Form -->
-            <form onsubmit="handleLogin(event)" class="p-7 space-y-5">
-                <div id="login-error" class="hidden bg-red-50 border border-red-200 text-red-700 text-xs font-semibold p-3.5 rounded-xl flex items-center gap-2">
-                    <i class="fa-solid fa-circle-exclamation text-red-600 text-sm"></i>
-                    <span id="login-error-text">Invalid username or password</span>
+            <form onsubmit="handleLogin(event)" class="p-6 space-y-4">
+                <div>
+                    <h2 id="login-heading" class="text-xl font-extrabold text-slate-900">Sign In</h2>
+                    <p id="login-desc" class="text-xs text-slate-500 mt-0.5">Enter your credentials to access your permits</p>
+                </div>
+
+                <div id="login-error" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
+                    <i class="fa-solid fa-circle-exclamation"></i>
+                    <span id="login-error-text">Invalid username or password.</span>
                 </div>
 
                 <div>
-                    <label id="lbl-username" class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Username</label>
+                    <label id="lbl-username" class="block text-xs font-bold text-slate-700 mb-1">Username</label>
                     <div class="relative">
-                        <span class="absolute inset-y-0 right-3.5 flex items-center text-slate-400">
-                            <i class="fa-solid fa-user"></i>
-                        </span>
-                        <input id="login-username" type="text" required autocomplete="username" placeholder="admin"
-                            class="w-full pr-10 pl-4 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition">
+                        <input id="login-username" type="text" autocomplete="username" required placeholder="admin" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500">
                     </div>
                 </div>
 
                 <div>
-                    <label id="lbl-password" class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Password</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 right-3.5 flex items-center text-slate-400">
-                            <i class="fa-solid fa-lock"></i>
-                        </span>
-                        <input id="login-password" type="password" required autocomplete="current-password" placeholder="••••••"
-                            class="w-full pr-10 pl-10 py-3 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white transition">
-                        <button type="button" onclick="togglePasswordVisibility()" class="absolute inset-y-0 left-3.5 flex items-center text-slate-400 hover:text-slate-700">
-                            <i id="pass-eye-icon" class="fa-solid fa-eye"></i>
-                        </button>
-                    </div>
+                    <label id="lbl-password" class="block text-xs font-bold text-slate-700 mb-1">Password</label>
+                    <input id="login-password" type="password" autocomplete="current-password" required placeholder="••••••" class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500">
                 </div>
 
-                <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2 text-sm">
-                    <i class="fa-solid fa-right-to-bracket text-amber-400"></i>
-                    <span id="btn-signin-text">Sign In to Portal</span>
+                <button type="submit" id="btn-login-submit" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.99] text-white font-extrabold text-sm shadow-lg shadow-emerald-600/25 transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    <span id="login-btn-text">Sign In</span>
                 </button>
 
-                <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
-                    <span class="flex items-center gap-1.5">
+                <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-400">
+                    <span id="sync-status-badge" class="flex items-center gap-1.5 text-emerald-600 font-semibold">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span id="sync-status-login">Cloud Multi-Device Sync Active</span>
+                        <span id="sync-status-text">Cloud Sync Ready</span>
                     </span>
-                    <span class="font-mono text-slate-400">PTW v4.3</span>
+                    <span>v5.2</span>
                 </div>
             </form>
         </div>
@@ -101,199 +87,196 @@
 
     <!-- ==================== MAIN APPLICATION SHELL ==================== -->
     <div id="app-shell" class="hidden min-h-screen flex flex-col">
-
-        <!-- Top Navbar -->
-        <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
-                <!-- Brand -->
+        <!-- Top Bar -->
+        <header class="bg-slate-900 text-white sticky top-0 z-30 shadow-md">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 bg-slate-900 text-white rounded-xl flex items-center justify-center font-black text-sm border-2 border-amber-400 shadow">
-                        TGS
+                    <div id="header-user-avatar" class="w-10 h-10 rounded-2xl bg-emerald-500 text-slate-950 font-extrabold flex items-center justify-center text-base">
+                        A
                     </div>
                     <div>
-                        <h1 id="nav-title" class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Work Permit System (PTW)</h1>
-                        <p id="nav-subtitle" class="text-[11px] text-slate-500">Permit Custody & Closure Portal</p>
+                        <div class="flex items-center gap-2">
+                            <span id="header-user-name" class="text-sm font-extrabold">Admin</span>
+                            <span id="header-user-role" class="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">Admin</span>
+                        </div>
+                        <p id="header-sync-info" class="text-[11px] text-slate-400 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block"></span>
+                            <span id="header-sync-text">Live Sync Active</span>
+                        </p>
                     </div>
                 </div>
 
-                <!-- Actions -->
-                <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
-                    <button onclick="toggleLanguage()" class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 transition">
-                        <i class="fa-solid fa-globe text-slate-500"></i>
-                        <span id="nav-lang-btn">العربية</span>
-                    </button>
-
-                    <button onclick="manualSaveAllData()" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition">
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="manualSaveAllData()" class="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center gap-1.5">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span id="btn-save-sync">Save & Sync</span>
+                        <span id="btn-sync-now" class="hidden sm:inline">Sync</span>
                     </button>
 
-                    <button onclick="openNewPermitModal()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition">
+                    <button type="button" onclick="openNotificationsModal()" class="relative p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white transition" title="Notifications">
+                        <i class="fa-solid fa-bell text-sm"></i>
+                        <span id="notif-badge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-extrabold flex items-center justify-center">0</span>
+                    </button>
+
+                    <button type="button" onclick="toggleLanguage()" class="px-3 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-language"></i>
+                        <span id="nav-lang-label">العربية</span>
+                    </button>
+
+                    <button type="button" onclick="handleLogout()" class="px-3 py-2 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-400/30 text-xs font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-right-from-bracket"></i>
+                        <span id="btn-logout-text" class="hidden sm:inline">Logout</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Navigation Tabs -->
+            <div class="bg-slate-800/90 border-t border-slate-700/70">
+                <div class="max-w-7xl mx-auto px-4 flex items-center justify-between gap-2 overflow-x-auto">
+                    <div class="flex items-center gap-1 py-2">
+                        <button type="button" id="tab-my-btn" onclick="setActiveTab('my')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-emerald-500 text-slate-950 transition whitespace-nowrap">
+                            <i class="fa-solid fa-file-shield mr-1.5"></i>
+                            <span id="tab-my-label">My Permits</span>
+                        </button>
+                        <button type="button" id="tab-incoming-btn" onclick="setActiveTab('incoming')" class="px-3.5 py-2 rounded-xl text-xs font-extrabold text-slate-300 hover:bg-white/10 transition whitespace-nowrap flex items-center gap-1.5">
+                            <i class="fa-solid fa-inbox"></i>
+                            <span id="tab-incoming-label">Incoming Handovers</span>
+                            <span id="incoming-count-badge" class="hidden px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 text-[10px] font-extrabold">0</span>
+                        </button>
+                        <button type="button" id="tab-all-btn" onclick="setActiveTab('all')" class="hidden px-3.5 py-2 rounded-xl text-xs font-extrabold text-slate-300 hover:bg-white/10 transition whitespace-nowrap">
+                            <i class="fa-solid fa-layer-group mr-1.5"></i>
+                            <span id="tab-all-label">All Site Permits</span>
+                        </button>
+                        <button type="button" id="tab-admin-btn" onclick="setActiveTab('admin')" class="hidden px-3.5 py-2 rounded-xl text-xs font-extrabold text-slate-300 hover:bg-white/10 transition whitespace-nowrap">
+                            <i class="fa-solid fa-user-gear mr-1.5"></i>
+                            <span id="tab-admin-label">Admin Control</span>
+                        </button>
+                    </div>
+
+                    <button type="button" onclick="openCreatePermitModal()" class="my-1.5 px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold text-xs shadow transition flex items-center gap-1.5 whitespace-nowrap">
                         <i class="fa-solid fa-plus"></i>
                         <span id="btn-new-permit">New Permit</span>
                     </button>
-
-                    <!-- Notifications Bell -->
-                    <div class="relative">
-                        <button onclick="toggleNotifications()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center relative transition">
-                            <i class="fa-solid fa-bell"></i>
-                            <span id="notif-badge" class="hidden absolute -top-1 -right-1 w-5 h-5 bg-red-600 text-white text-[10px] font-bold rounded-full flex items-center justify-center">0</span>
-                        </button>
-
-                        <!-- Notifications Dropdown -->
-                        <div id="notif-dropdown" class="hidden absolute left-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden">
-                            <div class="p-3.5 bg-slate-900 text-white flex items-center justify-between">
-                                <span class="text-xs font-bold flex items-center gap-2">
-                                    <i class="fa-solid fa-bell text-amber-400"></i>
-                                    <span id="notif-header-title">Notifications & Alerts</span>
-                                </span>
-                                <button onclick="markAllNotificationsRead()" id="btn-mark-read" class="text-[11px] text-amber-300 hover:underline">Mark all read</button>
-                            </div>
-                            <div id="notif-list" class="max-h-80 overflow-y-auto divide-y divide-slate-100 p-2 text-xs"></div>
-                        </div>
-                    </div>
-
-                    <!-- User Pill & Logout -->
-                    <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-2xl border border-slate-200">
-                        <div id="header-user-avatar" class="w-7 h-7 rounded-xl bg-slate-900 text-amber-400 font-bold text-xs flex items-center justify-center">A</div>
-                        <div class="leading-tight">
-                            <div id="header-user-name" class="text-xs font-bold text-slate-900">Admin</div>
-                            <div id="header-user-role" class="text-[10px] font-semibold text-slate-500">Admin</div>
-                        </div>
-                        <button onclick="handleLogout()" title="Sign Out" class="mr-1 text-red-600 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition">
-                            <i class="fa-solid fa-right-from-bracket"></i>
-                        </button>
-                    </div>
                 </div>
             </div>
         </header>
 
         <!-- Main Content -->
-        <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-
-            <!-- KPI Cards -->
+        <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+            <!-- Stats Row -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p id="kpi-custody-lbl" class="text-xs font-bold text-slate-500">In My Custody</p>
-                        <h3 id="kpi-custody-val" class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">0</h3>
-                    </div>
-                    <div class="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-user-shield"></i>
-                    </div>
+                <div class="bg-white rounded-2xl p-4 card-shadow border border-slate-100">
+                    <p id="stat-active-lbl" class="text-xs font-bold text-slate-500">Active Permits</p>
+                    <p id="stat-active-val" class="text-2xl font-extrabold text-emerald-600 mt-1">0</p>
                 </div>
-
-                <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p id="kpi-incoming-lbl" class="text-xs font-bold text-slate-500">Incoming Handovers</p>
-                        <h3 id="kpi-incoming-val" class="text-2xl sm:text-3xl font-black text-blue-600 mt-1">0</h3>
-                    </div>
-                    <div class="w-11 h-11 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-inbox"></i>
-                    </div>
+                <div class="bg-white rounded-2xl p-4 card-shadow border border-slate-100">
+                    <p id="stat-pending-lbl" class="text-xs font-bold text-slate-500">Pending Handovers</p>
+                    <p id="stat-pending-val" class="text-2xl font-extrabold text-amber-600 mt-1">0</p>
                 </div>
-
-                <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p id="kpi-active-lbl" class="text-xs font-bold text-slate-500">Active Permits</p>
-                        <h3 id="kpi-active-val" class="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">0</h3>
-                    </div>
-                    <div class="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-file-circle-check"></i>
-                    </div>
+                <div class="bg-white rounded-2xl p-4 card-shadow border border-slate-100">
+                    <p id="stat-closed-lbl" class="text-xs font-bold text-slate-500">Closed Permits</p>
+                    <p id="stat-closed-val" class="text-2xl font-extrabold text-slate-700 mt-1">0</p>
                 </div>
-
-                <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
-                    <div>
-                        <p id="kpi-closed-lbl" class="text-xs font-bold text-slate-500">Closed Permits</p>
-                        <h3 id="kpi-closed-val" class="text-2xl sm:text-3xl font-black text-slate-700 mt-1">0</h3>
-                    </div>
-                    <div class="w-11 h-11 rounded-2xl bg-slate-200 text-slate-700 flex items-center justify-center text-lg">
-                        <i class="fa-solid fa-lock"></i>
-                    </div>
+                <div class="bg-white rounded-2xl p-4 card-shadow border border-slate-100">
+                    <p id="stat-total-lbl" class="text-xs font-bold text-slate-500">Total Visible</p>
+                    <p id="stat-total-val" class="text-2xl font-extrabold text-blue-600 mt-1">0</p>
                 </div>
             </div>
 
-            <!-- Navigation Tabs & Search -->
-            <div class="glass-card rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                <div class="flex flex-wrap items-center gap-2">
-                    <button id="tab-btn-my" onclick="setActiveTab('my')" class="tab-active px-4 py-2 rounded-xl text-xs font-bold transition">
-                        <span id="tab-lbl-my">My Permits</span>
-                    </button>
-                    <button id="tab-btn-incoming" onclick="setActiveTab('incoming')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                        <span id="tab-lbl-incoming">Incoming Handovers</span>
-                    </button>
-                    <button id="tab-btn-all" onclick="setActiveTab('all')" class="hidden px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                        <span id="tab-lbl-all">All Site Permits</span>
-                    </button>
-                    <button id="tab-btn-closed" onclick="setActiveTab('closed')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                        <span id="tab-lbl-closed">Closed Archive</span>
-                    </button>
-                    <button id="tab-btn-admin" onclick="setActiveTab('admin')" class="hidden px-4 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1.5">
-                        <i class="fa-solid fa-gears"></i>
-                        <span id="tab-lbl-admin">Admin Control Panel</span>
-                    </button>
+            <!-- Search & Filter Bar -->
+            <div id="permits-toolbar" class="bg-white rounded-2xl p-4 card-shadow border border-slate-100 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex-1 min-w-[220px] relative">
+                    <i class="fa-solid fa-magnifying-glass text-slate-400 text-xs absolute top-3.5 left-3.5"></i>
+                    <input id="search-permit-input" oninput="refreshAllUI()" type="text" placeholder="Search permit number, location, holder..." class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-500">
                 </div>
-
-                <div class="relative w-full md:w-72">
-                    <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                    <input id="search-input" oninput="refreshAllUI()" type="text" placeholder="Search permit #, location, holder..."
-                        class="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900">
+                <div class="flex items-center gap-2">
+                    <select id="filter-type-select" onchange="refreshAllUI()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700">
+                        <option value="ALL">All Types</option>
+                        <option value="HOT">HOT</option>
+                        <option value="COLD">COLD</option>
+                        <option value="BREAKING">BREAKING</option>
+                        <option value="SPARK">SPARK</option>
+                    </select>
+                    <select id="filter-status-select" onchange="refreshAllUI()" class="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700">
+                        <option value="ALL">All Statuses</option>
+                        <option value="Active">Active</option>
+                        <option value="Pending Handover">Pending Handover</option>
+                        <option value="Closed">Closed</option>
+                    </select>
                 </div>
             </div>
 
-            <!-- Permits Container -->
-            <div id="permits-section" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            <!-- Permits List Container -->
+            <div id="permits-list" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
 
-            <!-- Admin Control Panel Section -->
-            <div id="admin-section" class="hidden space-y-6">
+            <!-- Admin Panel Container -->
+            <div id="admin-panel" class="hidden space-y-6">
                 <!-- Create User Card -->
-                <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm">
+                <div class="bg-white rounded-3xl p-6 card-shadow border border-slate-100">
                     <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
                         <div>
                             <h2 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
                                 <i class="fa-solid fa-user-plus text-emerald-600"></i>
                                 <span id="adm-create-title">Create New User Account</span>
                             </h2>
-                            <p id="adm-create-sub" class="text-xs text-slate-500">Accounts sync automatically across all phones and computers</p>
+                            <p id="adm-create-sub" class="text-xs text-slate-500">All users & permits sync automatically across all phones on the main link</p>
                         </div>
-                        <button type="button" onclick="copyDeviceSyncLink()" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 flex items-center gap-1.5">
-                            <i class="fa-solid fa-link text-amber-400"></i>
-                            <span id="adm-copy-portal-btn">Copy Synced Portal Link</span>
-                        </button>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" onclick="openCloudConfigModal()" class="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold hover:bg-blue-100 flex items-center gap-1.5">
+                                <i class="fa-solid fa-database"></i>
+                                <span>Permanent Cloud DB</span>
+                            </button>
+                            <button type="button" onclick="copyDeviceSyncLink()" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 flex items-center gap-1.5">
+                                <i class="fa-solid fa-link text-amber-400"></i>
+                                <span id="adm-copy-portal-btn">Copy Portal Link</span>
+                            </button>
+                        </div>
                     </div>
 
-                    <form onsubmit="handleCreateUser(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                        <input id="new-user-fullname" type="text" required placeholder="Full Name (e.g., Ali Hassan)" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
-                        <input id="new-user-username" type="text" required placeholder="Login Username" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
-                        <input id="new-user-password" type="text" required placeholder="Password" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
-                        <select id="new-user-role" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold">
-                            <option value="PA">Permit User (PA)</option>
-                            <option value="Admin">System Admin (Admin)</option>
-                        </select>
-                        <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow transition flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-plus"></i>
-                            <span id="adm-btn-create-user">Create & Save Account</span>
-                        </button>
+                    <form onsubmit="handleCreateUser(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+                        <div>
+                            <label id="adm-lbl-fullname" class="block font-bold text-slate-600 mb-1">Full Name</label>
+                            <input id="new-usr-fullname" type="text" required placeholder="e.g. Hassan Ali" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                        </div>
+                        <div>
+                            <label id="adm-lbl-username" class="block font-bold text-slate-600 mb-1">Username</label>
+                            <input id="new-usr-username" type="text" required placeholder="hassan.ali" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                        </div>
+                        <div>
+                            <label id="adm-lbl-password" class="block font-bold text-slate-600 mb-1">Password</label>
+                            <input id="new-usr-password" type="text" required placeholder="1234" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                        </div>
+                        <div>
+                            <label id="adm-lbl-role" class="block font-bold text-slate-600 mb-1">Role</label>
+                            <select id="new-usr-role" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
+                                <option value="PA">Permit Authority (PA)</option>
+                                <option value="Admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="flex items-end">
+                            <button type="submit" id="adm-btn-create-user" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold transition flex items-center justify-center gap-1.5">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>Create User</span>
+                            </button>
+                        </div>
                     </form>
                 </div>
 
-                <!-- Users Management Table -->
-                <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm overflow-hidden">
-                    <h3 class="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-users-gear text-blue-600"></i>
-                        <span id="adm-users-table-title">User Accounts & Permissions Management</span>
+                <!-- Users Table -->
+                <div class="bg-white rounded-3xl p-6 card-shadow border border-slate-100">
+                    <h3 id="adm-users-list-title" class="text-sm font-extrabold text-slate-900 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-users text-blue-600"></i>
+                        <span>Registered Users</span>
                     </h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-xs">
                             <thead>
-                                <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
-                                    <th class="p-3 font-bold">Full Name</th>
-                                    <th class="p-3 font-bold">Username</th>
-                                    <th class="p-3 font-bold">Password</th>
-                                    <th class="p-3 font-bold">Role</th>
-                                    <th class="p-3 font-bold">Status</th>
-                                    <th class="p-3 font-bold text-center">Actions</th>
+                                <tr class="border-b border-slate-200 text-slate-500 font-bold">
+                                    <th class="py-2.5 px-3">Name</th>
+                                    <th class="py-2.5 px-3">Username</th>
+                                    <th class="py-2.5 px-3">Password</th>
+                                    <th class="py-2.5 px-3">Role</th>
+                                    <th class="py-2.5 px-3">Status</th>
+                                    <th class="py-2.5 px-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-users-tbody" class="divide-y divide-slate-100"></tbody>
@@ -301,22 +284,22 @@
                     </div>
                 </div>
 
-                <!-- Master Permits Control Table -->
-                <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm overflow-hidden">
-                    <h3 class="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
-                        <i class="fa-solid fa-shield-halved text-amber-600"></i>
-                        <span id="adm-permits-table-title">Master Site Permits Control</span>
+                <!-- Admin Master Permits Control -->
+                <div class="bg-white rounded-3xl p-6 card-shadow border border-slate-100">
+                    <h3 id="adm-master-permits-title" class="text-sm font-extrabold text-slate-900 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-amber-600"></i>
+                        <span>Master Permits Control</span>
                     </h3>
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse text-xs">
                             <thead>
-                                <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
-                                    <th class="p-3 font-bold">Permit #</th>
-                                    <th class="p-3 font-bold">Type</th>
-                                    <th class="p-3 font-bold">Work Location</th>
-                                    <th class="p-3 font-bold">Current Holder</th>
-                                    <th class="p-3 font-bold">Status</th>
-                                    <th class="p-3 font-bold text-center">Admin Control</th>
+                                <tr class="border-b border-slate-200 text-slate-500 font-bold">
+                                    <th class="py-2.5 px-3">Permit #</th>
+                                    <th class="py-2.5 px-3">Type</th>
+                                    <th class="py-2.5 px-3">Work Location</th>
+                                    <th class="py-2.5 px-3">Holder</th>
+                                    <th class="py-2.5 px-3">Status</th>
+                                    <th class="py-2.5 px-3 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-permits-tbody" class="divide-y divide-slate-100"></tbody>
@@ -324,40 +307,29 @@
                     </div>
                 </div>
             </div>
-
         </main>
-
-        <!-- Footer -->
-        <footer class="bg-white border-t border-slate-200 py-3 px-6 text-xs text-slate-500 flex flex-wrap items-center justify-between gap-2">
-            <span>TGS Work Permit Handover & Closure Portal</span>
-            <span id="footer-sync-indicator" class="text-emerald-600 font-semibold flex items-center gap-1.5">
-                <i class="fa-solid fa-circle text-[8px] animate-pulse"></i>
-                <span>Global Multi-Device Sync Active</span>
-            </span>
-        </footer>
     </div>
 
     <!-- ==================== MODALS ==================== -->
-
-    <!-- 1. New Permit Modal -->
-    <div id="modal-new-permit" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <!-- 1. Create / Issue Permit Modal -->
+    <div id="modal-create-permit" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden">
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
-                <h3 class="font-extrabold text-sm flex items-center gap-2">
-                    <i class="fa-solid fa-file-circle-plus text-emerald-400"></i>
-                    <span id="np-modal-title">Issue New Work Permit</span>
+                <h3 id="modal-create-title" class="font-extrabold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-circle-plus text-amber-400"></i>
+                    <span>Issue New Work Permit</span>
                 </h3>
-                <button onclick="closeModal('modal-new-permit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeModal('modal-create-permit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <form onsubmit="handleCreatePermit(event)" class="p-5 space-y-4 text-xs">
+            <form onsubmit="handleCreatePermit(event)" class="p-5 space-y-3.5 text-xs">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label id="np-lbl-number" class="block font-bold text-slate-600 mb-1">Permit Number</label>
-                        <input id="np-number" type="text" required placeholder="Enter Permit Number..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
+                        <label id="lbl-permit-number" class="block font-bold text-slate-700 mb-1">Permit Number</label>
+                        <input id="permit-number" type="text" required placeholder="" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
                     </div>
                     <div>
-                        <label id="np-lbl-type" class="block font-bold text-slate-600 mb-1">Permit Type</label>
-                        <select id="np-type" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
+                        <label id="lbl-permit-type" class="block font-bold text-slate-700 mb-1">Permit Type</label>
+                        <select id="permit-type" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
                             <option value="HOT">HOT</option>
                             <option value="COLD">COLD</option>
                             <option value="BREAKING">BREAKING</option>
@@ -365,27 +337,33 @@
                         </select>
                     </div>
                 </div>
+
                 <div>
-                    <label id="np-lbl-location" class="block font-bold text-slate-600 mb-1">Work Location</label>
-                    <input id="np-location" type="text" required placeholder="e.g., CDU-02 Flare Header" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                    <label id="lbl-work-location" class="block font-bold text-slate-700 mb-1">Work Location</label>
+                    <input id="permit-location" type="text" required placeholder="e.g. Manifold Area - North" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
+
                 <div>
-                    <label id="np-lbl-handover" class="block font-bold text-slate-600 mb-1">Handover Permit To User (Optional - Sends Acceptance Notification)</label>
-                    <select id="np-handover-user" class="w-full p-2.5 bg-amber-50/60 border border-amber-300 rounded-xl font-bold text-slate-800">
-                        <option value="">-- Keep in My Custody --</option>
-                    </select>
+                    <label id="lbl-permit-desc" class="block font-bold text-slate-700 mb-1">Scope / Notes</label>
+                    <textarea id="permit-desc" rows="2" placeholder="Work description..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
                 </div>
-                <div>
-                    <label id="np-lbl-desc" class="block font-bold text-slate-600 mb-1">Work Description</label>
-                    <textarea id="np-desc" rows="2" required placeholder="Work details and safety precautions..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label id="lbl-valid-until" class="block font-bold text-slate-700 mb-1">Valid Until</label>
+                        <input id="permit-valid-until" type="datetime-local" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                    </div>
+                    <div>
+                        <label id="lbl-handover-to-user" class="block font-bold text-slate-700 mb-1">Handover Permit To Another User</label>
+                        <select id="permit-handover-to" class="w-full p-2.5 bg-amber-50 border border-amber-300 rounded-xl font-bold text-slate-900">
+                            <option value="">-- Keep With Me --</option>
+                        </select>
+                    </div>
                 </div>
-                <div>
-                    <label id="np-lbl-valid" class="block font-bold text-slate-600 mb-1">Valid Until (Date & Time)</label>
-                    <input id="np-valid" type="datetime-local" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
-                </div>
+
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('modal-new-permit')" id="np-btn-cancel" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
-                    <button type="submit" id="np-btn-submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow">Issue & Save Permit</button>
+                    <button type="button" onclick="closeModal('modal-create-permit')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
+                    <button type="submit" id="btn-submit-permit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold">Save Permit</button>
                 </div>
             </form>
         </div>
@@ -395,96 +373,82 @@
     <div id="modal-handover" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden">
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
-                <h3 class="font-extrabold text-sm flex items-center gap-2">
+                <h3 id="modal-handover-title" class="font-extrabold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-right-left text-amber-400"></i>
-                    <span id="ho-modal-title">Handover Permit Custody</span>
+                    <span>Handover Permit</span>
                 </h3>
-                <button onclick="closeModal('modal-handover')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeModal('modal-handover')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <form onsubmit="handleInitiateHandover(event)" class="p-5 space-y-4 text-xs">
-                <input type="hidden" id="ho-permit-id">
-                <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 font-bold" id="ho-permit-label"></div>
+            <form onsubmit="handleHandoverSubmit(event)" class="p-5 space-y-4 text-xs">
+                <input id="handover-permit-id" type="hidden">
                 <div>
-                    <label id="ho-lbl-target" class="block font-bold text-slate-600 mb-1">Select Receiving User (Next Shift)</label>
-                    <select id="ho-target-user" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold"></select>
+                    <label id="lbl-select-receiver" class="block font-bold text-slate-700 mb-1">Select Receiving User</label>
+                    <select id="handover-receiver-select" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold"></select>
                 </div>
                 <div>
-                    <label id="ho-lbl-notes" class="block font-bold text-slate-600 mb-1">Handover Notes & Site Status</label>
-                    <textarea id="ho-notes" rows="2" required placeholder="Gas test cleared and site secured..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
+                    <label id="lbl-handover-note" class="block font-bold text-slate-700 mb-1">Handover Remarks</label>
+                    <textarea id="handover-note" rows="2" placeholder="Status & precautions..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
                     <button type="button" onclick="closeModal('modal-handover')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold shadow">Send Handover Request</button>
+                    <button type="submit" id="btn-confirm-handover" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-extrabold">Send Handover</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- 3. Close Permit Modal -->
-    <div id="modal-close-permit" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <!-- 3. Renew Modal -->
+    <div id="modal-renew" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden">
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
-                <h3 class="font-extrabold text-sm flex items-center gap-2">
-                    <i class="fa-solid fa-lock text-red-400"></i>
-                    <span>Final Permit Closure</span>
-                </h3>
-                <button onclick="closeModal('modal-close-permit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
-            </div>
-            <form onsubmit="handleClosePermit(event)" class="p-5 space-y-4 text-xs">
-                <input type="hidden" id="cp-permit-id">
-                <div class="p-3 bg-slate-100 rounded-xl font-bold text-slate-800" id="cp-permit-label"></div>
-                <label class="flex items-center gap-2 font-semibold text-slate-700">
-                    <input type="checkbox" required class="w-4 h-4 rounded text-emerald-600">
-                    <span>Site restored clean & safe, and all LOTO locks removed.</span>
-                </label>
-                <div>
-                    <label class="block font-bold text-slate-600 mb-1">Closure Notes</label>
-                    <textarea id="cp-notes" rows="2" required placeholder="Work completed safely and permit closed..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
-                </div>
-                <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('modal-close-permit')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Confirm Closure</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- 4. Renew Permit Modal -->
-    <div id="modal-renew-permit" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden">
-            <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
-                <h3 class="font-extrabold text-sm flex items-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left text-blue-400"></i>
+                <h3 id="modal-renew-title" class="font-extrabold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-rotate text-blue-400"></i>
                     <span>Renew Permit Validity</span>
                 </h3>
-                <button onclick="closeModal('modal-renew-permit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeModal('modal-renew')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <form onsubmit="handleRenewPermit(event)" class="p-5 space-y-4 text-xs">
-                <input type="hidden" id="rp-permit-id">
-                <div class="p-3 bg-blue-50 text-blue-900 rounded-xl font-bold" id="rp-permit-label"></div>
+            <form onsubmit="handleRenewSubmit(event)" class="p-5 space-y-4 text-xs">
+                <input id="renew-permit-id" type="hidden">
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">New Expiry Date & Time</label>
-                    <input id="rp-new-valid" type="datetime-local" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                    <label id="lbl-new-expiry" class="block font-bold text-slate-700 mb-1">New Expiry Date & Time</label>
+                    <input id="renew-new-expiry" type="datetime-local" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('modal-renew-permit')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">Update Validity</button>
+                    <button type="button" onclick="closeModal('modal-renew')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
+                    <button type="submit" id="btn-confirm-renew" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-extrabold">Renew</button>
                 </div>
             </form>
         </div>
     </div>
 
-    <!-- 5. Audit Log Modal -->
-    <div id="modal-audit" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <!-- 4. Audit Log Modal -->
+    <div id="modal-log" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden">
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
-                <h3 class="font-extrabold text-sm flex items-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
-                    <span id="audit-modal-title">Permit Audit Trail</span>
+                <h3 id="modal-log-title" class="font-extrabold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-emerald-400"></i>
+                    <span>Permit Audit Log</span>
                 </h3>
-                <button onclick="closeModal('modal-audit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeModal('modal-log')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <div id="audit-modal-body" class="p-5 max-h-96 overflow-y-auto space-y-3 text-xs"></div>
+            <div id="audit-log-content" class="p-5 max-h-[65vh] overflow-y-auto space-y-2.5 text-xs"></div>
+        </div>
+    </div>
+
+    <!-- 5. Notifications Modal -->
+    <div id="modal-notifications" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden">
+            <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
+                <h3 id="modal-notif-title" class="font-extrabold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-bell text-amber-400"></i>
+                    <span>Notifications</span>
+                </h3>
+                <div class="flex items-center gap-2">
+                    <button type="button" onclick="markAllNotificationsRead()" class="text-[11px] font-bold text-emerald-300 hover:underline">Mark all read</button>
+                    <button type="button" onclick="closeModal('modal-notifications')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+            </div>
+            <div id="notifications-list" class="p-4 max-h-[65vh] overflow-y-auto space-y-2.5 text-xs"></div>
         </div>
     </div>
 
@@ -493,30 +457,30 @@
         <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden">
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
                 <h3 class="font-extrabold text-sm flex items-center gap-2">
-                    <i class="fa-solid fa-user-pen text-amber-400"></i>
+                    <i class="fa-solid fa-user-pen text-blue-400"></i>
                     <span>Edit User Account</span>
                 </h3>
-                <button onclick="closeModal('modal-admin-edit-user')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                <button type="button" onclick="closeModal('modal-admin-edit-user')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
-            <form onsubmit="handleAdminUpdateUser(event)" class="p-5 space-y-4 text-xs">
-                <input type="hidden" id="edit-user-id">
+            <form onsubmit="handleAdminUpdateUser(event)" class="p-5 space-y-3.5 text-xs">
+                <input id="edit-usr-id" type="hidden">
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">Full Name</label>
-                    <input id="edit-user-fullname" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                    <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+                    <input id="edit-usr-fullname" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">Username</label>
-                    <input id="edit-user-username" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                    <label class="block font-bold text-slate-700 mb-1">Username</label>
+                    <input id="edit-usr-username" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">Password</label>
-                    <input id="edit-user-password" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
+                    <label class="block font-bold text-slate-700 mb-1">Password</label>
+                    <input id="edit-usr-password" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">Role</label>
-                    <select id="edit-user-role" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
-                        <option value="PA">Permit User (PA)</option>
-                        <option value="Admin">System Admin (Admin)</option>
+                    <label class="block font-bold text-slate-700 mb-1">Role</label>
+                    <select id="edit-usr-role" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
+                        <option value="PA">Permit Authority (PA)</option>
+                        <option value="Admin">Admin</option>
                     </select>
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
@@ -527,21 +491,50 @@
         </div>
     </div>
 
+    <!-- 7. Permanent Cloud DB Config Modal -->
+    <div id="modal-cloud-config" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden">
+            <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
+                <h3 class="font-extrabold text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-database text-amber-400"></i>
+                    <span>Permanent Cloud Database (Optional)</span>
+                </h3>
+                <button type="button" onclick="closeModal('modal-cloud-config')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form onsubmit="saveCustomFirebaseUrl(event)" class="p-5 space-y-4 text-xs">
+                <p class="text-slate-600 leading-relaxed">
+                    Default multi-device sync is <b>already active</b> across all devices. For permanent multi-year storage, paste a free Firebase Realtime Database URL below:
+                </p>
+                <div>
+                    <label class="block font-bold text-slate-600 mb-1">Firebase Realtime Database URL</label>
+                    <input id="custom-firebase-url" type="url" placeholder="https://your-project-default-rtdb.firebaseio.com" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs">
+                </div>
+                <div class="pt-2 flex justify-end gap-2">
+                    <button type="button" onclick="closeModal('modal-cloud-config')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Close</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">Connect & Sync All</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Toast Notification Banner -->
-    <div id="toast-box" class="hidden fixed bottom-5 left-5 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700 text-xs font-bold flex items-center gap-2.5">
-        <i class="fa-solid fa-circle-check text-emerald-400 text-base"></i>
-        <span id="toast-msg"></span>
+    <div id="toast-banner" class="hidden fixed bottom-5 left-1/2 -translate-x-1/2 z-[60] bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-xl border border-slate-700 text-xs font-bold flex items-center gap-2">
+        <i class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toast-message">Saved</span>
     </div>
 
     <script>
         // ==================== STATE & CLOUD CONFIG ====================
-        const STORAGE_KEY = 'tgs_ptw_state_v4';
-        const SESSION_KEY = 'tgs_ptw_session_v4';
-        const BLOB_ID_KEY = 'tgs_ptw_blob_id_v4';
-        const NTFY_TOPIC = 'tgs_ptw_global_sync_998122_prod';
-        const NTFY_USERS_TOPIC = 'tgs_ptw_users_registry_998122_prod';
-        let activeBlobId = localStorage.getItem(BLOB_ID_KEY) || '';
+        const STORAGE_KEY = 'tgs_ptw_state_v5';
+        const SESSION_KEY = 'tgs_ptw_session_v5';
+        const FB_URL_KEY = 'tgs_ptw_firebase_url_v5';
+        const NTFY_BASE = 'https://ntfy.sh';
+        const TOPIC_USERS = 'tgs_ptw_v5_users_stream_998122';
+        const TOPIC_PERMITS = 'tgs_ptw_v5_permits_stream_998122';
+        const TOPIC_NOTIFS = 'tgs_ptw_v5_notifs_stream_998122';
+        const TOPIC_DELETIONS = 'tgs_ptw_v5_deletions_stream_998122';
 
+        let customFirebaseUrl = localStorage.getItem(FB_URL_KEY) || '';
         let currentLang = 'en';
         let activeTab = 'my';
         let currentUser = null;
@@ -557,187 +550,100 @@
         const I18N = {
             en: {
                 langBtn: 'العربية',
-                loginTitle: 'Work Permit Handover & Closure',
-                loginSubtitle: 'Industrial PTW Tracking & Custody Control',
-                username: 'Username',
-                password: 'Password',
-                signIn: 'Sign In to Portal',
-                syncLogin: 'Cloud Multi-Device Sync Active',
-                navTitle: 'Work Permit System (PTW)',
-                navSubtitle: 'Permit Custody & Closure Portal',
-                saveSync: 'Save & Sync',
-                newPermit: 'New Permit',
-                notifHeader: 'Notifications & Alerts',
-                markRead: 'Mark all read',
-                kpiCustody: 'In My Custody',
-                kpiIncoming: 'Incoming Handovers',
-                kpiActive: 'Active Permits',
-                kpiClosed: 'Closed Permits',
+                loginBrandTitle: 'TGS Permit System',
+                loginBrandSub: 'Work Permit Handover & Closure',
+                loginHeading: 'Sign In',
+                loginDesc: 'Enter your credentials to access your permits',
+                usernameLbl: 'Username',
+                passwordLbl: 'Password',
+                loginBtn: 'Sign In',
+                invalidCreds: 'Invalid username, password, or account has been deleted.',
+                syncReady: 'Cloud Sync Ready',
+                syncLive: 'Live Sync Active',
+                syncBtn: 'Sync',
+                logoutBtn: 'Logout',
                 tabMy: 'My Permits',
                 tabIncoming: 'Incoming Handovers',
                 tabAll: 'All Site Permits',
-                tabClosed: 'Closed Archive',
-                tabAdmin: 'Admin Control Panel',
-                searchPlaceholder: 'Search permit #, location, holder...',
-                npModalTitle: 'Issue New Work Permit',
-                npNumber: 'Permit Number',
-                npType: 'Permit Type',
-                npLocation: 'Work Location',
-                npHandover: 'Handover Permit To User (Optional - Sends Acceptance Notification)',
-                npKeepCustody: '-- Keep in My Custody --',
-                npDesc: 'Work Description',
-                npValid: 'Valid Until (Date & Time)',
-                npCancel: 'Cancel',
-                npSubmit: 'Issue & Save Permit',
+                tabAdmin: 'Admin Control',
+                newPermitBtn: 'New Permit',
+                statActive: 'Active Permits',
+                statPending: 'Pending Handovers',
+                statClosed: 'Closed Permits',
+                statTotal: 'Total Visible',
+                searchPlaceholder: 'Search permit number, location, holder...',
+                allTypes: 'All Types',
+                allStatuses: 'All Statuses',
                 statusActive: 'Active',
-                statusPending: 'Pending Handover Acceptance',
+                statusPending: 'Pending Handover',
                 statusClosed: 'Closed',
                 currentHolder: 'Current Holder:',
                 validUntil: 'Valid Until:',
-                incomingFrom: 'Handover From:',
-                btnHandover: 'Handover',
-                btnRenew: 'Renew',
-                btnClose: 'Close',
-                btnAudit: 'Audit Log',
-                btnAccept: 'Accept & Receive Custody',
-                btnReject: 'Reject',
-                noPermits: 'No permits found in this view.'
+                handoverBtn: 'Handover',
+                renewBtn: 'Renew',
+                closeBtn: 'Close',
+                logBtn: 'Audit Log',
+                acceptHandoverBtn: 'Accept Handover',
+                noPermits: 'No permits found.',
+                createdBy: 'Issued by:',
+                pendingTo: 'Pending to:'
             },
             ar: {
                 langBtn: 'English',
-                loginTitle: 'نظام تسليم وإغلاق تصاريح العمل',
-                loginSubtitle: 'مراقبة عهدة التصاريح والتسليم بين الورديات',
-                username: 'اسم المستخدم',
-                password: 'الرقم السري',
-                signIn: 'تسجيل الدخول للبوابة',
-                syncLogin: 'مزامنة سحابية نشطة',
-                navTitle: 'نظام تسليم التصاريح (PTW)',
-                navSubtitle: 'بوابة عهدة وإغلاق تصاريح العمل',
-                saveSync: 'حفظ ومزامنة',
-                newPermit: 'تصريح جديد',
-                notifHeader: 'الإشعارات والتنبيهات',
-                markRead: 'تحديد كمقروء',
-                kpiCustody: 'في عهدتي',
-                kpiIncoming: 'تسليمات واردة',
-                kpiActive: 'التصاريح النشطة',
-                kpiClosed: 'التصاريح المغلقة',
+                loginBrandTitle: 'نظام تصاريح العمل TGS',
+                loginBrandSub: 'تسليم وإغلاق تصاريح العمل',
+                loginHeading: 'تسجيل الدخول',
+                loginDesc: 'أدخل بيانات حسابك للوصول إلى تصاريحك',
+                usernameLbl: 'اسم المستخدم',
+                passwordLbl: 'كلمة المرور',
+                loginBtn: 'دخول',
+                invalidCreds: 'اسم المستخدم أو كلمة المرور غير صحيحة أو تم حذف الحساب.',
+                syncReady: 'المزامنة السحابية جاهزة',
+                syncLive: 'المزامنة المباشرة نشطة',
+                syncBtn: 'مزامنة',
+                logoutBtn: 'خروج',
                 tabMy: 'تصاريحي',
                 tabIncoming: 'الواردة للاستلام',
                 tabAll: 'جميع تصاريح الموقع',
-                tabClosed: 'الأرشيف المغلق',
-                tabAdmin: 'لوحة الإدارة والتحكم',
-                searchPlaceholder: 'بحث برقم التصريح، الموقع، المستلم...',
-                npModalTitle: 'إصدار تصريح عمل جديد',
-                npNumber: 'رقم التصريح',
-                npType: 'نوع التصريح',
-                npLocation: 'موقع العمل',
-                npHandover: 'تسليم التصريح إلى مستخدم آخر (اختياري - يرسل إشعار قبول)',
-                npKeepCustody: '-- إبقاء التصريح في عهدتي --',
-                npDesc: 'وصف العمل',
-                npValid: 'صالح لغاية (التاريخ والوقت)',
-                npCancel: 'إلغاء',
-                npSubmit: 'إصدار وحفظ التصريح',
+                tabAdmin: 'لوحة الإدارة',
+                newPermitBtn: 'تصريح جديد',
+                statActive: 'التصاريح النشطة',
+                statPending: 'بانتظار الاستلام',
+                statClosed: 'التصاريح المغلقة',
+                statTotal: 'الإجمالي الظاهر',
+                searchPlaceholder: 'ابحث برقم التصريح، موقع العمل، أو حامل العهدة...',
+                allTypes: 'كل الأنواع',
+                allStatuses: 'كل الحالات',
                 statusActive: 'نشط',
-                statusPending: 'بانتظار قبول التسليم',
+                statusPending: 'بانتظار القبول',
                 statusClosed: 'مغلق',
                 currentHolder: 'حامل العهدة الحالي:',
                 validUntil: 'صالح لغاية:',
-                incomingFrom: 'تسليم وارد من:',
-                btnHandover: 'تسليم',
-                btnRenew: 'تجديد',
-                btnClose: 'إغلاق',
-                btnAudit: 'السجل',
-                btnAccept: 'قبول واستلام العهدة',
-                btnReject: 'رفض',
-                noPermits: 'لا توجد تصاريح في هذا القسم حالياً.'
+                handoverBtn: 'تسليم',
+                renewBtn: 'تجديد',
+                closeBtn: 'إغلاق',
+                logBtn: 'السجل',
+                acceptHandoverBtn: 'قبول واستلام العهدة',
+                noPermits: 'لا توجد تصاريح مطابقة.',
+                createdBy: 'أصدره:',
+                pendingTo: 'مرسل إلى:'
             }
         };
 
-        function applyLanguage(lang) {
-            currentLang = lang === 'ar' ? 'ar' : 'en';
-            const t = I18N[currentLang];
-            document.documentElement.lang = currentLang;
-            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
-
-            const setTxt = (id, txt) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = txt;
-            };
-
-            setTxt('login-lang-btn', t.langBtn);
-            setTxt('nav-lang-btn', t.langBtn);
-            setTxt('login-title', t.loginTitle);
-            setTxt('login-subtitle', t.loginSubtitle);
-            setTxt('lbl-username', t.username);
-            setTxt('lbl-password', t.password);
-            setTxt('btn-signin-text', t.signIn);
-            setTxt('sync-status-login', t.syncLogin);
-            setTxt('nav-title', t.navTitle);
-            setTxt('nav-subtitle', t.navSubtitle);
-            setTxt('btn-save-sync', t.saveSync);
-            setTxt('btn-new-permit', t.newPermit);
-            setTxt('notif-header-title', t.notifHeader);
-            setTxt('btn-mark-read', t.markRead);
-            setTxt('kpi-custody-lbl', t.kpiCustody);
-            setTxt('kpi-incoming-lbl', t.kpiIncoming);
-            setTxt('kpi-active-lbl', t.kpiActive);
-            setTxt('kpi-closed-lbl', t.kpiClosed);
-            setTxt('tab-lbl-my', t.tabMy);
-            setTxt('tab-lbl-incoming', t.tabIncoming);
-            setTxt('tab-lbl-all', t.tabAll);
-            setTxt('tab-lbl-closed', t.tabClosed);
-            setTxt('tab-lbl-admin', t.tabAdmin);
-            setTxt('np-modal-title', t.npModalTitle);
-            setTxt('np-lbl-number', t.npNumber);
-            setTxt('np-lbl-type', t.npType);
-            setTxt('np-lbl-location', t.npLocation);
-            setTxt('np-lbl-handover', t.npHandover);
-            setTxt('np-lbl-desc', t.npDesc);
-            setTxt('np-lbl-valid', t.npValid);
-            setTxt('np-btn-cancel', t.npCancel);
-            setTxt('np-btn-submit', t.npSubmit);
-
-            const searchEl = document.getElementById('search-input');
-            if (searchEl) searchEl.placeholder = t.searchPlaceholder;
-
-            if (currentUser) refreshAllUI();
-        }
-
-        function toggleLanguage() {
-            applyLanguage(currentLang === 'en' ? 'ar' : 'en');
-        }
-
-        // ==================== UTILITIES ====================
         function normalizeDigits(str) {
             return String(str || '').replace(/[٠-٩]/g, d => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
         }
 
-        function formatDateTime(isoStr) {
-            if (!isoStr) return '-';
-            return String(isoStr).replace('T', ' ').slice(0, 16);
-        }
-
         function showToast(msg) {
-            const box = document.getElementById('toast-box');
-            const lbl = document.getElementById('toast-msg');
-            if (!box || !lbl) return;
-            lbl.textContent = msg;
-            box.classList.remove('hidden');
-            clearTimeout(window._toastTimer);
-            window._toastTimer = setTimeout(() => box.classList.add('hidden'), 3200);
-        }
-
-        function copyTextSafe(text) {
-            try {
-                const ta = document.createElement('textarea');
-                ta.value = text;
-                ta.style.position = 'fixed';
-                ta.style.opacity = '0';
-                document.body.appendChild(ta);
-                ta.select();
-                document.execCommand('copy');
-                document.body.removeChild(ta);
-            } catch (e) {}
+            const banner = document.getElementById('toast-banner');
+            const txt = document.getElementById('toast-message');
+            if (!banner || !txt) return;
+            txt.textContent = msg;
+            banner.classList.remove('hidden');
+            clearTimeout(window.__toastTimer);
+            window.__toastTimer = setTimeout(() => {
+                banner.classList.add('hidden');
+            }, 3000);
         }
 
         function openModal(id) {
@@ -750,23 +656,81 @@
             if (el) el.classList.add('hidden');
         }
 
-        function togglePasswordVisibility() {
-            const inp = document.getElementById('login-password');
-            const icon = document.getElementById('pass-eye-icon');
-            if (!inp || !icon) return;
-            if (inp.type === 'password') {
-                inp.type = 'text';
-                icon.className = 'fa-solid fa-eye-slash';
-            } else {
-                inp.type = 'password';
-                icon.className = 'fa-solid fa-eye';
-            }
+        function copyTextSafe(text) {
+            try {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).catch(() => {});
+                }
+            } catch (e) {}
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
         }
 
-        // ==================== STORAGE & CLOUD SYNC ====================
+        function applyLanguage(lang) {
+            currentLang = lang === 'ar' ? 'ar' : 'en';
+            const t = I18N[currentLang];
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+
+            const setText = (id, val) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = val;
+            };
+
+            setText('login-lang-label', t.langBtn);
+            setText('nav-lang-label', t.langBtn);
+            setText('login-brand-title', t.loginBrandTitle);
+            setText('login-brand-sub', t.loginBrandSub);
+            setText('login-heading', t.loginHeading);
+            setText('login-desc', t.loginDesc);
+            setText('lbl-username', t.usernameLbl);
+            setText('lbl-password', t.passwordLbl);
+            setText('login-btn-text', t.loginBtn);
+            setText('sync-status-text', t.syncReady);
+            setText('header-sync-text', t.syncLive);
+            setText('btn-sync-now', t.syncBtn);
+            setText('btn-logout-text', t.logoutBtn);
+            setText('tab-my-label', t.tabMy);
+            setText('tab-incoming-label', t.tabIncoming);
+            setText('tab-all-label', t.tabAll);
+            setText('tab-admin-label', t.tabAdmin);
+            setText('btn-new-permit', t.newPermitBtn);
+            setText('stat-active-lbl', t.statActive);
+            setText('stat-pending-lbl', t.statPending);
+            setText('stat-closed-lbl', t.statClosed);
+            setText('stat-total-lbl', t.statTotal);
+
+            const searchInp = document.getElementById('search-permit-input');
+            if (searchInp) searchInp.placeholder = t.searchPlaceholder;
+
+            const typeSel = document.getElementById('filter-type-select');
+            if (typeSel && typeSel.options[0]) typeSel.options[0].text = t.allTypes;
+
+            const statusSel = document.getElementById('filter-status-select');
+            if (statusSel && statusSel.options[0]) {
+                statusSel.options[0].text = t.allStatuses;
+                if (statusSel.options[1]) statusSel.options[1].text = t.statusActive;
+                if (statusSel.options[2]) statusSel.options[2].text = t.statusPending;
+                if (statusSel.options[3]) statusSel.options[3].text = t.statusClosed;
+            }
+
+            if (currentUser) refreshAllUI();
+        }
+
+        function toggleLanguage() {
+            applyLanguage(currentLang === 'en' ? 'ar' : 'en');
+        }
+
+        // ==================== LOCAL & CLOUD SYNC ====================
         function ensureDefaultAdminAccount() {
-            const hasAdmin = users.some(u => u && String(u.username || '').toLowerCase() === 'admin');
-            if (!hasAdmin) {
+            const adminIdx = users.findIndex(u => u && (u.id === 'usr_admin_1' || String(u.username || '').toLowerCase() === 'admin'));
+            if (adminIdx === -1) {
                 users.unshift({
                     id: 'usr_admin_1',
                     fullName: 'System Administrator',
@@ -775,7 +739,20 @@
                     role: 'Admin',
                     active: true
                 });
+            } else {
+                users[adminIdx].active = true;
+                users[adminIdx].role = 'Admin';
             }
+        }
+
+        function filterDeletedEntities() {
+            users = users.filter(u => {
+                if (!u || !u.id) return false;
+                if (u.id === 'usr_admin_1') return true;
+                const uLower = String(u.username || '').trim().toLowerCase();
+                return !deletedUserIds.includes(u.id) && !deletedUsernames.includes(uLower);
+            });
+            permits = permits.filter(p => p && p.id && !deletedPermitIds.includes(p.id));
         }
 
         function loadLocalState() {
@@ -783,27 +760,22 @@
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    users = Array.isArray(parsed.users) ? parsed.users : [];
-                    permits = Array.isArray(parsed.permits) ? parsed.permits : [];
-                    notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
-                    deletedUserIds = Array.isArray(parsed.deletedUserIds) ? parsed.deletedUserIds : [];
-                    deletedUsernames = Array.isArray(parsed.deletedUsernames) ? parsed.deletedUsernames : [];
-                    deletedPermitIds = Array.isArray(parsed.deletedPermitIds) ? parsed.deletedPermitIds : [];
-                    stateUpdatedAt = Number(parsed.stateUpdatedAt || 0);
+                    if (parsed && typeof parsed === 'object') {
+                        users = Array.isArray(parsed.users) ? parsed.users : [];
+                        permits = Array.isArray(parsed.permits) ? parsed.permits : [];
+                        notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+                        deletedUserIds = Array.isArray(parsed.deletedUserIds) ? parsed.deletedUserIds : [];
+                        deletedUsernames = Array.isArray(parsed.deletedUsernames) ? parsed.deletedUsernames : [];
+                        deletedPermitIds = Array.isArray(parsed.deletedPermitIds) ? parsed.deletedPermitIds : [];
+                        if (parsed.customFirebaseUrl && !customFirebaseUrl) {
+                            customFirebaseUrl = parsed.customFirebaseUrl;
+                        }
+                        stateUpdatedAt = Number(parsed.stateUpdatedAt || 0);
+                    }
                 }
             } catch (e) {}
             ensureDefaultAdminAccount();
             filterDeletedEntities();
-        }
-
-        function filterDeletedEntities() {
-            users = users.filter(u => {
-                if (!u) return false;
-                if (u.id === 'usr_admin_1' || String(u.username || '').toLowerCase() === 'admin') return true;
-                const uLower = String(u.username || '').toLowerCase();
-                return !deletedUserIds.includes(u.id) && !deletedUsernames.includes(uLower);
-            });
-            permits = permits.filter(p => p && !deletedPermitIds.includes(p.id));
         }
 
         function saveLocalState() {
@@ -816,7 +788,7 @@
                 deletedUserIds,
                 deletedUsernames,
                 deletedPermitIds,
-                blobId: activeBlobId,
+                customFirebaseUrl,
                 stateUpdatedAt
             };
             try {
@@ -825,134 +797,159 @@
             return payload;
         }
 
-        async function pushCloudState(bumpTimestamp = true) {
-            if (bumpTimestamp) stateUpdatedAt = Date.now();
-            const payload = saveLocalState();
-            const bodyStr = JSON.stringify(payload);
-
-            // 1. Push compact user directory to dedicated users topic (always < 4KB, instant delivery)
-            const compactUsersPayload = JSON.stringify({
-                users: users.map(u => ({
-                    id: u.id,
-                    fullName: u.fullName,
-                    username: u.username,
-                    password: u.password,
-                    role: u.role,
-                    active: u.active
-                })),
-                deletedUserIds,
-                deletedUsernames,
-                blobId: activeBlobId,
-                stateUpdatedAt
-            });
-            fetch(`https://ntfy.sh/${NTFY_USERS_TOPIC}`, {
+        function publishStreamRecord(topic, recordObj) {
+            return fetch(`${NTFY_BASE}/${topic}`, {
                 method: 'POST',
-                body: compactUsersPayload
-            }).catch(() => {});
-
-            // 2. Push full state to JSONBlob (create blob automatically if none exists yet)
-            try {
-                if (!activeBlobId) {
-                    const createRes = await fetch('https://jsonblob.com/api/jsonBlob', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: bodyStr
-                    });
-                    const loc = createRes.headers.get('Location') || createRes.headers.get('x-jsonblob');
-                    if (loc) {
-                        const extractedId = loc.split('/').pop();
-                        if (extractedId) {
-                            activeBlobId = extractedId;
-                            localStorage.setItem(BLOB_ID_KEY, activeBlobId);
-                            fetch(`https://ntfy.sh/${NTFY_USERS_TOPIC}`, {
-                                method: 'POST',
-                                body: JSON.stringify({ blobId: activeBlobId, stateUpdatedAt })
-                            }).catch(() => {});
-                        }
-                    }
-                } else {
-                    await fetch(`https://jsonblob.com/api/jsonBlob/${activeBlobId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: bodyStr
-                    });
-                }
-            } catch (e) {}
-
-            // 3. Push full state to ntfy main channel as backup
-            fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
-                method: 'POST',
-                body: bodyStr
+                headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                body: JSON.stringify(recordObj)
             }).catch(() => {});
         }
 
-        function applyRemoteState(remote) {
-            if (!remote || typeof remote !== 'object') return;
-            if (remote.blobId && !activeBlobId) {
-                activeBlobId = remote.blobId;
-                localStorage.setItem(BLOB_ID_KEY, activeBlobId);
+        async function pushCloudState(bumpTimestamp = true) {
+            if (bumpTimestamp) stateUpdatedAt = Date.now();
+            const payload = saveLocalState();
+
+            const userPromises = users.map(u =>
+                publishStreamRecord(TOPIC_USERS, {
+                    t: 'user',
+                    ts: stateUpdatedAt,
+                    fb: customFirebaseUrl || '',
+                    data: u
+                })
+            );
+
+            const permitPromises = permits.map(p =>
+                publishStreamRecord(TOPIC_PERMITS, {
+                    t: 'permit',
+                    ts: p.updatedAt || stateUpdatedAt,
+                    data: p
+                })
+            );
+
+            const notifPromises = notifications.slice(0, 25).map(n =>
+                publishStreamRecord(TOPIC_NOTIFS, {
+                    t: 'notif',
+                    ts: stateUpdatedAt,
+                    data: n
+                })
+            );
+
+            const delPromise = publishStreamRecord(TOPIC_DELETIONS, {
+                t: 'del',
+                ts: stateUpdatedAt,
+                deletedUserIds,
+                deletedUsernames,
+                deletedPermitIds
+            });
+
+            let fbPromise = Promise.resolve();
+            if (customFirebaseUrl) {
+                const cleanFb = customFirebaseUrl.replace(/\/+$/, '');
+                fbPromise = fetch(`${cleanFb}/ptw_global_state.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).catch(() => {});
             }
 
-            // Merge deletion lists permanently
-            const rDelUIds = Array.isArray(remote.deletedUserIds) ? remote.deletedUserIds : [];
-            const rDelUNames = Array.isArray(remote.deletedUsernames) ? remote.deletedUsernames : [];
-            const rDelPIds = Array.isArray(remote.deletedPermitIds) ? remote.deletedPermitIds : [];
+            await Promise.allSettled([...userPromises, ...permitPromises, ...notifPromises, delPromise, fbPromise]);
+        }
 
-            deletedUserIds = Array.from(new Set([...deletedUserIds, ...rDelUIds]));
-            deletedUsernames = Array.from(new Set([...deletedUsernames, ...rDelUNames.map(x => String(x).toLowerCase())]));
-            deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...rDelPIds]));
+        function mergeSingleUser(ru, ts = 0) {
+            if (!ru || !ru.id || !ru.username) return;
+            const uLower = String(ru.username).trim().toLowerCase();
+            if (ru.id !== 'usr_admin_1' && (deletedUserIds.includes(ru.id) || deletedUsernames.includes(uLower))) {
+                return;
+            }
+            const idx = users.findIndex(x => x.id === ru.id || String(x.username || '').toLowerCase() === uLower);
+            if (idx === -1) {
+                users.push(ru);
+            } else if (ts >= stateUpdatedAt || ru.id !== 'usr_admin_1') {
+                users[idx] = { ...users[idx], ...ru };
+            }
+        }
 
-            // Protected Merge for Users
-            if (Array.isArray(remote.users)) {
-                const userMap = new Map();
-                users.forEach(u => {
-                    if (u && u.id) userMap.set(u.id, u);
-                });
-                remote.users.forEach(ru => {
-                    if (!ru || !ru.id) return;
-                    const uLower = String(ru.username || '').toLowerCase();
-                    if (ru.id !== 'usr_admin_1' && (deletedUserIds.includes(ru.id) || deletedUsernames.includes(uLower))) {
-                        return;
+        function mergeSinglePermit(rp) {
+            if (!rp || !rp.id || deletedPermitIds.includes(rp.id)) return;
+            const idx = permits.findIndex(x => x.id === rp.id);
+            if (idx === -1) {
+                permits.unshift(rp);
+            } else if (Number(rp.updatedAt || 0) >= Number(permits[idx].updatedAt || 0)) {
+                permits[idx] = rp;
+            }
+        }
+
+        function mergeSingleNotif(rn) {
+            if (!rn || !rn.id) return;
+            const idx = notifications.findIndex(x => x.id === rn.id);
+            if (idx === -1) {
+                notifications.unshift(rn);
+            } else if (rn.read) {
+                notifications[idx].read = true;
+            }
+        }
+
+        async function pollTopicEvents(topic, handler) {
+            try {
+                const res = await fetch(`${NTFY_BASE}/${topic}/json?poll=1&since=72h`, { cache: 'no-store' });
+                if (!res.ok) return;
+                const text = await res.text();
+                const lines = text.trim().split('\n').filter(Boolean);
+                for (let i = 0; i < lines.length; i++) {
+                    try {
+                        const evt = JSON.parse(lines[i]);
+                        if (!evt || !evt.message) continue;
+                        const msg = JSON.parse(evt.message);
+                        handler(msg);
+                    } catch (err) {}
+                }
+            } catch (e) {}
+        }
+
+        async function fetchLatestCloudState() {
+            if (customFirebaseUrl) {
+                try {
+                    const cleanFb = customFirebaseUrl.replace(/\/+$/, '');
+                    const fbRes = await fetch(`${cleanFb}/ptw_global_state.json?t=${Date.now()}`, { cache: 'no-store' });
+                    if (fbRes.ok) {
+                        const fbData = await fbRes.json();
+                        if (fbData && typeof fbData === 'object') {
+                            if (Array.isArray(fbData.deletedUserIds)) deletedUserIds = Array.from(new Set([...deletedUserIds, ...fbData.deletedUserIds]));
+                            if (Array.isArray(fbData.deletedUsernames)) deletedUsernames = Array.from(new Set([...deletedUsernames, ...fbData.deletedUsernames]));
+                            if (Array.isArray(fbData.deletedPermitIds)) deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...fbData.deletedPermitIds]));
+                            if (Array.isArray(fbData.users)) fbData.users.forEach(u => mergeSingleUser(u, fbData.stateUpdatedAt || 0));
+                            if (Array.isArray(fbData.permits)) fbData.permits.forEach(p => mergeSinglePermit(p));
+                            if (Array.isArray(fbData.notifications)) fbData.notifications.forEach(n => mergeSingleNotif(n));
+                        }
                     }
-                    const existing = userMap.get(ru.id);
-                    if (!existing || Number(remote.stateUpdatedAt || 0) >= stateUpdatedAt) {
-                        userMap.set(ru.id, ru);
+                } catch (e) {}
+            }
+
+            await Promise.all([
+                pollTopicEvents(TOPIC_DELETIONS, msg => {
+                    if (Array.isArray(msg.deletedUserIds)) deletedUserIds = Array.from(new Set([...deletedUserIds, ...msg.deletedUserIds]));
+                    if (Array.isArray(msg.deletedUsernames)) deletedUsernames = Array.from(new Set([...deletedUsernames, ...msg.deletedUsernames.map(x => String(x).toLowerCase())]));
+                    if (Array.isArray(msg.deletedPermitIds)) deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...msg.deletedPermitIds]));
+                }),
+                pollTopicEvents(TOPIC_USERS, msg => {
+                    if (msg.fb && !customFirebaseUrl) {
+                        customFirebaseUrl = msg.fb;
+                        localStorage.setItem(FB_URL_KEY, customFirebaseUrl);
                     }
-                });
-                users = Array.from(userMap.values());
-            }
+                    if (msg.t === 'user' && msg.data) mergeSingleUser(msg.data, msg.ts || 0);
+                }),
+                pollTopicEvents(TOPIC_PERMITS, msg => {
+                    if (msg.t === 'permit' && msg.data) mergeSinglePermit(msg.data);
+                }),
+                pollTopicEvents(TOPIC_NOTIFS, msg => {
+                    if (msg.t === 'notif' && msg.data) mergeSingleNotif(msg.data);
+                })
+            ]);
 
-            // Merge Permits
-            if (Array.isArray(remote.permits)) {
-                const permitMap = new Map();
-                permits.forEach(p => {
-                    if (p && p.id && !deletedPermitIds.includes(p.id)) permitMap.set(p.id, p);
-                });
-                remote.permits.forEach(rp => {
-                    if (!rp || !rp.id || deletedPermitIds.includes(rp.id)) return;
-                    const localP = permitMap.get(rp.id);
-                    if (!localP || Number(rp.updatedAt || 0) >= Number(localP.updatedAt || 0)) {
-                        permitMap.set(rp.id, rp);
-                    }
-                });
-                permits = Array.from(permitMap.values());
-            }
-
-            // Merge Notifications
-            if (Array.isArray(remote.notifications)) {
-                const notifMap = new Map();
-                notifications.forEach(n => { if (n && n.id) notifMap.set(n.id, n); });
-                remote.notifications.forEach(rn => { if (rn && rn.id && !notifMap.has(rn.id)) notifMap.set(rn.id, rn); });
-                notifications = Array.from(notifMap.values()).slice(-100);
-            }
-
-            if (Number(remote.stateUpdatedAt || 0) > stateUpdatedAt) {
-                stateUpdatedAt = Number(remote.stateUpdatedAt);
-            }
-
+            permits.sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+            notifications = notifications.slice(0, 100);
             saveLocalState();
 
-            // Immediately kick out current session if user was deleted or deactivated remotely
             if (currentUser && currentUser.id !== 'usr_admin_1') {
                 const freshMe = users.find(u => u.id === currentUser.id);
                 const uLower = String(currentUser.username || '').toLowerCase();
@@ -961,82 +958,6 @@
                 } else {
                     currentUser = freshMe;
                 }
-            }
-        }
-
-        async function fetchLatestCloudState() {
-            // 1. Fetch lightweight users registry first
-            try {
-                const uRes = await fetch(`https://ntfy.sh/${NTFY_USERS_TOPIC}/json?poll=1&since=24h`, { cache: 'no-store' });
-                if (uRes.ok) {
-                    const text = await uRes.text();
-                    const lines = text.trim().split('\n').filter(Boolean);
-                    for (let i = lines.length - 1; i >= 0; i--) {
-                        try {
-                            const evt = JSON.parse(lines[i]);
-                            if (evt && evt.message) {
-                                const parsed = JSON.parse(evt.message);
-                                if (parsed) applyRemoteState(parsed);
-                            }
-                        } catch (err) {}
-                    }
-                }
-            } catch (e) {}
-
-            // 2. Fetch full state from shared JSONBlob if available
-            if (activeBlobId) {
-                try {
-                    const bRes = await fetch(`https://jsonblob.com/api/jsonBlob/${activeBlobId}?t=${Date.now()}`, {
-                        headers: { 'Accept': 'application/json' },
-                        cache: 'no-store'
-                    });
-                    if (bRes.ok) {
-                        const data = await bRes.json();
-                        if (data && (Array.isArray(data.users) || Array.isArray(data.permits))) {
-                            applyRemoteState(data);
-                            return;
-                        }
-                    }
-                } catch (e) {}
-            }
-
-            // 3. Fallback to ntfy full state poll
-            try {
-                const res = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=24h`, { cache: 'no-store' });
-                if (res.ok) {
-                    const text = await res.text();
-                    const lines = text.trim().split('\n').filter(Boolean);
-                    for (let i = lines.length - 1; i >= 0; i--) {
-                        try {
-                            const evt = JSON.parse(lines[i]);
-                            if (evt && evt.message) {
-                                const parsed = JSON.parse(evt.message);
-                                if (parsed && Array.isArray(parsed.users)) {
-                                    applyRemoteState(parsed);
-                                    break;
-                                }
-                            } else if (evt && evt.attachment && evt.attachment.url) {
-                                const attRes = await fetch(evt.attachment.url);
-                                if (attRes.ok) {
-                                    const parsed = await attRes.json();
-                                    if (parsed && Array.isArray(parsed.users)) {
-                                        applyRemoteState(parsed);
-                                        break;
-                                    }
-                                }
-                            }
-                        } catch (err) {}
-                    }
-                }
-            } catch (e) {}
-        }
-
-        function encodePayloadBase64(obj) {
-            try {
-                const jsonStr = JSON.stringify(obj);
-                return btoa(unescape(encodeURIComponent(jsonStr)));
-            } catch (e) {
-                return '';
             }
         }
 
@@ -1053,115 +974,122 @@
             try {
                 const params = new URLSearchParams(window.location.search);
                 const uParam = params.get('u');
-                const bParam = params.get('b');
-                if (bParam && !activeBlobId) {
-                    activeBlobId = bParam;
-                    localStorage.setItem(BLOB_ID_KEY, activeBlobId);
+                const fbParam = params.get('fb');
+                if (fbParam && !customFirebaseUrl) {
+                    customFirebaseUrl = fbParam;
+                    localStorage.setItem(FB_URL_KEY, customFirebaseUrl);
                 }
                 if (uParam) {
                     const decoded = decodePayloadBase64(uParam);
                     if (decoded && decoded.username && decoded.password) {
-                        const uLower = String(decoded.username).trim().toLowerCase();
-                        if (!deletedUserIds.includes(decoded.id) && !deletedUsernames.includes(uLower)) {
-                            const existingIdx = users.findIndex(x => String(x.username || '').toLowerCase() === uLower);
-                            const userObj = {
-                                id: decoded.id || ('usr_url_' + uLower),
-                                fullName: decoded.fullName || decoded.username,
-                                username: decoded.username,
-                                password: decoded.password,
-                                role: decoded.role || 'PA',
-                                active: true
-                            };
-                            if (existingIdx >= 0) {
-                                users[existingIdx] = { ...users[existingIdx], ...userObj };
-                            } else {
-                                users.push(userObj);
-                            }
-                            saveLocalState();
-                        }
+                        mergeSingleUser({
+                            id: decoded.id || ('usr_url_' + decoded.username.toLowerCase()),
+                            fullName: decoded.fullName || decoded.username,
+                            username: decoded.username,
+                            password: decoded.password,
+                            role: decoded.role || 'PA',
+                            active: true
+                        }, Date.now());
+                        saveLocalState();
                     }
                 }
             } catch (e) {}
         }
 
+        function openCloudConfigModal() {
+            const inp = document.getElementById('custom-firebase-url');
+            if (inp) inp.value = customFirebaseUrl || '';
+            openModal('modal-cloud-config');
+        }
+
+        async function saveCustomFirebaseUrl(e) {
+            e.preventDefault();
+            const val = document.getElementById('custom-firebase-url').value.trim();
+            customFirebaseUrl = val;
+            if (val) localStorage.setItem(FB_URL_KEY, val);
+            else localStorage.removeItem(FB_URL_KEY);
+            closeModal('modal-cloud-config');
+            await pushCloudState(true);
+            await fetchLatestCloudState();
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم ربط قاعدة البيانات السحابية ومزامنة كافة البيانات' : 'Cloud database connected & synced across all devices');
+        }
+
         async function manualSaveAllData() {
             await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم حفظ ومزامنة جميع البيانات سحابياً بنجاح' : 'All data saved & synced to cloud');
+            await fetchLatestCloudState();
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم حفظ ومطابقة جميع البيانات مع كافة الحسابات والأجهزة' : 'All data saved & matched across all accounts & devices');
         }
 
         // ==================== AUTHENTICATION ====================
+        function findValidUser(rawUser, rawPass) {
+            ensureDefaultAdminAccount();
+            const uLower = normalizeDigits(rawUser).trim().toLowerCase();
+            const pNorm = normalizeDigits(rawPass).trim();
+            return users.find(u => {
+                if (!u || !u.active) return false;
+                const idDeleted = u.id !== 'usr_admin_1' && deletedUserIds.includes(u.id);
+                const nameDeleted = u.id !== 'usr_admin_1' && deletedUsernames.includes(String(u.username || '').trim().toLowerCase());
+                if (idDeleted || nameDeleted) return false;
+                const matchUser = String(u.username || '').trim().toLowerCase() === uLower;
+                const matchPass = normalizeDigits(String(u.password || '')).trim() === pNorm;
+                return matchUser && matchPass;
+            });
+        }
+
         async function handleLogin(e) {
-            if (e && typeof e.preventDefault === 'function') e.preventDefault();
-            const usernameInput = document.getElementById('login-username');
-            const passwordInput = document.getElementById('login-password');
-            const errorBox = document.getElementById('login-error');
-            const errorText = document.getElementById('login-error-text');
-            const submitBtn = e && e.target ? e.target.querySelector('button[type="submit"]') : null;
+            e.preventDefault();
+            const uInp = document.getElementById('login-username');
+            const pInp = document.getElementById('login-password');
+            const errBox = document.getElementById('login-error');
+            const errText = document.getElementById('login-error-text');
+            const submitBtn = document.getElementById('btn-login-submit');
 
-            const rawUser = usernameInput ? usernameInput.value.trim() : '';
-            const rawPass = passwordInput ? passwordInput.value.trim() : '';
+            const rawUser = uInp ? uInp.value.trim() : '';
+            const rawPass = pInp ? pInp.value.trim() : '';
+            if (errBox) errBox.classList.add('hidden');
 
-            if (errorBox) errorBox.classList.add('hidden');
-            if (!rawUser || !rawPass) {
-                if (errorText) errorText.textContent = currentLang === 'ar' ? 'يرجى إدخال اسم المستخدم والرقم السري' : 'Please enter username and password.';
-                if (errorBox) errorBox.classList.remove('hidden');
+            let matched = findValidUser(rawUser, rawPass);
+            if (!matched) {
+                if (submitBtn) submitBtn.disabled = true;
+                try {
+                    await Promise.race([
+                        fetchLatestCloudState(),
+                        new Promise(resolve => setTimeout(resolve, 2500))
+                    ]);
+                } catch (err) {}
+                if (submitBtn) submitBtn.disabled = false;
+                matched = findValidUser(rawUser, rawPass);
+            }
+
+            if (!matched) {
+                if (errText) errText.textContent = I18N[currentLang].invalidCreds;
+                if (errBox) errBox.classList.remove('hidden');
                 return;
             }
 
-            ensureDefaultAdminAccount();
-
-            const findValidUser = () => {
-                const uLower = rawUser.toLowerCase();
-                return users.find(u => {
-                    if (!u || !u.active) return false;
-                    if (u.id !== 'usr_admin_1' && (deletedUserIds.includes(u.id) || deletedUsernames.includes(String(u.username || '').toLowerCase()))) {
-                        return false;
-                    }
-                    const matchesName = String(u.username || '').trim().toLowerCase() === uLower;
-                    const matchesPass = String(u.password || '').trim() === rawPass ||
-                        normalizeDigits(String(u.password || '').trim()) === normalizeDigits(rawPass);
-                    return matchesName && matchesPass;
-                });
-            };
-
-            let matchedUser = findValidUser();
-
-            // Always do a quick cloud check on login to verify latest users and deletions
-            if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.7'; }
+            currentUser = matched;
             try {
-                await Promise.race([
-                    fetchLatestCloudState(),
-                    new Promise(resolve => setTimeout(resolve, 2500))
-                ]);
-            } catch (err) {
-            } finally {
-                if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = '1'; }
-            }
-
-            ensureDefaultAdminAccount();
-            matchedUser = findValidUser();
-
-            if (!matchedUser) {
-                if (errorText) {
-                    errorText.textContent = currentLang === 'ar'
-                        ? 'اسم المستخدم أو الرقم السري غير صحيح، أو تم حذف الحساب'
-                        : 'Invalid username or password, or account has been deleted.';
-                }
-                if (errorBox) errorBox.classList.remove('hidden');
-                return;
-            }
-
-            currentUser = matchedUser;
-            try {
-                localStorage.setItem(SESSION_KEY, JSON.stringify({
-                    userId: currentUser.id,
-                    username: currentUser.username
-                }));
+                localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: currentUser.id }));
             } catch (err) {}
 
+            enterAppShell();
+        }
+
+        function enterAppShell() {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('app-shell').classList.remove('hidden');
-            setupUserRoleUI();
+            document.getElementById('header-user-name').textContent = currentUser.fullName || currentUser.username;
+            document.getElementById('header-user-role').textContent = currentUser.role;
+            document.getElementById('header-user-avatar').textContent = (currentUser.fullName || currentUser.username || 'U').charAt(0).toUpperCase();
+
+            const isAdmin = currentUser.role === 'Admin';
+            document.getElementById('tab-all-btn').classList.toggle('hidden', !isAdmin);
+            document.getElementById('tab-admin-btn').classList.toggle('hidden', !isAdmin);
+            if (!isAdmin && (activeTab === 'all' || activeTab === 'admin')) {
+                activeTab = 'my';
+            }
             refreshAllUI();
         }
 
@@ -1170,886 +1098,749 @@
             try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
             document.getElementById('app-shell').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
-            const passInput = document.getElementById('login-password');
-            if (passInput) passInput.value = '';
-        }
-
-        function setupUserRoleUI() {
-            if (!currentUser) return;
-            const headerName = document.getElementById('header-user-name');
-            const headerRole = document.getElementById('header-user-role');
-            const headerAvatar = document.getElementById('header-user-avatar');
-            if (headerName) headerName.textContent = currentUser.fullName || currentUser.username;
-            if (headerRole) headerRole.textContent = currentUser.role;
-            if (headerAvatar) headerAvatar.textContent = (currentUser.fullName || currentUser.username || 'U').charAt(0).toUpperCase();
-
-            const allTabBtn = document.getElementById('tab-btn-all');
-            const adminTabBtn = document.getElementById('tab-btn-admin');
-            if (currentUser.role === 'Admin') {
-                if (allTabBtn) allTabBtn.classList.remove('hidden');
-                if (adminTabBtn) adminTabBtn.classList.remove('hidden');
-            } else {
-                if (allTabBtn) allTabBtn.classList.add('hidden');
-                if (adminTabBtn) adminTabBtn.classList.add('hidden');
-                if (activeTab === 'all' || activeTab === 'admin') activeTab = 'my';
-            }
         }
 
         // ==================== NOTIFICATIONS ====================
-        function addNotification(targetUserId, titleEn, titleAr, msgEn, msgAr) {
-            notifications.unshift({
-                id: 'ntf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                targetUserId,
+        function addNotification(targetUserIdOrRole, titleEn, titleAr, bodyEn, bodyAr) {
+            const n = {
+                id: 'notif_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                target: targetUserIdOrRole, // 'Admin' or specific userId
                 titleEn,
                 titleAr,
-                msgEn,
-                msgAr,
-                read: false,
-                createdAt: new Date().toISOString()
-            });
-            if (notifications.length > 100) notifications = notifications.slice(0, 100);
+                bodyEn,
+                bodyAr,
+                createdAt: new Date().toISOString(),
+                read: false
+            };
+            notifications.unshift(n);
+            notifications = notifications.slice(0, 100);
         }
 
-        function getMyNotifications() {
-            if (!currentUser) return [];
-            return notifications.filter(n =>
-                n.targetUserId === currentUser.id ||
-                (currentUser.role === 'Admin' && n.targetUserId === 'ROLE_ADMIN')
-            );
+        function isNotifForCurrentUser(n) {
+            if (!currentUser || !n) return false;
+            if (currentUser.role === 'Admin' && n.target === 'Admin') return true;
+            return n.target === currentUser.id;
         }
 
-        function toggleNotifications() {
-            const dd = document.getElementById('notif-dropdown');
-            if (dd) dd.classList.toggle('hidden');
+        function openNotificationsModal() {
+            const list = document.getElementById('notifications-list');
+            if (!list) return;
+            const mine = notifications.filter(isNotifForCurrentUser);
+            if (!mine.length) {
+                list.innerHTML = `<p class="text-center text-slate-400 py-6">${currentLang === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}</p>`;
+            } else {
+                list.innerHTML = mine.map(n => `
+                    <div class="p-3 rounded-2xl border ${n.read ? 'bg-slate-50 border-slate-200' : 'bg-amber-50/70 border-amber-300'}">
+                        <div class="font-extrabold text-slate-900">${currentLang === 'ar' ? n.titleAr : n.titleEn}</div>
+                        <div class="text-slate-600 mt-0.5">${currentLang === 'ar' ? n.bodyAr : n.bodyEn}</div>
+                        <div class="text-[10px] text-slate-400 mt-1">${String(n.createdAt || '').replace('T', ' ').slice(0, 16)}</div>
+                    </div>
+                `).join('');
+            }
+            openModal('modal-notifications');
         }
 
-        function markAllNotificationsRead() {
-            if (!currentUser) return;
+        async function markAllNotificationsRead() {
             notifications.forEach(n => {
-                if (n.targetUserId === currentUser.id || (currentUser.role === 'Admin' && n.targetUserId === 'ROLE_ADMIN')) {
-                    n.read = true;
-                }
+                if (isNotifForCurrentUser(n)) n.read = true;
             });
-            pushCloudState(true);
-            renderNotifications();
+            await pushCloudState(true);
+            refreshAllUI();
+            openNotificationsModal();
         }
 
-        function renderNotifications() {
-            const listEl = document.getElementById('notif-list');
-            const badgeEl = document.getElementById('notif-badge');
-            if (!listEl || !badgeEl) return;
-
-            const myNotifs = getMyNotifications();
-            const unreadCount = myNotifs.filter(n => !n.read).length;
-
-            if (unreadCount > 0) {
-                badgeEl.textContent = unreadCount > 9 ? '9+' : unreadCount;
-                badgeEl.classList.remove('hidden');
-            } else {
-                badgeEl.classList.add('hidden');
-            }
-
-            if (myNotifs.length === 0) {
-                listEl.innerHTML = `<div class="p-4 text-center text-slate-400">${currentLang === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}</div>`;
-                return;
-            }
-
-            listEl.innerHTML = myNotifs.slice(0, 20).map(n => `
-                <div class="p-3 rounded-xl ${n.read ? 'bg-white' : 'bg-amber-50/70'}">
-                    <div class="font-bold text-slate-900">${currentLang === 'ar' ? n.titleAr : n.titleEn}</div>
-                    <div class="text-slate-600 mt-0.5">${currentLang === 'ar' ? n.msgAr : n.msgEn}</div>
-                    <div class="text-[10px] text-slate-400 mt-1">${formatDateTime(n.createdAt)}</div>
-                </div>
-            `).join('');
-        }
-
-        // ==================== TABS & UI RENDERING ====================
-        function setActiveTab(tabName) {
-            if (currentUser && currentUser.role !== 'Admin' && (tabName === 'all' || tabName === 'admin')) {
-                tabName = 'my';
-            }
-            activeTab = tabName;
-
-            ['my', 'incoming', 'all', 'closed', 'admin'].forEach(t => {
-                const btn = document.getElementById('tab-btn-' + t);
+        // ==================== PERMITS LOGIC ====================
+        function setActiveTab(tab) {
+            activeTab = tab;
+            const tabs = ['my', 'incoming', 'all', 'admin'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}-btn`);
                 if (!btn) return;
-                if (t === activeTab) {
-                    btn.classList.add('tab-active');
-                    btn.classList.remove('text-slate-600');
+                if (t === tab) {
+                    btn.className = btn.className.replace('text-slate-300 hover:bg-white/10', 'bg-emerald-500 text-slate-950');
                 } else {
-                    btn.classList.remove('tab-active');
-                    btn.classList.add('text-slate-600');
+                    btn.className = btn.className.replace('bg-emerald-500 text-slate-950', 'text-slate-300 hover:bg-white/10');
                 }
             });
 
-            const permitsSec = document.getElementById('permits-section');
-            const adminSec = document.getElementById('admin-section');
-            if (activeTab === 'admin') {
-                if (permitsSec) permitsSec.classList.add('hidden');
-                if (adminSec) adminSec.classList.remove('hidden');
-                renderAdminPanel();
-            } else {
-                if (adminSec) adminSec.classList.add('hidden');
-                if (permitsSec) permitsSec.classList.remove('hidden');
-                refreshAllUI();
-            }
+            const isAdminTab = tab === 'admin' && currentUser && currentUser.role === 'Admin';
+            document.getElementById('admin-panel').classList.toggle('hidden', !isAdminTab);
+            document.getElementById('permits-list').classList.toggle('hidden', isAdminTab);
+            document.getElementById('permits-toolbar').classList.toggle('hidden', isAdminTab);
+
+            refreshAllUI();
         }
 
-        function getVisiblePermitsForUser() {
-            if (!currentUser) return [];
-            if (currentUser.role === 'Admin') return permits;
-            return permits.filter(p =>
-                p.holderId === currentUser.id ||
-                p.createdById === currentUser.id ||
-                p.pendingReceiverId === currentUser.id ||
-                (Array.isArray(p.involvedUserIds) && p.involvedUserIds.includes(currentUser.id))
-            );
-        }
+        function openCreatePermitModal() {
+            document.getElementById('permit-number').value = '';
+            document.getElementById('permit-type').value = 'HOT';
+            document.getElementById('permit-location').value = '';
+            document.getElementById('permit-desc').value = '';
 
-        function refreshAllUI() {
-            if (!currentUser) return;
-            const t = I18N[currentLang];
-            const visible = getVisiblePermitsForUser();
+            const defaultExpiry = new Date(Date.now() + 12 * 3600 * 1000);
+            const pad = n => String(n).padStart(2, '0');
+            document.getElementById('permit-valid-until').value = `${defaultExpiry.getFullYear()}-${pad(defaultExpiry.getMonth() + 1)}-${pad(defaultExpiry.getDate())}T${pad(defaultExpiry.getHours())}:${pad(defaultExpiry.getMinutes())}`;
 
-            const myCustody = visible.filter(p => p.status !== 'Closed' && p.holderId === currentUser.id);
-            const incoming = visible.filter(p => p.status === 'PendingHandover' && p.pendingReceiverId === currentUser.id);
-            const activeList = visible.filter(p => p.status !== 'Closed');
-            const closedList = visible.filter(p => p.status === 'Closed');
+            const sel = document.getElementById('permit-handover-to');
+            const otherUsers = users.filter(u => u.active && (!currentUser || u.id !== currentUser.id));
+            sel.innerHTML = `<option value="">${currentLang === 'ar' ? '-- إبقاء العهدة معي --' : '-- Keep With Me --'}</option>` +
+                otherUsers.map(u => `<option value="${u.id}">${u.fullName || u.username} (${u.role})</option>`).join('');
 
-            document.getElementById('kpi-custody-val').textContent = myCustody.length;
-            document.getElementById('kpi-incoming-val').textContent = incoming.length;
-            document.getElementById('kpi-active-val').textContent = activeList.length;
-            document.getElementById('kpi-closed-val').textContent = closedList.length;
-
-            renderNotifications();
-
-            if (activeTab === 'admin' && currentUser.role === 'Admin') {
-                renderAdminPanel();
-                return;
-            }
-
-            let list = [];
-            if (activeTab === 'my') list = myCustody;
-            else if (activeTab === 'incoming') list = incoming;
-            else if (activeTab === 'all') list = activeList;
-            else if (activeTab === 'closed') list = closedList;
-
-            const q = (document.getElementById('search-input')?.value || '').trim().toLowerCase();
-            if (q) {
-                list = list.filter(p =>
-                    String(p.permitNumber || '').toLowerCase().includes(q) ||
-                    String(p.location || '').toLowerCase().includes(q) ||
-                    String(p.holderName || '').toLowerCase().includes(q) ||
-                    String(p.description || '').toLowerCase().includes(q)
-                );
-            }
-
-            const container = document.getElementById('permits-section');
-            if (!container) return;
-
-            if (list.length === 0) {
-                container.innerHTML = `
-                    <div class="col-span-full glass-card rounded-2xl p-10 text-center text-slate-400">
-                        <i class="fa-solid fa-folder-open text-3xl mb-2"></i>
-                        <p class="text-xs font-bold">${t.noPermits}</p>
-                    </div>
-                `;
-                return;
-            }
-
-            container.innerHTML = list.map(p => {
-                const typeBadgeClass =
-                    p.type === 'HOT' ? 'badge-hot' :
-                    p.type === 'COLD' ? 'badge-cold' :
-                    p.type === 'BREAKING' ? 'badge-breaking' : 'badge-spark';
-
-                const statusLabel =
-                    p.status === 'Active' ? t.statusActive :
-                    p.status === 'PendingHandover' ? t.statusPending : t.statusClosed;
-
-                const statusClass =
-                    p.status === 'Active' ? 'bg-emerald-100 text-emerald-700' :
-                    p.status === 'PendingHandover' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700';
-
-                const isIncomingForMe = p.status === 'PendingHandover' && p.pendingReceiverId === currentUser.id;
-                const canOperate = p.status !== 'Closed' && (p.holderId === currentUser.id || currentUser.role === 'Admin');
-
-                return `
-                    <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-4">
-                        <div class="space-y-3">
-                            <div class="flex items-center justify-between gap-2">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-base font-black text-slate-900">${p.permitNumber}</span>
-                                    <span class="px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold ${typeBadgeClass}">${p.type}</span>
-                                </div>
-                                <span class="px-3 py-1 rounded-full text-[11px] font-bold ${statusClass}">${statusLabel}</span>
-                            </div>
-
-                            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700">
-                                <i class="fa-solid fa-location-dot text-amber-500"></i>
-                                <span>${p.location}</span>
-                            </div>
-
-                            <div class="p-3 bg-slate-50 rounded-xl text-xs text-slate-600 font-medium">
-                                ${p.description}
-                            </div>
-
-                            <div class="space-y-1 text-xs pt-1">
-                                <div class="flex items-center justify-between">
-                                    <span class="text-slate-400 font-semibold">${t.currentHolder}</span>
-                                    <span class="font-bold text-slate-900">${p.holderName}</span>
-                                </div>
-                                ${p.status === 'PendingHandover' ? `
-                                <div class="flex items-center justify-between text-amber-700">
-                                    <span class="font-semibold">${t.incomingFrom}</span>
-                                    <span class="font-bold">${p.holderName} → ${p.pendingReceiverName}</span>
-                                </div>` : ''}
-                                <div class="flex items-center justify-between">
-                                    <span class="text-slate-400 font-semibold">${t.validUntil}</span>
-                                    <span class="font-bold text-slate-800">${formatDateTime(p.validUntil)}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                            ${isIncomingForMe ? `
-                                <button onclick="acceptHandover('${p.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow">
-                                    <i class="fa-solid fa-check"></i>
-                                    <span>${t.btnAccept}</span>
-                                </button>
-                                <button onclick="rejectHandover('${p.id}')" class="px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold">
-                                    <span>${t.btnReject}</span>
-                                </button>
-                            ` : ''}
-
-                            ${canOperate && !isIncomingForMe ? `
-                                <button onclick="openHandoverModal('${p.id}')" class="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-extrabold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-right-left"></i>
-                                    <span>${t.btnHandover}</span>
-                                </button>
-                                <button onclick="openRenewModal('${p.id}')" class="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-clock-rotate-left"></i>
-                                    <span>${t.btnRenew}</span>
-                                </button>
-                                <button onclick="openClosePermitModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5">
-                                    <i class="fa-solid fa-lock"></i>
-                                    <span>${t.btnClose}</span>
-                                </button>
-                            ` : ''}
-
-                            <button onclick="openAuditModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5">
-                                <i class="fa-solid fa-list-ul"></i>
-                                <span>${t.btnAudit}</span>
-                            </button>
-
-                            <button onclick="downloadHandoverReceiptPDF('${p.id}')" title="Download PDF Receipt" class="w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center">
-                                <i class="fa-solid fa-file-pdf"></i>
-                            </button>
-
-                            <button onclick="shareHandoverViaWhatsApp('${p.id}')" title="Share via WhatsApp" class="w-9 h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center">
-                                <i class="fa-brands fa-whatsapp text-sm"></i>
-                            </button>
-
-                            ${(canOperate || currentUser.role === 'Admin') ? `
-                                <button onclick="deletePermitRecord('${p.id}')" title="Delete Permit" class="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center">
-                                    <i class="fa-solid fa-trash-can"></i>
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        // ==================== PERMIT WORKFLOW ACTIONS ====================
-        function openNewPermitModal() {
-            const numInput = document.getElementById('np-number');
-            const locInput = document.getElementById('np-location');
-            const descInput = document.getElementById('np-desc');
-            const validInput = document.getElementById('np-valid');
-            const hoSelect = document.getElementById('np-handover-user');
-
-            if (numInput) numInput.value = '';
-            if (locInput) locInput.value = '';
-            if (descInput) descInput.value = '';
-
-            const defaultExpiry = new Date(Date.now() + 8 * 3600 * 1000);
-            const tzOffset = defaultExpiry.getTimezoneOffset() * 60000;
-            if (validInput) validInput.value = new Date(defaultExpiry - tzOffset).toISOString().slice(0, 16);
-
-            if (hoSelect) {
-                const otherUsers = users.filter(u => u && u.active && u.id !== currentUser.id);
-                const keepLabel = I18N[currentLang].npKeepCustody;
-                hoSelect.innerHTML = `<option value="">${keepLabel}</option>` +
-                    otherUsers.map(u => `<option value="${u.id}">${u.fullName} (${u.username})</option>`).join('');
-            }
-
-            openModal('modal-new-permit');
+            openModal('modal-create-permit');
         }
 
         async function handleCreatePermit(e) {
             e.preventDefault();
             if (!currentUser) return;
 
-            const permitNumber = document.getElementById('np-number').value.trim();
-            const type = document.getElementById('np-type').value;
-            const location = document.getElementById('np-location').value.trim();
-            const handoverTargetId = document.getElementById('np-handover-user').value;
-            const description = document.getElementById('np-desc').value.trim();
-            const validUntil = document.getElementById('np-valid').value;
+            const permitNumber = document.getElementById('permit-number').value.trim();
+            const permitType = document.getElementById('permit-type').value;
+            const workLocation = document.getElementById('permit-location').value.trim();
+            const description = document.getElementById('permit-desc').value.trim();
+            const validUntil = document.getElementById('permit-valid-until').value;
+            const handoverToId = document.getElementById('permit-handover-to').value;
 
-            const targetUser = handoverTargetId ? users.find(u => u.id === handoverTargetId) : null;
+            if (!permitNumber || !workLocation) return;
+
             const nowIso = new Date().toISOString();
+            const receiver = handoverToId ? users.find(u => u.id === handoverToId) : null;
+            const isPendingHandover = Boolean(receiver);
 
             const newPermit = {
-                id: 'ptw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                id: 'prm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
                 permitNumber,
-                type,
-                location,
+                type: permitType,
+                location: workLocation,
                 description,
                 validUntil,
+                status: isPendingHandover ? 'Pending Handover' : 'Active',
                 createdById: currentUser.id,
-                createdByName: currentUser.fullName,
+                createdByName: currentUser.fullName || currentUser.username,
                 holderId: currentUser.id,
-                holderName: currentUser.fullName,
-                status: targetUser ? 'PendingHandover' : 'Active',
-                pendingReceiverId: targetUser ? targetUser.id : '',
-                pendingReceiverName: targetUser ? targetUser.fullName : '',
-                involvedUserIds: targetUser ? [currentUser.id, targetUser.id] : [currentUser.id],
+                holderName: currentUser.fullName || currentUser.username,
+                pendingReceiverId: receiver ? receiver.id : '',
+                pendingReceiverName: receiver ? (receiver.fullName || receiver.username) : '',
                 updatedAt: Date.now(),
-                auditLog: [
+                logs: [
                     {
-                        action: 'Issued',
-                        by: currentUser.fullName,
-                        at: nowIso,
-                        notes: targetUser
-                            ? `Issued and sent handover request to ${targetUser.fullName}`
-                            : 'Issued and held in custody'
+                        time: nowIso,
+                        actor: currentUser.fullName || currentUser.username,
+                        action: isPendingHandover
+                            ? `Issued permit and sent handover request to ${receiver.fullName || receiver.username}`
+                            : 'Issued active permit'
                     }
                 ]
             };
 
             permits.unshift(newPermit);
-
-            if (targetUser) {
+            if (receiver) {
                 addNotification(
-                    targetUser.id,
-                    'Incoming Permit Handover',
-                    'طلب استلام تصريح عمل جديد',
-                    `${currentUser.fullName} sent permit #${permitNumber} (${location}) for your acceptance.`,
-                    `أرسل إليك ${currentUser.fullName} التصريح رقم #${permitNumber} (${location}) بانتظار قبول الاستلام.`
+                    receiver.id,
+                    `Handover Request: Permit #${permitNumber}`,
+                    `طلب تسليم تصريح رقم #${permitNumber}`,
+                    `${currentUser.fullName || currentUser.username} sent permit #${permitNumber} (${workLocation}) for your acceptance.`,
+                    `قام ${currentUser.fullName || currentUser.username} بإرسال التصريح #${permitNumber} (${workLocation}) لقبول الاستلام.`
                 );
             }
 
-            closeModal('modal-new-permit');
-            refreshAllUI();
+            closeModal('modal-create-permit');
             await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم إصدار وحفظ التصريح بنجاح' : 'Work permit issued and synced successfully');
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم إصدار التصريح ومزامنته' : 'Permit created & synced');
         }
 
         function openHandoverModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-            document.getElementById('ho-permit-id').value = p.id;
-            document.getElementById('ho-permit-label').textContent = `${p.permitNumber} — ${p.location} (${p.type})`;
-            document.getElementById('ho-notes').value = '';
+            document.getElementById('handover-permit-id').value = p.id;
+            document.getElementById('handover-note').value = '';
 
-            const targetSelect = document.getElementById('ho-target-user');
-            const candidates = users.filter(u => u && u.active && u.id !== p.holderId);
-            targetSelect.innerHTML = candidates.map(u => `<option value="${u.id}">${u.fullName} (${u.username})</option>`).join('');
+            const sel = document.getElementById('handover-receiver-select');
+            const candidates = users.filter(u => u.active && u.id !== p.holderId);
+            sel.innerHTML = candidates.map(u => `<option value="${u.id}">${u.fullName || u.username} (${u.role})</option>`).join('');
             openModal('modal-handover');
         }
 
-        async function handleInitiateHandover(e) {
+        async function handleHandoverSubmit(e) {
             e.preventDefault();
-            const permitId = document.getElementById('ho-permit-id').value;
-            const targetUserId = document.getElementById('ho-target-user').value;
-            const notes = document.getElementById('ho-notes').value.trim();
+            if (!currentUser) return;
+            const permitId = document.getElementById('handover-permit-id').value;
+            const receiverId = document.getElementById('handover-receiver-select').value;
+            const note = document.getElementById('handover-note').value.trim();
 
             const p = permits.find(x => x.id === permitId);
-            const targetUser = users.find(u => u.id === targetUserId);
-            if (!p || !targetUser) return;
+            const receiver = users.find(u => u.id === receiverId);
+            if (!p || !receiver) return;
 
-            p.status = 'PendingHandover';
-            p.pendingReceiverId = targetUser.id;
-            p.pendingReceiverName = targetUser.fullName;
+            p.status = 'Pending Handover';
+            p.pendingReceiverId = receiver.id;
+            p.pendingReceiverName = receiver.fullName || receiver.username;
             p.updatedAt = Date.now();
-            if (!Array.isArray(p.involvedUserIds)) p.involvedUserIds = [];
-            if (!p.involvedUserIds.includes(targetUser.id)) p.involvedUserIds.push(targetUser.id);
-
-            p.auditLog.push({
-                action: 'Handover Requested',
-                by: currentUser.fullName,
-                at: new Date().toISOString(),
-                notes: `To ${targetUser.fullName}: ${notes}`
+            p.logs = p.logs || [];
+            p.logs.push({
+                time: new Date().toISOString(),
+                actor: currentUser.fullName || currentUser.username,
+                action: `Sent handover to ${receiver.fullName || receiver.username}${note ? ' — ' + note : ''}`
             });
 
             addNotification(
-                targetUser.id,
-                'Incoming Permit Handover',
-                'طلب تسليم عهدة تصريح وارد',
-                `${currentUser.fullName} requested handover of permit #${p.permitNumber} (${p.location}).`,
-                `طلب ${currentUser.fullName} تسليم التصريح رقم #${p.permitNumber} (${p.location}) إليك.`
+                receiver.id,
+                `Handover Request: Permit #${p.permitNumber}`,
+                `طلب استلام تصريح #${p.permitNumber}`,
+                `${currentUser.fullName || currentUser.username} requested handover of permit #${p.permitNumber} (${p.location}).`,
+                `طلب ${currentUser.fullName || currentUser.username} تسليمك التصريح #${p.permitNumber} (${p.location}).`
             );
 
             closeModal('modal-handover');
-            refreshAllUI();
             await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم إرسال طلب التسليم وإشعار المستلم' : 'Handover request sent with notification');
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم إرسال طلب التسليم وبانتظار قبول المستلم' : 'Handover sent; awaiting receiver acceptance');
         }
 
         async function acceptHandover(permitId) {
+            if (!currentUser) return;
             const p = permits.find(x => x.id === permitId);
-            if (!p || !currentUser) return;
+            if (!p) return;
 
             const prevHolderId = p.holderId;
             p.holderId = currentUser.id;
-            p.holderName = currentUser.fullName;
-            p.status = 'Active';
+            p.holderName = currentUser.fullName || currentUser.username;
             p.pendingReceiverId = '';
             p.pendingReceiverName = '';
+            p.status = 'Active';
             p.updatedAt = Date.now();
-
-            p.auditLog.push({
-                action: 'Handover Accepted',
-                by: currentUser.fullName,
-                at: new Date().toISOString(),
-                notes: 'Custody accepted and transferred'
+            p.logs = p.logs || [];
+            p.logs.push({
+                time: new Date().toISOString(),
+                actor: currentUser.fullName || currentUser.username,
+                action: 'Accepted handover & took custody'
             });
 
             if (prevHolderId) {
                 addNotification(
                     prevHolderId,
-                    'Handover Accepted',
-                    'تم قبول استلام التصريح',
-                    `${currentUser.fullName} accepted custody of permit #${p.permitNumber}.`,
-                    `قام ${currentUser.fullName} بقبول واستلام عهدة التصريح رقم #${p.permitNumber}.`
+                    `Handover Accepted: Permit #${p.permitNumber}`,
+                    `تم قبول التسليم: تصريح #${p.permitNumber}`,
+                    `${currentUser.fullName || currentUser.username} accepted handover of permit #${p.permitNumber}.`,
+                    `قبل ${currentUser.fullName || currentUser.username} استلام التصريح #${p.permitNumber}.`
                 );
             }
 
-            refreshAllUI();
             await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم قبول واستلام عهدة التصريح' : 'Permit custody accepted');
-        }
-
-        async function rejectHandover(permitId) {
-            const p = permits.find(x => x.id === permitId);
-            if (!p || !currentUser) return;
-
-            const prevHolderId = p.holderId;
-            p.status = 'Active';
-            p.pendingReceiverId = '';
-            p.pendingReceiverName = '';
-            p.updatedAt = Date.now();
-
-            p.auditLog.push({
-                action: 'Handover Rejected',
-                by: currentUser.fullName,
-                at: new Date().toISOString(),
-                notes: 'Handover declined; custody remains with current holder'
-            });
-
-            if (prevHolderId) {
-                addNotification(
-                    prevHolderId,
-                    'Handover Rejected',
-                    'تم رفض استلام التصريح',
-                    `${currentUser.fullName} rejected handover of permit #${p.permitNumber}.`,
-                    `رفض ${currentUser.fullName} استلام التصريح رقم #${p.permitNumber}.`
-                );
-            }
-
             refreshAllUI();
-            await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم رفض التسليم' : 'Handover rejected');
+            showToast(currentLang === 'ar' ? 'تم قبول التسليم ونقل العهدة بنجاح' : 'Handover accepted & custody transferred');
         }
 
         function openRenewModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-            document.getElementById('rp-permit-id').value = p.id;
-            document.getElementById('rp-permit-label').textContent = `${p.permitNumber} — ${p.location}`;
-            const nextVal = new Date(Date.now() + 8 * 3600 * 1000);
-            const tzOffset = nextVal.getTimezoneOffset() * 60000;
-            document.getElementById('rp-new-valid').value = new Date(nextVal - tzOffset).toISOString().slice(0, 16);
-            openModal('modal-renew-permit');
+            document.getElementById('renew-permit-id').value = p.id;
+            document.getElementById('renew-new-expiry').value = p.validUntil || '';
+            openModal('modal-renew');
         }
 
-        async function handleRenewPermit(e) {
+        async function handleRenewSubmit(e) {
             e.preventDefault();
-            const permitId = document.getElementById('rp-permit-id').value;
-            const newValid = document.getElementById('rp-new-valid').value;
+            if (!currentUser) return;
+            const permitId = document.getElementById('renew-permit-id').value;
+            const newExpiry = document.getElementById('renew-new-expiry').value;
             const p = permits.find(x => x.id === permitId);
-            if (!p) return;
+            if (!p || !newExpiry) return;
 
-            p.validUntil = newValid;
+            p.validUntil = newExpiry;
+            if (p.status === 'Closed') p.status = 'Active';
             p.updatedAt = Date.now();
-            p.auditLog.push({
-                action: 'Renewed',
-                by: currentUser.fullName,
-                at: new Date().toISOString(),
-                notes: `Extended validity until ${formatDateTime(newValid)}`
+            p.logs = p.logs || [];
+            p.logs.push({
+                time: new Date().toISOString(),
+                actor: currentUser.fullName || currentUser.username,
+                action: `Renewed valid until ${newExpiry.replace('T', ' ')}`
             });
 
-            closeModal('modal-renew-permit');
-            refreshAllUI();
+            closeModal('modal-renew');
             await pushCloudState(true);
+            refreshAllUI();
             showToast(currentLang === 'ar' ? 'تم تجديد صلاحية التصريح' : 'Permit validity renewed');
         }
 
-        function openClosePermitModal(permitId) {
+        async function closePermit(permitId) {
+            if (!currentUser) return;
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-            document.getElementById('cp-permit-id').value = p.id;
-            document.getElementById('cp-permit-label').textContent = `${p.permitNumber} — ${p.location}`;
-            document.getElementById('cp-notes').value = '';
-            openModal('modal-close-permit');
-        }
-
-        async function handleClosePermit(e) {
-            e.preventDefault();
-            const permitId = document.getElementById('cp-permit-id').value;
-            const notes = document.getElementById('cp-notes').value.trim();
-            const p = permits.find(x => x.id === permitId);
-            if (!p) return;
-
             p.status = 'Closed';
             p.pendingReceiverId = '';
             p.pendingReceiverName = '';
             p.updatedAt = Date.now();
-            p.auditLog.push({
-                action: 'Closed',
-                by: currentUser.fullName,
-                at: new Date().toISOString(),
-                notes
+            p.logs = p.logs || [];
+            p.logs.push({
+                time: new Date().toISOString(),
+                actor: currentUser.fullName || currentUser.username,
+                action: 'Closed permit'
             });
 
-            closeModal('modal-close-permit');
-            refreshAllUI();
             await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم إغلاق التصريح وأرشفته' : 'Permit closed and archived');
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم إغلاق التصريح' : 'Permit closed');
         }
 
         async function deletePermitRecord(permitId) {
+            if (!currentUser) return;
             const p = permits.find(x => x.id === permitId);
-            if (!p || !currentUser) return;
+            if (!p) return;
 
-            deletedPermitIds.push(permitId);
+            if (!deletedPermitIds.includes(p.id)) deletedPermitIds.push(p.id);
             permits = permits.filter(x => x.id !== permitId);
 
-            // Notify Admin when any non-admin user deletes a permit
             if (currentUser.role !== 'Admin') {
                 addNotification(
-                    'ROLE_ADMIN',
-                    'Permit Deleted by User',
-                    'تنبيه: قام مستخدم بحذف تصريح',
-                    `User ${currentUser.fullName} (${currentUser.username}) deleted permit #${p.permitNumber} at ${p.location}.`,
-                    `قام المستخدم ${currentUser.fullName} (${currentUser.username}) بحذف التصريح رقم #${p.permitNumber} في موقع ${p.location}.`
+                    'Admin',
+                    `Permit Deleted: #${p.permitNumber}`,
+                    `تم حذف تصريح: #${p.permitNumber}`,
+                    `${currentUser.fullName || currentUser.username} deleted permit #${p.permitNumber} (${p.location}).`,
+                    `قام ${currentUser.fullName || currentUser.username} بحذف التصريح #${p.permitNumber} (${p.location}).`
                 );
             }
 
-            refreshAllUI();
             await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم حذف التصريح وإشعار الإدارة' : 'Permit deleted and Admin notified');
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم حذف التصريح وإشعار الإدارة' : 'Permit deleted & Admin notified');
         }
 
-        function openAuditModal(permitId) {
+        function openAuditLogModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-            document.getElementById('audit-modal-title').textContent = `${p.permitNumber} — Audit Log`;
-            const body = document.getElementById('audit-modal-body');
-            body.innerHTML = (p.auditLog || []).map(item => `
-                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                    <div class="flex items-center justify-between font-bold text-slate-900">
-                        <span>${item.action}</span>
-                        <span class="text-[10px] text-slate-400">${formatDateTime(item.at)}</span>
+            const box = document.getElementById('audit-log-content');
+            const logs = Array.isArray(p.logs) ? p.logs : [];
+            box.innerHTML = logs.length
+                ? logs.slice().reverse().map(l => `
+                    <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                        <div class="font-bold text-slate-900">${l.action}</div>
+                        <div class="text-[11px] text-slate-500 mt-0.5">${l.actor} • ${String(l.time || '').replace('T', ' ').slice(0, 16)}</div>
                     </div>
-                    <div class="text-slate-600 mt-1">${item.notes || ''}</div>
-                    <div class="text-[10px] font-semibold text-slate-500 mt-1">By: ${item.by}</div>
-                </div>
-            `).join('');
-            openModal('modal-audit');
+                `).join('')
+                : `<p class="text-slate-400 text-center py-4">No log entries</p>`;
+            openModal('modal-log');
         }
 
-        // ==================== PDF & WHATSAPP RECEIPT ====================
-        function downloadHandoverReceiptPDF(permitId) {
-            const p = permits.find(x => x.id === permitId);
-            if (!p) return;
-            try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                doc.setFillColor(15, 23, 42);
-                doc.rect(0, 0, 210, 28, 'F');
-                doc.setTextColor(255, 255, 255);
-                doc.setFontSize(15);
-                doc.text('TGS - WORK PERMIT HANDOVER & CUSTODY RECEIPT', 14, 18);
-
-                doc.setTextColor(15, 23, 42);
-                doc.setFontSize(11);
-                let y = 42;
-                const rows = [
-                    `Permit Number: ${p.permitNumber}`,
-                    `Permit Type: ${p.type}`,
-                    `Work Location: ${p.location}`,
-                    `Status: ${p.status}`,
-                    `Current Holder: ${p.holderName}`,
-                    `Valid Until: ${formatDateTime(p.validUntil)}`,
-                    `Description: ${p.description}`
-                ];
-                rows.forEach(line => {
-                    doc.text(line, 14, y);
-                    y += 9;
-                });
-
-                y += 6;
-                doc.setFontSize(12);
-                doc.text('Custody & Audit History:', 14, y);
-                y += 8;
-                doc.setFontSize(10);
-                (p.auditLog || []).forEach(entry => {
-                    doc.text(`- [${formatDateTime(entry.at)}] ${entry.action} by ${entry.by}: ${entry.notes || ''}`, 14, y);
-                    y += 7;
-                });
-
-                doc.save(`PTW_${p.permitNumber}_Receipt.pdf`);
-                showToast(currentLang === 'ar' ? 'تم تحميل إيصال PDF بنجاح' : 'PDF Receipt downloaded');
-            } catch (e) {
-                showToast('PDF export error');
-            }
+        function buildPermitSummaryText(p) {
+            return [
+                `TGS Work Permit Handover Receipt`,
+                `Permit #: ${p.permitNumber}`,
+                `Type: ${p.type}`,
+                `Work Location: ${p.location}`,
+                `Status: ${p.status}`,
+                `Current Holder: ${p.holderName}`,
+                `Valid Until: ${String(p.validUntil || '').replace('T', ' ')}`
+            ].join('\n');
         }
 
         function shareHandoverViaWhatsApp(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-            const summary = [
-                `*TGS Work Permit (PTW) Update*`,
-                `Permit #: ${p.permitNumber} (${p.type})`,
-                `Location: ${p.location}`,
-                `Status: ${p.status}`,
-                `Current Holder: ${p.holderName}`,
-                `Valid Until: ${formatDateTime(p.validUntil)}`,
-                `Portal: ${window.location.origin + window.location.pathname}`
-            ].join('\n');
-            const url = `https://wa.me/?text=${encodeURIComponent(summary)}`;
-            window.open(url, '_blank');
+            const url = `https://wa.me/?text=${encodeURIComponent(buildPermitSummaryText(p))}`;
+            window.open(url, '_blank', 'noopener,noreferrer');
         }
 
-        // ==================== ADMIN PANEL CONTROL ====================
-        function renderAdminPanel() {
-            if (!currentUser || currentUser.role !== 'Admin') return;
+        function downloadHandoverReceiptPDF(permitId) {
+            const p = permits.find(x => x.id === permitId);
+            if (!p) return;
+            try {
+                if (window.jspdf && window.jspdf.jsPDF) {
+                    const doc = new window.jspdf.jsPDF();
+                    doc.setFontSize(16);
+                    doc.text('TGS Work Permit Handover Receipt', 14, 20);
+                    doc.setFontSize(11);
+                    const lines = [
+                        `Permit Number: ${p.permitNumber}`,
+                        `Type: ${p.type}`,
+                        `Work Location: ${p.location}`,
+                        `Status: ${p.status}`,
+                        `Current Holder: ${p.holderName}`,
+                        `Valid Until: ${String(p.validUntil || '').replace('T', ' ')}`,
+                        `Notes: ${p.description || '-'}`
+                    ];
+                    lines.forEach((line, idx) => doc.text(line, 14, 34 + idx * 9));
+                    doc.save(`Permit_${p.permitNumber}_Receipt.pdf`);
+                    showToast(currentLang === 'ar' ? 'تم تحميل ملف PDF' : 'PDF receipt downloaded');
+                    return;
+                }
+            } catch (e) {}
+            const blob = new Blob([buildPermitSummaryText(p)], { type: 'text/plain;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `Permit_${p.permitNumber}_Receipt.txt`;
+            a.click();
+        }
 
+        // ==================== RENDERING ====================
+        function getVisiblePermitsForTab() {
+            if (!currentUser) return [];
+            const isAdmin = currentUser.role === 'Admin';
+            if (activeTab === 'all' && isAdmin) {
+                return permits;
+            }
+            if (activeTab === 'incoming') {
+                return permits.filter(p => p.status === 'Pending Handover' && p.pendingReceiverId === currentUser.id);
+            }
+            if (isAdmin && activeTab === 'my') {
+                return permits.filter(p => p.createdById === currentUser.id || p.holderId === currentUser.id || p.pendingReceiverId === currentUser.id);
+            }
+            return permits.filter(p =>
+                p.createdById === currentUser.id ||
+                p.holderId === currentUser.id ||
+                p.pendingReceiverId === currentUser.id
+            );
+        }
+
+        function renderStatusBadge(status) {
+            const t = I18N[currentLang];
+            if (status === 'Active') {
+                return `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold status-badge-active">${t.statusActive}</span>`;
+            }
+            if (status === 'Pending Handover') {
+                return `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold status-badge-pending">${t.statusPending}</span>`;
+            }
+            return `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold status-badge-closed">${t.statusClosed}</span>`;
+        }
+
+        function refreshAllUI() {
+            if (!currentUser) return;
+            const t = I18N[currentLang];
+
+            // Update unread notifications badge
+            const unreadCount = notifications.filter(n => isNotifForCurrentUser(n) && !n.read).length;
+            const badge = document.getElementById('notif-badge');
+            if (badge) {
+                badge.textContent = String(unreadCount);
+                badge.classList.toggle('hidden', unreadCount === 0);
+            }
+
+            // Incoming badge
+            const incomingList = permits.filter(p => p.status === 'Pending Handover' && p.pendingReceiverId === currentUser.id);
+            const incBadge = document.getElementById('incoming-count-badge');
+            if (incBadge) {
+                incBadge.textContent = String(incomingList.length);
+                incBadge.classList.toggle('hidden', incomingList.length === 0);
+            }
+
+            const basePermits = getVisiblePermitsForTab();
+            const q = (document.getElementById('search-permit-input')?.value || '').trim().toLowerCase();
+            const fType = document.getElementById('filter-type-select')?.value || 'ALL';
+            const fStatus = document.getElementById('filter-status-select')?.value || 'ALL';
+
+            const filtered = basePermits.filter(p => {
+                if (fType !== 'ALL' && p.type !== fType) return false;
+                if (fStatus !== 'ALL' && p.status !== fStatus) return false;
+                if (q) {
+                    const hay = `${p.permitNumber} ${p.location} ${p.holderName} ${p.type}`.toLowerCase();
+                    if (!hay.includes(q)) return false;
+                }
+                return true;
+            });
+
+            // Stats
+            document.getElementById('stat-active-val').textContent = String(basePermits.filter(p => p.status === 'Active').length);
+            document.getElementById('stat-pending-val').textContent = String(basePermits.filter(p => p.status === 'Pending Handover').length);
+            document.getElementById('stat-closed-val').textContent = String(basePermits.filter(p => p.status === 'Closed').length);
+            document.getElementById('stat-total-val').textContent = String(filtered.length);
+
+            const listEl = document.getElementById('permits-list');
+            if (!listEl) return;
+
+            if (!filtered.length) {
+                listEl.innerHTML = `<div class="col-span-full bg-white rounded-3xl p-10 text-center text-slate-400 font-bold text-sm card-shadow">${t.noPermits}</div>`;
+            } else {
+                listEl.innerHTML = filtered.map(p => {
+                    const isHolder = p.holderId === currentUser.id;
+                    const isPendingForMe = p.status === 'Pending Handover' && p.pendingReceiverId === currentUser.id;
+                    const canManage = currentUser.role === 'Admin' || isHolder || p.createdById === currentUser.id;
+                    const canDelete = currentUser.role === 'Admin' || isHolder || p.createdById === currentUser.id;
+
+                    return `
+                        <div class="bg-white rounded-3xl p-5 card-shadow border border-slate-100 flex flex-col justify-between gap-4">
+                            <div>
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <span class="text-lg font-extrabold text-slate-900">${p.permitNumber}</span>
+                                        <span class="px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold bg-rose-100 text-rose-700 border border-rose-200">${p.type}</span>
+                                    </div>
+                                    ${renderStatusBadge(p.status)}
+                                </div>
+
+                                <div class="mt-2 flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                                    <i class="fa-solid fa-location-dot text-amber-500"></i>
+                                    <span>${p.location}</span>
+                                </div>
+
+                                ${p.description ? `<div class="mt-2.5 p-2.5 rounded-xl bg-slate-50 border border-slate-200/70 text-xs text-slate-600 font-medium">${p.description}</div>` : ''}
+
+                                <div class="mt-3 pt-3 border-t border-slate-100 space-y-1 text-xs">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-400 font-semibold">${t.currentHolder}</span>
+                                        <span class="font-extrabold text-slate-800">${p.holderName || '-'}</span>
+                                    </div>
+                                    ${p.status === 'Pending Handover' && p.pendingReceiverName ? `
+                                        <div class="flex items-center justify-between">
+                                            <span class="text-amber-600 font-bold">${t.pendingTo}</span>
+                                            <span class="font-extrabold text-amber-700">${p.pendingReceiverName}</span>
+                                        </div>
+                                    ` : ''}
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-slate-400 font-semibold">${t.validUntil}</span>
+                                        <span class="font-bold text-slate-700">${String(p.validUntil || '').replace('T', ' ')}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                                ${isPendingForMe ? `
+                                    <button type="button" onclick="acceptHandover('${p.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold transition flex items-center gap-1.5">
+                                        <i class="fa-solid fa-check"></i>
+                                        <span>${t.acceptHandoverBtn}</span>
+                                    </button>
+                                ` : ''}
+
+                                ${canManage && p.status !== 'Closed' ? `
+                                    <button type="button" onclick="openHandoverModal('${p.id}')" class="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold transition flex items-center gap-1.5">
+                                        <i class="fa-solid fa-right-left"></i>
+                                        <span>${t.handoverBtn}</span>
+                                    </button>
+                                    <button type="button" onclick="openRenewModal('${p.id}')" class="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-extrabold transition flex items-center gap-1.5">
+                                        <i class="fa-solid fa-rotate"></i>
+                                        <span>${t.renewBtn}</span>
+                                    </button>
+                                    <button type="button" onclick="closePermit('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold transition flex items-center gap-1.5">
+                                        <i class="fa-solid fa-lock"></i>
+                                        <span>${t.closeBtn}</span>
+                                    </button>
+                                ` : ''}
+
+                                <button type="button" onclick="openAuditLogModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition flex items-center gap-1.5">
+                                    <i class="fa-solid fa-list-ul"></i>
+                                    <span>${t.logBtn}</span>
+                                </button>
+
+                                <button type="button" onclick="downloadHandoverReceiptPDF('${p.id}')" class="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs transition" title="PDF">
+                                    <i class="fa-solid fa-file-pdf"></i>
+                                </button>
+
+                                <button type="button" onclick="shareHandoverViaWhatsApp('${p.id}')" class="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 text-xs transition" title="WhatsApp">
+                                    <i class="fa-brands fa-whatsapp text-sm"></i>
+                                </button>
+
+                                ${canDelete ? `
+                                    <button type="button" onclick="deletePermitRecord('${p.id}')" class="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs transition" title="Delete">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                ` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            if (currentUser.role === 'Admin') {
+                renderAdminPanel();
+            }
+        }
+
+        // ==================== ADMIN MANAGEMENT ====================
+        async function handleCreateUser(e) {
+            e.preventDefault();
+            const fullName = document.getElementById('new-usr-fullname').value.trim();
+            const username = document.getElementById('new-usr-username').value.trim();
+            const password = document.getElementById('new-usr-password').value.trim();
+            const role = document.getElementById('new-usr-role').value;
+
+            if (!fullName || !username || !password) return;
+
+            const uLower = username.toLowerCase();
+            deletedUsernames = deletedUsernames.filter(x => x !== uLower);
+
+            const existingIdx = users.findIndex(u => String(u.username || '').toLowerCase() === uLower);
+            if (existingIdx !== -1) {
+                users[existingIdx].fullName = fullName;
+                users[existingIdx].password = password;
+                users[existingIdx].role = role;
+                users[existingIdx].active = true;
+                deletedUserIds = deletedUserIds.filter(id => id !== users[existingIdx].id);
+            } else {
+                users.push({
+                    id: 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                    fullName,
+                    username,
+                    password,
+                    role,
+                    active: true
+                });
+            }
+
+            document.getElementById('new-usr-fullname').value = '';
+            document.getElementById('new-usr-username').value = '';
+            document.getElementById('new-usr-password').value = '';
+
+            await pushCloudState(true);
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم إنشاء الحساب ومزامنته مع جميع الأجهزة' : 'User created & synced across all devices');
+        }
+
+        function renderAdminPanel() {
             const uTbody = document.getElementById('admin-users-tbody');
             if (uTbody) {
-                uTbody.innerHTML = users.map(u => `
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-3 font-bold text-slate-900">${u.fullName}</td>
-                        <td class="p-3 font-mono font-bold text-slate-700">${u.username}</td>
-                        <td class="p-3 font-mono text-slate-600">${u.password}</td>
-                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-slate-200 font-bold">${u.role}</span></td>
-                        <td class="p-3">
-                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ${u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
-                                ${u.active ? 'Active' : 'Disabled'}
-                            </span>
-                        </td>
-                        <td class="p-3 flex items-center justify-center gap-1.5">
-                            <button onclick="copyUserCredentials('${u.id}')" title="Copy Direct Login Link & Credentials" class="px-2.5 py-1.5 rounded-lg bg-slate-900 text-white font-bold hover:bg-slate-700">
-                                <i class="fa-solid fa-copy"></i>
-                            </button>
-                            <button onclick="openEditUserModal('${u.id}')" title="Edit User" class="px-2.5 py-1.5 rounded-lg bg-blue-100 text-blue-700 font-bold hover:bg-blue-200">
-                                <i class="fa-solid fa-pen"></i>
-                            </button>
-                            ${u.id !== 'usr_admin_1' ? `
-                                <button onclick="toggleUserStatus('${u.id}')" title="Enable/Disable" class="px-2.5 py-1.5 rounded-lg bg-amber-100 text-amber-800 font-bold hover:bg-amber-200">
-                                    <i class="fa-solid fa-power-off"></i>
+                uTbody.innerHTML = users.map(u => {
+                    const isMainAdmin = u.id === 'usr_admin_1';
+                    return `
+                        <tr>
+                            <td class="py-2.5 px-3 font-bold text-slate-900">${u.fullName || '-'}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-700">${u.username}</td>
+                            <td class="py-2.5 px-3 font-mono text-slate-500">${u.password}</td>
+                            <td class="py-2.5 px-3"><span class="px-2 py-0.5 rounded-lg bg-slate-100 font-bold text-slate-700">${u.role}</span></td>
+                            <td class="py-2.5 px-3">
+                                <span class="px-2 py-0.5 rounded-full text-[11px] font-extrabold ${u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                                    ${u.active ? 'Active' : 'Disabled'}
+                                </span>
+                            </td>
+                            <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
+                                <button type="button" onclick="copyUserCredentials('${u.id}')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold" title="Copy Credentials">
+                                    <i class="fa-solid fa-copy"></i>
                                 </button>
-                                <button onclick="deleteUserAccount('${u.id}')" title="Delete User Permanently" class="px-2.5 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold hover:bg-red-200">
-                                    <i class="fa-solid fa-trash"></i>
+                                <button type="button" onclick="openAdminEditUserModal('${u.id}')" class="px-2 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold" title="Edit">
+                                    <i class="fa-solid fa-pen"></i>
                                 </button>
-                            ` : ''}
-                        </td>
-                    </tr>
-                `).join('');
+                                ${!isMainAdmin ? `
+                                    <button type="button" onclick="toggleUserStatus('${u.id}')" class="px-2 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold" title="Toggle Status">
+                                        <i class="fa-solid fa-power-off"></i>
+                                    </button>
+                                    <button type="button" onclick="deleteUserAccount('${u.id}')" class="px-2 py-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold" title="Delete">
+                                        <i class="fa-solid fa-trash"></i>
+                                    </button>
+                                ` : ''}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
             }
 
             const pTbody = document.getElementById('admin-permits-tbody');
             if (pTbody) {
-                pTbody.innerHTML = permits.length === 0
-                    ? `<tr><td colspan="6" class="p-4 text-center text-slate-400">No permits in site</td></tr>`
-                    : permits.map(p => `
-                        <tr class="hover:bg-slate-50">
-                            <td class="p-3 font-black text-slate-900">${p.permitNumber}</td>
-                            <td class="p-3 font-bold">${p.type}</td>
-                            <td class="p-3">${p.location}</td>
-                            <td class="p-3 font-bold text-slate-800">${p.holderName}</td>
-                            <td class="p-3 font-bold">${p.status}</td>
-                            <td class="p-3 flex items-center justify-center gap-1.5">
-                                ${p.status !== 'Closed' ? `
-                                    <button onclick="openHandoverModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-bold">Transfer</button>
-                                    <button onclick="openClosePermitModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold">Close</button>
-                                ` : ''}
-                                <button onclick="deletePermitRecord('${p.id}')" class="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 font-bold">Delete</button>
-                            </td>
-                        </tr>
-                    `).join('');
+                pTbody.innerHTML = permits.map(p => `
+                    <tr>
+                        <td class="py-2.5 px-3 font-extrabold text-slate-900">${p.permitNumber}</td>
+                        <td class="py-2.5 px-3 font-bold text-rose-700">${p.type}</td>
+                        <td class="py-2.5 px-3 text-slate-700">${p.location}</td>
+                        <td class="py-2.5 px-3 font-semibold text-slate-800">${p.holderName || '-'}</td>
+                        <td class="py-2.5 px-3">${renderStatusBadge(p.status)}</td>
+                        <td class="py-2.5 px-3 text-right space-x-1 whitespace-nowrap">
+                            ${p.status !== 'Closed' ? `
+                                <button type="button" onclick="openHandoverModal('${p.id}')" class="px-2 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold">Handover</button>
+                                <button type="button" onclick="closePermit('${p.id}')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold">Close</button>
+                            ` : ''}
+                            <button type="button" onclick="deletePermitRecord('${p.id}')" class="px-2 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-bold">Delete</button>
+                        </td>
+                    </tr>
+                `).join('');
             }
-        }
-
-        async function handleCreateUser(e) {
-            e.preventDefault();
-            const fullName = document.getElementById('new-user-fullname').value.trim();
-            const username = document.getElementById('new-user-username').value.trim();
-            const password = document.getElementById('new-user-password').value.trim();
-            const role = document.getElementById('new-user-role').value;
-
-            const uLower = username.toLowerCase();
-            if (users.some(u => String(u.username || '').toLowerCase() === uLower)) {
-                showToast(currentLang === 'ar' ? 'اسم المستخدم موجود مسبقاً!' : 'Username already exists!');
-                return;
-            }
-
-            // Remove from deletion blocklist if recreated intentionally by Admin
-            deletedUsernames = deletedUsernames.filter(x => x !== uLower);
-
-            const newUser = {
-                id: 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                fullName,
-                username,
-                password,
-                role,
-                active: true
-            };
-            users.push(newUser);
-
-            document.getElementById('new-user-fullname').value = '';
-            document.getElementById('new-user-username').value = '';
-            document.getElementById('new-user-password').value = '';
-
-            renderAdminPanel();
-            await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم إنشاء الحساب ومزامنته سحابياً بنجاح' : 'User account created & synced');
-        }
-
-        function openEditUserModal(userId) {
-            const u = users.find(x => x.id === userId);
-            if (!u) return;
-            document.getElementById('edit-user-id').value = u.id;
-            document.getElementById('edit-user-fullname').value = u.fullName;
-            document.getElementById('edit-user-username').value = u.username;
-            document.getElementById('edit-user-password').value = u.password;
-            document.getElementById('edit-user-role').value = u.role;
-            openModal('modal-admin-edit-user');
-        }
-
-        async function handleAdminUpdateUser(e) {
-            e.preventDefault();
-            const id = document.getElementById('edit-user-id').value;
-            const u = users.find(x => x.id === id);
-            if (!u) return;
-
-            u.fullName = document.getElementById('edit-user-fullname').value.trim();
-            u.username = document.getElementById('edit-user-username').value.trim();
-            u.password = document.getElementById('edit-user-password').value.trim();
-            u.role = document.getElementById('edit-user-role').value;
-
-            closeModal('modal-admin-edit-user');
-            renderAdminPanel();
-            await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم تحديث بيانات المستخدم' : 'User account updated');
         }
 
         function copyUserCredentials(userId) {
             const u = users.find(x => x.id === userId);
             if (!u) return;
             const baseUrl = window.location.origin + window.location.pathname;
-            const token = encodePayloadBase64({
-                id: u.id,
-                fullName: u.fullName,
-                username: u.username,
-                password: u.password,
-                role: u.role
-            });
-            const params = new URLSearchParams();
-            if (token) params.set('u', token);
-            if (activeBlobId) params.set('b', activeBlobId);
-            const directLink = `${baseUrl}?${params.toString()}`;
-            const text = `TGS PTW Portal Login\nLink: ${directLink}\nUsername: ${u.username}\nPassword: ${u.password}`;
+            const text = `TGS PTW Portal Login\nLink: ${baseUrl}\nUsername: ${u.username}\nPassword: ${u.password}`;
             copyTextSafe(text);
-            showToast(currentLang === 'ar' ? 'تم نسخ رابط الدخول المباشر وبيانات المستخدم' : 'Direct activation link & credentials copied');
+            showToast(currentLang === 'ar' ? 'تم نسخ رابط البرنامج وبيانات الدخول للمستخدم' : 'Portal link & user credentials copied');
         }
 
         function copyDeviceSyncLink() {
             const baseUrl = window.location.origin + window.location.pathname;
-            const link = activeBlobId ? `${baseUrl}?b=${encodeURIComponent(activeBlobId)}` : baseUrl;
-            copyTextSafe(link);
-            showToast(currentLang === 'ar' ? 'تم نسخ رابط البوابة المتزامن للمستخدمين' : 'Synced portal link copied');
+            copyTextSafe(baseUrl);
+            showToast(currentLang === 'ar' ? 'تم نسخ رابط البرنامج العام المتزامن' : 'Synced main portal link copied');
         }
 
         async function toggleUserStatus(userId) {
             const u = users.find(x => x.id === userId);
             if (!u || u.id === 'usr_admin_1') return;
             u.active = !u.active;
-            renderAdminPanel();
             await pushCloudState(true);
-            showToast(u.active ? 'Account enabled' : 'Account disabled');
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم تحديث حالة الحساب' : 'Account status updated');
+        }
+
+        function openAdminEditUserModal(userId) {
+            const u = users.find(x => x.id === userId);
+            if (!u) return;
+            document.getElementById('edit-usr-id').value = u.id;
+            document.getElementById('edit-usr-fullname').value = u.fullName || '';
+            document.getElementById('edit-usr-username').value = u.username || '';
+            document.getElementById('edit-usr-password').value = u.password || '';
+            document.getElementById('edit-usr-role').value = u.role || 'PA';
+            openModal('modal-admin-edit-user');
+        }
+
+        async function handleAdminUpdateUser(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-usr-id').value;
+            const fullName = document.getElementById('edit-usr-fullname').value.trim();
+            const username = document.getElementById('edit-usr-username').value.trim();
+            const password = document.getElementById('edit-usr-password').value.trim();
+            const role = document.getElementById('edit-usr-role').value;
+
+            const u = users.find(x => x.id === id);
+            if (!u || !fullName || !username || !password) return;
+
+            u.fullName = fullName;
+            u.username = username;
+            u.password = password;
+            if (u.id !== 'usr_admin_1') u.role = role;
+
+            closeModal('modal-admin-edit-user');
+            await pushCloudState(true);
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم تحديث بيانات المستخدم ومزامنتها' : 'User updated & synced');
         }
 
         async function deleteUserAccount(userId) {
             const u = users.find(x => x.id === userId);
             if (!u || u.id === 'usr_admin_1') return;
-
-            deletedUserIds.push(u.id);
-            deletedUsernames.push(String(u.username || '').toLowerCase());
+            if (!deletedUserIds.includes(u.id)) deletedUserIds.push(u.id);
+            const uLower = String(u.username || '').trim().toLowerCase();
+            if (uLower && !deletedUsernames.includes(uLower)) deletedUsernames.push(uLower);
             users = users.filter(x => x.id !== userId);
-
-            renderAdminPanel();
             await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم حذف الحساب وحظره نهائياً' : 'User deleted and blocked permanently');
+            refreshAllUI();
+            showToast(currentLang === 'ar' ? 'تم حذف المستخدم وحظر حسابه نهائياً' : 'User deleted & permanently blocked');
         }
 
-        // ==================== INITIALIZATION & FAST SYNC LOOP ====================
-        function initApp() {
-            applyLanguage(currentLang);
+        // ==================== BOOTSTRAP & AUTO-SYNC ====================
+        async function initApp() {
             loadLocalState();
             importProvisionedUrlData();
+            applyLanguage(currentLang);
 
-            // Restore active session immediately if valid
             try {
                 const rawSession = localStorage.getItem(SESSION_KEY);
                 if (rawSession) {
                     const sess = JSON.parse(rawSession);
-                    const found = users.find(u =>
-                        u && u.active &&
-                        (u.id === sess.userId || String(u.username || '').toLowerCase() === String(sess.username || '').toLowerCase())
-                    );
-                    const isDeleted = found && found.id !== 'usr_admin_1' &&
-                        (deletedUserIds.includes(found.id) || deletedUsernames.includes(String(found.username || '').toLowerCase()));
-                    if (found && !isDeleted) {
+                    const found = users.find(u => u.id === sess.userId && u.active);
+                    if (found) {
                         currentUser = found;
-                        document.getElementById('login-screen').classList.add('hidden');
-                        document.getElementById('app-shell').classList.remove('hidden');
-                        setupUserRoleUI();
-                        refreshAllUI();
-                    } else {
-                        localStorage.removeItem(SESSION_KEY);
+                        enterAppShell();
                     }
                 }
             } catch (e) {}
 
-            // Initial non-blocking cloud sync + periodic fast polling
             fetchLatestCloudState().then(() => {
                 if (currentUser) refreshAllUI();
-            }).catch(() => {});
+            });
 
-            setInterval(() => {
-                fetchLatestCloudState().then(() => {
-                    if (currentUser) refreshAllUI();
-                }).catch(() => {});
-            }, 2500);
+            setInterval(async () => {
+                await fetchLatestCloudState();
+                if (currentUser) refreshAllUI();
+            }, 2200);
 
-            window.addEventListener('focus', () => {
-                fetchLatestCloudState().then(() => {
-                    if (currentUser) refreshAllUI();
-                }).catch(() => {});
+            window.addEventListener('focus', async () => {
+                await fetchLatestCloudState();
+                if (currentUser) refreshAllUI();
             });
         }
 
