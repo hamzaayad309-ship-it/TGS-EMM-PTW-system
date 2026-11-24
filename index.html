@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TGS | نظام تسليم وإغلاق تصاريح العمل (PTW)</title>
+    <title>TGS | Work Permit Handover & Closure System (PTW)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         body {
-            font-family: 'Cairo', 'Inter', sans-serif;
+            font-family: 'Inter', 'Cairo', sans-serif;
             background-color: #f1f5f9;
             color: #0f172a;
         }
-        [dir="ltr"] body {
-            font-family: 'Inter', 'Cairo', sans-serif;
+        [dir="rtl"] body {
+            font-family: 'Cairo', 'Inter', sans-serif;
         }
         .glass-card {
             background: rgba(255, 255, 255, 0.96);
@@ -55,11 +55,11 @@
             <form onsubmit="handleLogin(event)" class="p-7 space-y-5">
                 <div id="login-error" class="hidden bg-red-50 border border-red-200 text-red-700 text-xs font-semibold p-3.5 rounded-xl flex items-center gap-2">
                     <i class="fa-solid fa-circle-exclamation text-red-600 text-sm"></i>
-                    <span id="login-error-text">خطأ في اسم المستخدم أو الرقم السري</span>
+                    <span id="login-error-text">Invalid username or password</span>
                 </div>
 
                 <div>
-                    <label id="lbl-username" class="block text-xs font-bold text-slate-600 uppercase mb-1.5">اسم المستخدم</label>
+                    <label id="lbl-username" class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Username</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 right-3.5 flex items-center text-slate-400">
                             <i class="fa-solid fa-user"></i>
@@ -70,7 +70,7 @@
                 </div>
 
                 <div>
-                    <label id="lbl-password" class="block text-xs font-bold text-slate-600 uppercase mb-1.5">الرقم السري</label>
+                    <label id="lbl-password" class="block text-xs font-bold text-slate-600 uppercase mb-1.5">Password</label>
                     <div class="relative">
                         <span class="absolute inset-y-0 right-3.5 flex items-center text-slate-400">
                             <i class="fa-solid fa-lock"></i>
@@ -85,15 +85,15 @@
 
                 <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2 text-sm">
                     <i class="fa-solid fa-right-to-bracket text-amber-400"></i>
-                    <span id="btn-signin-text">تسجيل الدخول للبوابة</span>
+                    <span id="btn-signin-text">Sign In to Portal</span>
                 </button>
 
                 <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
                     <span class="flex items-center gap-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span id="sync-status-login">مزامنة سحابية نشطة</span>
+                        <span id="sync-status-login">Cloud Multi-Device Sync Active</span>
                     </span>
-                    <span class="font-mono text-slate-400">PTW v4.2</span>
+                    <span class="font-mono text-slate-400">PTW v4.3</span>
                 </div>
             </form>
         </div>
@@ -111,8 +111,8 @@
                         TGS
                     </div>
                     <div>
-                        <h1 id="nav-title" class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">نظام تسليم التصاريح (PTW)</h1>
-                        <p id="nav-subtitle" class="text-[11px] text-slate-500">بوابة عهدة وإغلاق تصاريح العمل</p>
+                        <h1 id="nav-title" class="text-base sm:text-lg font-extrabold text-slate-900 leading-tight">Work Permit System (PTW)</h1>
+                        <p id="nav-subtitle" class="text-[11px] text-slate-500">Permit Custody & Closure Portal</p>
                     </div>
                 </div>
 
@@ -120,17 +120,17 @@
                 <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
                     <button onclick="toggleLanguage()" class="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-globe text-slate-500"></i>
-                        <span id="nav-lang-btn">English</span>
+                        <span id="nav-lang-btn">العربية</span>
                     </button>
 
                     <button onclick="manualSaveAllData()" class="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-cloud-arrow-up"></i>
-                        <span id="btn-save-sync">حفظ ومزامنة</span>
+                        <span id="btn-save-sync">Save & Sync</span>
                     </button>
 
                     <button onclick="openNewPermitModal()" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-sm flex items-center gap-1.5 transition">
                         <i class="fa-solid fa-plus"></i>
-                        <span id="btn-new-permit">تصريح جديد</span>
+                        <span id="btn-new-permit">New Permit</span>
                     </button>
 
                     <!-- Notifications Bell -->
@@ -145,9 +145,9 @@
                             <div class="p-3.5 bg-slate-900 text-white flex items-center justify-between">
                                 <span class="text-xs font-bold flex items-center gap-2">
                                     <i class="fa-solid fa-bell text-amber-400"></i>
-                                    <span id="notif-header-title">الإشعارات والتنبيهات</span>
+                                    <span id="notif-header-title">Notifications & Alerts</span>
                                 </span>
-                                <button onclick="markAllNotificationsRead()" class="text-[11px] text-amber-300 hover:underline">تحديد كمقروء</button>
+                                <button onclick="markAllNotificationsRead()" id="btn-mark-read" class="text-[11px] text-amber-300 hover:underline">Mark all read</button>
                             </div>
                             <div id="notif-list" class="max-h-80 overflow-y-auto divide-y divide-slate-100 p-2 text-xs"></div>
                         </div>
@@ -160,7 +160,7 @@
                             <div id="header-user-name" class="text-xs font-bold text-slate-900">Admin</div>
                             <div id="header-user-role" class="text-[10px] font-semibold text-slate-500">Admin</div>
                         </div>
-                        <button onclick="handleLogout()" title="تسجيل الخروج" class="mr-1 text-red-600 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition">
+                        <button onclick="handleLogout()" title="Sign Out" class="mr-1 text-red-600 hover:text-red-700 p-1.5 rounded-lg hover:bg-red-50 transition">
                             <i class="fa-solid fa-right-from-bracket"></i>
                         </button>
                     </div>
@@ -175,7 +175,7 @@
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
                     <div>
-                        <p id="kpi-custody-lbl" class="text-xs font-bold text-slate-500">في عهدتي</p>
+                        <p id="kpi-custody-lbl" class="text-xs font-bold text-slate-500">In My Custody</p>
                         <h3 id="kpi-custody-val" class="text-2xl sm:text-3xl font-black text-slate-900 mt-1">0</h3>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center text-lg">
@@ -185,7 +185,7 @@
 
                 <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
                     <div>
-                        <p id="kpi-incoming-lbl" class="text-xs font-bold text-slate-500">تسليمات واردة</p>
+                        <p id="kpi-incoming-lbl" class="text-xs font-bold text-slate-500">Incoming Handovers</p>
                         <h3 id="kpi-incoming-val" class="text-2xl sm:text-3xl font-black text-blue-600 mt-1">0</h3>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-lg">
@@ -195,7 +195,7 @@
 
                 <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
                     <div>
-                        <p id="kpi-active-lbl" class="text-xs font-bold text-slate-500">التصاريح النشطة</p>
+                        <p id="kpi-active-lbl" class="text-xs font-bold text-slate-500">Active Permits</p>
                         <h3 id="kpi-active-val" class="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">0</h3>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center text-lg">
@@ -205,7 +205,7 @@
 
                 <div class="glass-card rounded-2xl p-4 sm:p-5 shadow-sm flex items-center justify-between">
                     <div>
-                        <p id="kpi-closed-lbl" class="text-xs font-bold text-slate-500">التصاريح المغلقة</p>
+                        <p id="kpi-closed-lbl" class="text-xs font-bold text-slate-500">Closed Permits</p>
                         <h3 id="kpi-closed-val" class="text-2xl sm:text-3xl font-black text-slate-700 mt-1">0</h3>
                     </div>
                     <div class="w-11 h-11 rounded-2xl bg-slate-200 text-slate-700 flex items-center justify-center text-lg">
@@ -218,26 +218,26 @@
             <div class="glass-card rounded-2xl p-3 sm:p-4 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
                 <div class="flex flex-wrap items-center gap-2">
                     <button id="tab-btn-my" onclick="setActiveTab('my')" class="tab-active px-4 py-2 rounded-xl text-xs font-bold transition">
-                        <span id="tab-lbl-my">تصاريحي</span>
+                        <span id="tab-lbl-my">My Permits</span>
                     </button>
                     <button id="tab-btn-incoming" onclick="setActiveTab('incoming')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                        <span id="tab-lbl-incoming">الواردة للاستلام</span>
+                        <span id="tab-lbl-incoming">Incoming Handovers</span>
                     </button>
                     <button id="tab-btn-all" onclick="setActiveTab('all')" class="hidden px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                        <span id="tab-lbl-all">جميع تصاريح الموقع</span>
+                        <span id="tab-lbl-all">All Site Permits</span>
                     </button>
                     <button id="tab-btn-closed" onclick="setActiveTab('closed')" class="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition">
-                        <span id="tab-lbl-closed">الأرشيف المغلق</span>
+                        <span id="tab-lbl-closed">Closed Archive</span>
                     </button>
                     <button id="tab-btn-admin" onclick="setActiveTab('admin')" class="hidden px-4 py-2 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition flex items-center gap-1.5">
                         <i class="fa-solid fa-gears"></i>
-                        <span id="tab-lbl-admin">لوحة الإدارة والتحكم</span>
+                        <span id="tab-lbl-admin">Admin Control Panel</span>
                     </button>
                 </div>
 
                 <div class="relative w-full md:w-72">
                     <i class="fa-solid fa-magnifying-glass absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                    <input id="search-input" oninput="refreshAllUI()" type="text" placeholder="بحث برقم التصريح، الموقع، المستلم..."
+                    <input id="search-input" oninput="refreshAllUI()" type="text" placeholder="Search permit #, location, holder..."
                         class="w-full pr-9 pl-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-slate-900">
                 </div>
             </div>
@@ -253,27 +253,27 @@
                         <div>
                             <h2 class="text-base font-extrabold text-slate-900 flex items-center gap-2">
                                 <i class="fa-solid fa-user-plus text-emerald-600"></i>
-                                <span>إنشاء حساب مستخدم جديد</span>
+                                <span id="adm-create-title">Create New User Account</span>
                             </h2>
-                            <p class="text-xs text-slate-500">يتم مزامنة الحسابات فوراً ليعمل الدخول من أي هاتف أو حاسوب</p>
+                            <p id="adm-create-sub" class="text-xs text-slate-500">Accounts sync automatically across all phones and computers</p>
                         </div>
                         <button type="button" onclick="copyDeviceSyncLink()" class="px-3 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 flex items-center gap-1.5">
                             <i class="fa-solid fa-link text-amber-400"></i>
-                            <span>نسخ رابط البوابة للمستخدمين</span>
+                            <span id="adm-copy-portal-btn">Copy Synced Portal Link</span>
                         </button>
                     </div>
 
                     <form onsubmit="handleCreateUser(event)" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-                        <input id="new-user-fullname" type="text" required placeholder="الاسم الكامل (مثال: علي حسن)" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
-                        <input id="new-user-username" type="text" required placeholder="اسم المستخدم للدخول" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
-                        <input id="new-user-password" type="text" required placeholder="الرقم السري" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
+                        <input id="new-user-fullname" type="text" required placeholder="Full Name (e.g., Ali Hassan)" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
+                        <input id="new-user-username" type="text" required placeholder="Login Username" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
+                        <input id="new-user-password" type="text" required placeholder="Password" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold">
                         <select id="new-user-role" class="px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-bold">
-                            <option value="PA">مستخدم تصاريح (PA)</option>
-                            <option value="Admin">مدير نظام (Admin)</option>
+                            <option value="PA">Permit User (PA)</option>
+                            <option value="Admin">System Admin (Admin)</option>
                         </select>
                         <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs shadow transition flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-plus"></i>
-                            <span>إنشاء وحفظ الحساب</span>
+                            <span id="adm-btn-create-user">Create & Save Account</span>
                         </button>
                     </form>
                 </div>
@@ -282,18 +282,18 @@
                 <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm overflow-hidden">
                     <h3 class="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
                         <i class="fa-solid fa-users-gear text-blue-600"></i>
-                        <span>إدارة حسابات المستخدمين والصلاحيات</span>
+                        <span id="adm-users-table-title">User Accounts & Permissions Management</span>
                     </h3>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-right border-collapse text-xs">
+                        <table class="w-full text-left border-collapse text-xs">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
-                                    <th class="p-3 font-bold">الاسم الكامل</th>
-                                    <th class="p-3 font-bold">اسم المستخدم</th>
-                                    <th class="p-3 font-bold">الرقم السري</th>
-                                    <th class="p-3 font-bold">الصلاحية</th>
-                                    <th class="p-3 font-bold">الحالة</th>
-                                    <th class="p-3 font-bold text-center">إجراءات التحكم</th>
+                                    <th class="p-3 font-bold">Full Name</th>
+                                    <th class="p-3 font-bold">Username</th>
+                                    <th class="p-3 font-bold">Password</th>
+                                    <th class="p-3 font-bold">Role</th>
+                                    <th class="p-3 font-bold">Status</th>
+                                    <th class="p-3 font-bold text-center">Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-users-tbody" class="divide-y divide-slate-100"></tbody>
@@ -305,18 +305,18 @@
                 <div class="glass-card rounded-2xl p-5 sm:p-6 shadow-sm overflow-hidden">
                     <h3 class="text-base font-extrabold text-slate-900 mb-4 flex items-center gap-2">
                         <i class="fa-solid fa-shield-halved text-amber-600"></i>
-                        <span>التحكم الشامل بجميع التصاريح في الموقع</span>
+                        <span id="adm-permits-table-title">Master Site Permits Control</span>
                     </h3>
                     <div class="overflow-x-auto">
-                        <table class="w-full text-right border-collapse text-xs">
+                        <table class="w-full text-left border-collapse text-xs">
                             <thead>
                                 <tr class="bg-slate-100 text-slate-600 border-b border-slate-200">
-                                    <th class="p-3 font-bold">رقم التصريح</th>
-                                    <th class="p-3 font-bold">النوع</th>
-                                    <th class="p-3 font-bold">الموقع</th>
-                                    <th class="p-3 font-bold">حامل العهدة الحالي</th>
-                                    <th class="p-3 font-bold">الحالة</th>
-                                    <th class="p-3 font-bold text-center">تحكم الإدارة</th>
+                                    <th class="p-3 font-bold">Permit #</th>
+                                    <th class="p-3 font-bold">Type</th>
+                                    <th class="p-3 font-bold">Work Location</th>
+                                    <th class="p-3 font-bold">Current Holder</th>
+                                    <th class="p-3 font-bold">Status</th>
+                                    <th class="p-3 font-bold text-center">Admin Control</th>
                                 </tr>
                             </thead>
                             <tbody id="admin-permits-tbody" class="divide-y divide-slate-100"></tbody>
@@ -397,7 +397,7 @@
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
                 <h3 class="font-extrabold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-right-left text-amber-400"></i>
-                    <span>تسليم عهدة التصريح</span>
+                    <span id="ho-modal-title">Handover Permit Custody</span>
                 </h3>
                 <button onclick="closeModal('modal-handover')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
@@ -405,16 +405,16 @@
                 <input type="hidden" id="ho-permit-id">
                 <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 font-bold" id="ho-permit-label"></div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">اختر المستلم البديل (الوردية التالية)</label>
+                    <label id="ho-lbl-target" class="block font-bold text-slate-600 mb-1">Select Receiving User (Next Shift)</label>
                     <select id="ho-target-user" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold"></select>
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">ملاحظات التسليم وحالة الموقع</label>
-                    <textarea id="ho-notes" rows="2" required placeholder="تم فحص الغازات وتأمين الموقع..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
+                    <label id="ho-lbl-notes" class="block font-bold text-slate-600 mb-1">Handover Notes & Site Status</label>
+                    <textarea id="ho-notes" rows="2" required placeholder="Gas test cleared and site secured..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('modal-handover')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">إلغاء</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold shadow">إرسال طلب التسليم</button>
+                    <button type="button" onclick="closeModal('modal-handover')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold shadow">Send Handover Request</button>
                 </div>
             </form>
         </div>
@@ -426,7 +426,7 @@
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
                 <h3 class="font-extrabold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-lock text-red-400"></i>
-                    <span>إغلاق التصريح نهائياً</span>
+                    <span>Final Permit Closure</span>
                 </h3>
                 <button onclick="closeModal('modal-close-permit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
@@ -435,15 +435,15 @@
                 <div class="p-3 bg-slate-100 rounded-xl font-bold text-slate-800" id="cp-permit-label"></div>
                 <label class="flex items-center gap-2 font-semibold text-slate-700">
                     <input type="checkbox" required class="w-4 h-4 rounded text-emerald-600">
-                    <span>تم إرجاع الموقع نظيفاً وآمناً وإزالة جميع أقفال العزل (LOTO).</span>
+                    <span>Site restored clean & safe, and all LOTO locks removed.</span>
                 </label>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">ملاحظات الإغلاق</label>
-                    <textarea id="cp-notes" rows="2" required placeholder="اكتمل العمل بنجاح وتم إغلاق التصريح..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
+                    <label class="block font-bold text-slate-600 mb-1">Closure Notes</label>
+                    <textarea id="cp-notes" rows="2" required placeholder="Work completed safely and permit closed..." class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold"></textarea>
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('modal-close-permit')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">إلغاء</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">تأكيد الإغلاق</button>
+                    <button type="button" onclick="closeModal('modal-close-permit')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold">Confirm Closure</button>
                 </div>
             </form>
         </div>
@@ -455,7 +455,7 @@
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
                 <h3 class="font-extrabold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-clock-rotate-left text-blue-400"></i>
-                    <span>تجديد صلاحية التصريح</span>
+                    <span>Renew Permit Validity</span>
                 </h3>
                 <button onclick="closeModal('modal-renew-permit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
@@ -463,12 +463,12 @@
                 <input type="hidden" id="rp-permit-id">
                 <div class="p-3 bg-blue-50 text-blue-900 rounded-xl font-bold" id="rp-permit-label"></div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">تاريخ ووقت الانتهاء الجديد</label>
+                    <label class="block font-bold text-slate-600 mb-1">New Expiry Date & Time</label>
                     <input id="rp-new-valid" type="datetime-local" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('modal-renew-permit')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">إلغاء</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">تحديث الصلاحية</button>
+                    <button type="button" onclick="closeModal('modal-renew-permit')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">Update Validity</button>
                 </div>
             </form>
         </div>
@@ -480,7 +480,7 @@
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
                 <h3 class="font-extrabold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-clock-rotate-left text-amber-400"></i>
-                    <span id="audit-modal-title">سجل حركات التصريح</span>
+                    <span id="audit-modal-title">Permit Audit Trail</span>
                 </h3>
                 <button onclick="closeModal('modal-audit')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
@@ -494,34 +494,34 @@
             <div class="bg-slate-900 text-white p-5 flex items-center justify-between">
                 <h3 class="font-extrabold text-sm flex items-center gap-2">
                     <i class="fa-solid fa-user-pen text-amber-400"></i>
-                    <span>تعديل بيانات المستخدم</span>
+                    <span>Edit User Account</span>
                 </h3>
                 <button onclick="closeModal('modal-admin-edit-user')" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
             </div>
             <form onsubmit="handleAdminUpdateUser(event)" class="p-5 space-y-4 text-xs">
                 <input type="hidden" id="edit-user-id">
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">الاسم الكامل</label>
+                    <label class="block font-bold text-slate-600 mb-1">Full Name</label>
                     <input id="edit-user-fullname" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">اسم المستخدم</label>
+                    <label class="block font-bold text-slate-600 mb-1">Username</label>
                     <input id="edit-user-username" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">الرقم السري</label>
+                    <label class="block font-bold text-slate-600 mb-1">Password</label>
                     <input id="edit-user-password" type="text" required class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-semibold">
                 </div>
                 <div>
-                    <label class="block font-bold text-slate-600 mb-1">الصلاحية</label>
+                    <label class="block font-bold text-slate-600 mb-1">Role</label>
                     <select id="edit-user-role" class="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold">
-                        <option value="PA">مستخدم تصاريح (PA)</option>
-                        <option value="Admin">مدير نظام (Admin)</option>
+                        <option value="PA">Permit User (PA)</option>
+                        <option value="Admin">System Admin (Admin)</option>
                     </select>
                 </div>
                 <div class="pt-2 flex justify-end gap-2">
-                    <button type="button" onclick="closeModal('modal-admin-edit-user')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">إلغاء</button>
-                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">حفظ التعديلات</button>
+                    <button type="button" onclick="closeModal('modal-admin-edit-user')" class="px-4 py-2.5 rounded-xl bg-slate-100 font-bold text-slate-700">Cancel</button>
+                    <button type="submit" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">Save Changes</button>
                 </div>
             </form>
         </div>
@@ -537,13 +537,14 @@
         // ==================== STATE & CLOUD CONFIG ====================
         const STORAGE_KEY = 'tgs_ptw_state_v4';
         const SESSION_KEY = 'tgs_ptw_session_v4';
+        const BLOB_ID_KEY = 'tgs_ptw_blob_id_v4';
         const NTFY_TOPIC = 'tgs_ptw_global_sync_998122_prod';
-        const KV_SYNC_URL = 'https://kvdb.io/A9x7PqLmN2vK8wRtY5zB3c/tgs_ptw_state_v4';
+        const NTFY_USERS_TOPIC = 'tgs_ptw_users_registry_998122_prod';
+        let activeBlobId = localStorage.getItem(BLOB_ID_KEY) || '';
 
         let currentLang = 'en';
         let activeTab = 'my';
         let currentUser = null;
-
         let users = [];
         let permits = [];
         let notifications = [];
@@ -552,28 +553,196 @@
         let deletedPermitIds = [];
         let stateUpdatedAt = 0;
 
-        // ==================== UTILITIES ====================
-        function normalizeDigits(str) {
-            return String(str || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
+        // ==================== TRANSLATIONS ====================
+        const I18N = {
+            en: {
+                langBtn: 'العربية',
+                loginTitle: 'Work Permit Handover & Closure',
+                loginSubtitle: 'Industrial PTW Tracking & Custody Control',
+                username: 'Username',
+                password: 'Password',
+                signIn: 'Sign In to Portal',
+                syncLogin: 'Cloud Multi-Device Sync Active',
+                navTitle: 'Work Permit System (PTW)',
+                navSubtitle: 'Permit Custody & Closure Portal',
+                saveSync: 'Save & Sync',
+                newPermit: 'New Permit',
+                notifHeader: 'Notifications & Alerts',
+                markRead: 'Mark all read',
+                kpiCustody: 'In My Custody',
+                kpiIncoming: 'Incoming Handovers',
+                kpiActive: 'Active Permits',
+                kpiClosed: 'Closed Permits',
+                tabMy: 'My Permits',
+                tabIncoming: 'Incoming Handovers',
+                tabAll: 'All Site Permits',
+                tabClosed: 'Closed Archive',
+                tabAdmin: 'Admin Control Panel',
+                searchPlaceholder: 'Search permit #, location, holder...',
+                npModalTitle: 'Issue New Work Permit',
+                npNumber: 'Permit Number',
+                npType: 'Permit Type',
+                npLocation: 'Work Location',
+                npHandover: 'Handover Permit To User (Optional - Sends Acceptance Notification)',
+                npKeepCustody: '-- Keep in My Custody --',
+                npDesc: 'Work Description',
+                npValid: 'Valid Until (Date & Time)',
+                npCancel: 'Cancel',
+                npSubmit: 'Issue & Save Permit',
+                statusActive: 'Active',
+                statusPending: 'Pending Handover Acceptance',
+                statusClosed: 'Closed',
+                currentHolder: 'Current Holder:',
+                validUntil: 'Valid Until:',
+                incomingFrom: 'Handover From:',
+                btnHandover: 'Handover',
+                btnRenew: 'Renew',
+                btnClose: 'Close',
+                btnAudit: 'Audit Log',
+                btnAccept: 'Accept & Receive Custody',
+                btnReject: 'Reject',
+                noPermits: 'No permits found in this view.'
+            },
+            ar: {
+                langBtn: 'English',
+                loginTitle: 'نظام تسليم وإغلاق تصاريح العمل',
+                loginSubtitle: 'مراقبة عهدة التصاريح والتسليم بين الورديات',
+                username: 'اسم المستخدم',
+                password: 'الرقم السري',
+                signIn: 'تسجيل الدخول للبوابة',
+                syncLogin: 'مزامنة سحابية نشطة',
+                navTitle: 'نظام تسليم التصاريح (PTW)',
+                navSubtitle: 'بوابة عهدة وإغلاق تصاريح العمل',
+                saveSync: 'حفظ ومزامنة',
+                newPermit: 'تصريح جديد',
+                notifHeader: 'الإشعارات والتنبيهات',
+                markRead: 'تحديد كمقروء',
+                kpiCustody: 'في عهدتي',
+                kpiIncoming: 'تسليمات واردة',
+                kpiActive: 'التصاريح النشطة',
+                kpiClosed: 'التصاريح المغلقة',
+                tabMy: 'تصاريحي',
+                tabIncoming: 'الواردة للاستلام',
+                tabAll: 'جميع تصاريح الموقع',
+                tabClosed: 'الأرشيف المغلق',
+                tabAdmin: 'لوحة الإدارة والتحكم',
+                searchPlaceholder: 'بحث برقم التصريح، الموقع، المستلم...',
+                npModalTitle: 'إصدار تصريح عمل جديد',
+                npNumber: 'رقم التصريح',
+                npType: 'نوع التصريح',
+                npLocation: 'موقع العمل',
+                npHandover: 'تسليم التصريح إلى مستخدم آخر (اختياري - يرسل إشعار قبول)',
+                npKeepCustody: '-- إبقاء التصريح في عهدتي --',
+                npDesc: 'وصف العمل',
+                npValid: 'صالح لغاية (التاريخ والوقت)',
+                npCancel: 'إلغاء',
+                npSubmit: 'إصدار وحفظ التصريح',
+                statusActive: 'نشط',
+                statusPending: 'بانتظار قبول التسليم',
+                statusClosed: 'مغلق',
+                currentHolder: 'حامل العهدة الحالي:',
+                validUntil: 'صالح لغاية:',
+                incomingFrom: 'تسليم وارد من:',
+                btnHandover: 'تسليم',
+                btnRenew: 'تجديد',
+                btnClose: 'إغلاق',
+                btnAudit: 'السجل',
+                btnAccept: 'قبول واستلام العهدة',
+                btnReject: 'رفض',
+                noPermits: 'لا توجد تصاريح في هذا القسم حالياً.'
+            }
+        };
+
+        function applyLanguage(lang) {
+            currentLang = lang === 'ar' ? 'ar' : 'en';
+            const t = I18N[currentLang];
+            document.documentElement.lang = currentLang;
+            document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
+
+            const setTxt = (id, txt) => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = txt;
+            };
+
+            setTxt('login-lang-btn', t.langBtn);
+            setTxt('nav-lang-btn', t.langBtn);
+            setTxt('login-title', t.loginTitle);
+            setTxt('login-subtitle', t.loginSubtitle);
+            setTxt('lbl-username', t.username);
+            setTxt('lbl-password', t.password);
+            setTxt('btn-signin-text', t.signIn);
+            setTxt('sync-status-login', t.syncLogin);
+            setTxt('nav-title', t.navTitle);
+            setTxt('nav-subtitle', t.navSubtitle);
+            setTxt('btn-save-sync', t.saveSync);
+            setTxt('btn-new-permit', t.newPermit);
+            setTxt('notif-header-title', t.notifHeader);
+            setTxt('btn-mark-read', t.markRead);
+            setTxt('kpi-custody-lbl', t.kpiCustody);
+            setTxt('kpi-incoming-lbl', t.kpiIncoming);
+            setTxt('kpi-active-lbl', t.kpiActive);
+            setTxt('kpi-closed-lbl', t.kpiClosed);
+            setTxt('tab-lbl-my', t.tabMy);
+            setTxt('tab-lbl-incoming', t.tabIncoming);
+            setTxt('tab-lbl-all', t.tabAll);
+            setTxt('tab-lbl-closed', t.tabClosed);
+            setTxt('tab-lbl-admin', t.tabAdmin);
+            setTxt('np-modal-title', t.npModalTitle);
+            setTxt('np-lbl-number', t.npNumber);
+            setTxt('np-lbl-type', t.npType);
+            setTxt('np-lbl-location', t.npLocation);
+            setTxt('np-lbl-handover', t.npHandover);
+            setTxt('np-lbl-desc', t.npDesc);
+            setTxt('np-lbl-valid', t.npValid);
+            setTxt('np-btn-cancel', t.npCancel);
+            setTxt('np-btn-submit', t.npSubmit);
+
+            const searchEl = document.getElementById('search-input');
+            if (searchEl) searchEl.placeholder = t.searchPlaceholder;
+
+            if (currentUser) refreshAllUI();
         }
 
-        function showToast(message) {
+        function toggleLanguage() {
+            applyLanguage(currentLang === 'en' ? 'ar' : 'en');
+        }
+
+        // ==================== UTILITIES ====================
+        function normalizeDigits(str) {
+            return String(str || '').replace(/[٠-٩]/g, d => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
+        }
+
+        function formatDateTime(isoStr) {
+            if (!isoStr) return '-';
+            return String(isoStr).replace('T', ' ').slice(0, 16);
+        }
+
+        function showToast(msg) {
             const box = document.getElementById('toast-box');
-            const msg = document.getElementById('toast-msg');
-            if (!box || !msg) return;
-            msg.textContent = message;
+            const lbl = document.getElementById('toast-msg');
+            if (!box || !lbl) return;
+            lbl.textContent = msg;
             box.classList.remove('hidden');
             clearTimeout(window._toastTimer);
             window._toastTimer = setTimeout(() => box.classList.add('hidden'), 3200);
         }
 
         function copyTextSafe(text) {
-            const ta = document.createElement('textarea');
-            ta.value = text;
-            document.body.appendChild(ta);
-            ta.select();
-            document.execCommand('copy');
-            document.body.removeChild(ta);
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            } catch (e) {}
+        }
+
+        function openModal(id) {
+            const el = document.getElementById(id);
+            if (el) el.classList.remove('hidden');
         }
 
         function closeModal(id) {
@@ -584,105 +753,62 @@
         function togglePasswordVisibility() {
             const inp = document.getElementById('login-password');
             const icon = document.getElementById('pass-eye-icon');
-            if (!inp) return;
+            if (!inp || !icon) return;
             if (inp.type === 'password') {
                 inp.type = 'text';
-                if (icon) icon.className = 'fa-solid fa-eye-slash';
+                icon.className = 'fa-solid fa-eye-slash';
             } else {
                 inp.type = 'password';
-                if (icon) icon.className = 'fa-solid fa-eye';
+                icon.className = 'fa-solid fa-eye';
             }
         }
 
-        function toggleLanguage() {
-            currentLang = currentLang === 'ar' ? 'en' : 'ar';
-            applyLanguage(currentLang);
-            refreshAllUI();
-        }
-
-        function applyLanguage(lang) {
-            document.documentElement.lang = lang;
-            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
-            const isAr = lang === 'ar';
-
-            const setTxt = (id, ar, en) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = isAr ? ar : en;
-            };
-
-            setTxt('login-lang-btn', 'English', 'العربية');
-            setTxt('nav-lang-btn', 'English', 'العربية');
-            setTxt('login-title', 'نظام تسليم وإغلاق تصاريح العمل', 'Work Permit Handover & Closure');
-            setTxt('login-subtitle', 'بوابة تتبع عهدة تصاريح العمل الصناعية (PTW)', 'Industrial PTW Tracking & Custody Control');
-            setTxt('lbl-username', 'اسم المستخدم', 'USERNAME');
-            setTxt('lbl-password', 'الرقم السري', 'PASSWORD');
-            setTxt('btn-signin-text', 'تسجيل الدخول للبوابة', 'Sign In to Portal');
-            setTxt('nav-title', 'نظام تسليم التصاريح (PTW)', 'PTW Handover System');
-            setTxt('nav-subtitle', 'بوابة عهدة وإغلاق تصاريح العمل', 'Work Permit Custody & Closure Portal');
-            setTxt('btn-save-sync', 'حفظ ومزامنة', 'Save');
-            setTxt('btn-new-permit', 'تصريح جديد', 'New Permit');
-            setTxt('kpi-custody-lbl', 'في عهدتي', 'In My Custody');
-            setTxt('kpi-incoming-lbl', 'تسليمات واردة', 'Incoming Handovers');
-            setTxt('kpi-active-lbl', 'التصاريح النشطة', 'Active Site Permits');
-            setTxt('kpi-closed-lbl', 'التصاريح المغلقة', 'Closed Permits');
-            setTxt('tab-lbl-my', 'تصاريحي', 'My Permits');
-            setTxt('tab-lbl-incoming', 'الواردة للاستلام', 'Incoming');
-            setTxt('tab-lbl-all', 'جميع تصاريح الموقع', 'All Active');
-            setTxt('tab-lbl-closed', 'الأرشيف المغلق', 'Closed Archive');
-            setTxt('tab-lbl-admin', 'لوحة الإدارة والتحكم', 'Admin Control');
-            setTxt('np-modal-title', 'إصدار تصريح عمل جديد', 'Issue New Work Permit');
-            setTxt('np-lbl-number', 'رقم التصريح', 'Permit Number');
-            setTxt('np-lbl-type', 'نوع التصريح', 'Permit Type');
-            setTxt('np-lbl-location', 'موقع العمل', 'Work Location');
-            setTxt('np-lbl-handover', 'تسليم التصريح إلى مستخدم آخر (يصل إشعار للمستلم لقبول التسليم)', 'Handover Permit To Another User (Sends Acceptance Notification)');
-            setTxt('np-lbl-desc', 'وصف العمل', 'Work Description');
-            setTxt('np-lbl-valid', 'صالح لغاية (التاريخ والوقت)', 'Valid Until (Date & Time)');
-            setTxt('np-btn-cancel', 'إلغاء', 'Cancel');
-            setTxt('np-btn-submit', 'إصدار وحفظ التصريح', 'Issue & Save Permit');
-        }
-
-        // ==================== LOCAL & CLOUD PERSISTENCE ====================
+        // ==================== STORAGE & CLOUD SYNC ====================
         function ensureDefaultAdminAccount() {
-            const adminIdx = users.findIndex(u => u && (u.id === 'usr_admin_1' || String(u.username || '').toLowerCase() === 'admin'));
-            if (adminIdx === -1) {
+            const hasAdmin = users.some(u => u && String(u.username || '').toLowerCase() === 'admin');
+            if (!hasAdmin) {
                 users.unshift({
                     id: 'usr_admin_1',
                     fullName: 'System Administrator',
-                    role: 'Admin',
                     username: 'admin',
                     password: '123',
+                    role: 'Admin',
                     active: true
                 });
-            } else {
-                users[adminIdx].active = true;
-                users[adminIdx].role = 'Admin';
-                if (!users[adminIdx].password) users[adminIdx].password = '123';
             }
-            deletedUserIds = deletedUserIds.filter(id => id !== 'usr_admin_1');
-            deletedUsernames = deletedUsernames.filter(un => un !== 'admin');
         }
 
         function loadLocalState() {
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (raw) {
-                    const data = JSON.parse(raw);
-                    users = Array.isArray(data.users) ? data.users : [];
-                    permits = Array.isArray(data.permits) ? data.permits : [];
-                    notifications = Array.isArray(data.notifications) ? data.notifications : [];
-                    deletedUserIds = Array.isArray(data.deletedUserIds) ? data.deletedUserIds : [];
-                    deletedUsernames = Array.isArray(data.deletedUsernames) ? data.deletedUsernames : [];
-                    deletedPermitIds = Array.isArray(data.deletedPermitIds) ? data.deletedPermitIds : [];
-                    stateUpdatedAt = data.stateUpdatedAt || 0;
+                    const parsed = JSON.parse(raw);
+                    users = Array.isArray(parsed.users) ? parsed.users : [];
+                    permits = Array.isArray(parsed.permits) ? parsed.permits : [];
+                    notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+                    deletedUserIds = Array.isArray(parsed.deletedUserIds) ? parsed.deletedUserIds : [];
+                    deletedUsernames = Array.isArray(parsed.deletedUsernames) ? parsed.deletedUsernames : [];
+                    deletedPermitIds = Array.isArray(parsed.deletedPermitIds) ? parsed.deletedPermitIds : [];
+                    stateUpdatedAt = Number(parsed.stateUpdatedAt || 0);
                 }
-            } catch (e) {
-                console.warn('Local load warning:', e);
-            }
+            } catch (e) {}
             ensureDefaultAdminAccount();
+            filterDeletedEntities();
+        }
+
+        function filterDeletedEntities() {
+            users = users.filter(u => {
+                if (!u) return false;
+                if (u.id === 'usr_admin_1' || String(u.username || '').toLowerCase() === 'admin') return true;
+                const uLower = String(u.username || '').toLowerCase();
+                return !deletedUserIds.includes(u.id) && !deletedUsernames.includes(uLower);
+            });
+            permits = permits.filter(p => p && !deletedPermitIds.includes(p.id));
         }
 
         function saveLocalState() {
             ensureDefaultAdminAccount();
+            filterDeletedEntities();
             const payload = {
                 users,
                 permits,
@@ -690,6 +816,7 @@
                 deletedUserIds,
                 deletedUsernames,
                 deletedPermitIds,
+                blobId: activeBlobId,
                 stateUpdatedAt
             };
             try {
@@ -703,14 +830,56 @@
             const payload = saveLocalState();
             const bodyStr = JSON.stringify(payload);
 
-            // 1. Push to KV store
-            fetch(KV_SYNC_URL, {
+            // 1. Push compact user directory to dedicated users topic (always < 4KB, instant delivery)
+            const compactUsersPayload = JSON.stringify({
+                users: users.map(u => ({
+                    id: u.id,
+                    fullName: u.fullName,
+                    username: u.username,
+                    password: u.password,
+                    role: u.role,
+                    active: u.active
+                })),
+                deletedUserIds,
+                deletedUsernames,
+                blobId: activeBlobId,
+                stateUpdatedAt
+            });
+            fetch(`https://ntfy.sh/${NTFY_USERS_TOPIC}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: bodyStr
+                body: compactUsersPayload
             }).catch(() => {});
 
-            // 2. Push to ntfy channel as authoritative backup
+            // 2. Push full state to JSONBlob (create blob automatically if none exists yet)
+            try {
+                if (!activeBlobId) {
+                    const createRes = await fetch('https://jsonblob.com/api/jsonBlob', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: bodyStr
+                    });
+                    const loc = createRes.headers.get('Location') || createRes.headers.get('x-jsonblob');
+                    if (loc) {
+                        const extractedId = loc.split('/').pop();
+                        if (extractedId) {
+                            activeBlobId = extractedId;
+                            localStorage.setItem(BLOB_ID_KEY, activeBlobId);
+                            fetch(`https://ntfy.sh/${NTFY_USERS_TOPIC}`, {
+                                method: 'POST',
+                                body: JSON.stringify({ blobId: activeBlobId, stateUpdatedAt })
+                            }).catch(() => {});
+                        }
+                    }
+                } else {
+                    await fetch(`https://jsonblob.com/api/jsonBlob/${activeBlobId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: bodyStr
+                    });
+                }
+            } catch (e) {}
+
+            // 3. Push full state to ntfy main channel as backup
             fetch(`https://ntfy.sh/${NTFY_TOPIC}`, {
                 method: 'POST',
                 body: bodyStr
@@ -719,95 +888,121 @@
 
         function applyRemoteState(remote) {
             if (!remote || typeof remote !== 'object') return;
+            if (remote.blobId && !activeBlobId) {
+                activeBlobId = remote.blobId;
+                localStorage.setItem(BLOB_ID_KEY, activeBlobId);
+            }
 
             // Merge deletion lists permanently
             const rDelUIds = Array.isArray(remote.deletedUserIds) ? remote.deletedUserIds : [];
-            const rDelUNames = Array.isArray(remote.deletedUsernames) ? remote.deletedUsernames.map(x => String(x).toLowerCase()) : [];
+            const rDelUNames = Array.isArray(remote.deletedUsernames) ? remote.deletedUsernames : [];
             const rDelPIds = Array.isArray(remote.deletedPermitIds) ? remote.deletedPermitIds : [];
 
-            deletedUserIds = Array.from(new Set([...deletedUserIds, ...rDelUIds])).filter(id => id !== 'usr_admin_1');
-            deletedUsernames = Array.from(new Set([...deletedUsernames, ...rDelUNames])).filter(un => un !== 'admin');
+            deletedUserIds = Array.from(new Set([...deletedUserIds, ...rDelUIds]));
+            deletedUsernames = Array.from(new Set([...deletedUsernames, ...rDelUNames.map(x => String(x).toLowerCase())]));
             deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...rDelPIds]));
 
-            // Merge users (never resurrect deleted users)
-            const remoteUsers = Array.isArray(remote.users) ? remote.users : [];
-            const userMap = new Map();
-            [...users, ...remoteUsers].forEach(u => {
-                if (!u || !u.id) return;
-                const uNameLower = String(u.username || '').trim().toLowerCase();
-                if (u.id !== 'usr_admin_1' && (deletedUserIds.includes(u.id) || deletedUsernames.includes(uNameLower))) {
-                    return;
-                }
-                userMap.set(u.id, u);
-            });
-            // If remote is newer, trust remote user edits/status
-            if ((remote.stateUpdatedAt || 0) >= stateUpdatedAt && remoteUsers.length > 0) {
-                remoteUsers.forEach(u => {
-                    if (!u || !u.id) return;
-                    const uNameLower = String(u.username || '').trim().toLowerCase();
-                    if (u.id !== 'usr_admin_1' && (deletedUserIds.includes(u.id) || deletedUsernames.includes(uNameLower))) return;
-                    userMap.set(u.id, u);
+            // Protected Merge for Users
+            if (Array.isArray(remote.users)) {
+                const userMap = new Map();
+                users.forEach(u => {
+                    if (u && u.id) userMap.set(u.id, u);
                 });
+                remote.users.forEach(ru => {
+                    if (!ru || !ru.id) return;
+                    const uLower = String(ru.username || '').toLowerCase();
+                    if (ru.id !== 'usr_admin_1' && (deletedUserIds.includes(ru.id) || deletedUsernames.includes(uLower))) {
+                        return;
+                    }
+                    const existing = userMap.get(ru.id);
+                    if (!existing || Number(remote.stateUpdatedAt || 0) >= stateUpdatedAt) {
+                        userMap.set(ru.id, ru);
+                    }
+                });
+                users = Array.from(userMap.values());
             }
-            users = Array.from(userMap.values());
-            ensureDefaultAdminAccount();
 
-            // Merge permits (respect deletions and newer state)
-            const remotePermits = Array.isArray(remote.permits) ? remote.permits : [];
-            const permitMap = new Map();
-            const orderedSources = (remote.stateUpdatedAt || 0) >= stateUpdatedAt ? [permits, remotePermits] : [remotePermits, permits];
-            orderedSources.forEach(list => {
-                list.forEach(p => {
-                    if (!p || !p.id || deletedPermitIds.includes(p.id)) return;
-                    permitMap.set(p.id, p);
+            // Merge Permits
+            if (Array.isArray(remote.permits)) {
+                const permitMap = new Map();
+                permits.forEach(p => {
+                    if (p && p.id && !deletedPermitIds.includes(p.id)) permitMap.set(p.id, p);
                 });
-            });
-            permits = Array.from(permitMap.values());
+                remote.permits.forEach(rp => {
+                    if (!rp || !rp.id || deletedPermitIds.includes(rp.id)) return;
+                    const localP = permitMap.get(rp.id);
+                    if (!localP || Number(rp.updatedAt || 0) >= Number(localP.updatedAt || 0)) {
+                        permitMap.set(rp.id, rp);
+                    }
+                });
+                permits = Array.from(permitMap.values());
+            }
 
-            // Merge notifications
-            const remoteNotifs = Array.isArray(remote.notifications) ? remote.notifications : [];
-            const notifMap = new Map();
-            [...notifications, ...remoteNotifs].forEach(n => {
-                if (n && n.id) notifMap.set(n.id, n);
-            });
-            notifications = Array.from(notifMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 60);
+            // Merge Notifications
+            if (Array.isArray(remote.notifications)) {
+                const notifMap = new Map();
+                notifications.forEach(n => { if (n && n.id) notifMap.set(n.id, n); });
+                remote.notifications.forEach(rn => { if (rn && rn.id && !notifMap.has(rn.id)) notifMap.set(rn.id, rn); });
+                notifications = Array.from(notifMap.values()).slice(-100);
+            }
 
-            if ((remote.stateUpdatedAt || 0) > stateUpdatedAt) {
-                stateUpdatedAt = remote.stateUpdatedAt;
+            if (Number(remote.stateUpdatedAt || 0) > stateUpdatedAt) {
+                stateUpdatedAt = Number(remote.stateUpdatedAt);
             }
 
             saveLocalState();
 
-            // Kick out current user immediately if deleted or deactivated
+            // Immediately kick out current session if user was deleted or deactivated remotely
             if (currentUser && currentUser.id !== 'usr_admin_1') {
-                const stillValid = users.find(u => u.id === currentUser.id && u.active);
-                if (!stillValid) {
+                const freshMe = users.find(u => u.id === currentUser.id);
+                const uLower = String(currentUser.username || '').toLowerCase();
+                if (!freshMe || !freshMe.active || deletedUserIds.includes(currentUser.id) || deletedUsernames.includes(uLower)) {
                     handleLogout();
-                    showToast('تم إيقاف أو حذف هذا الحساب من قبل الإدارة.');
-                    return;
+                } else {
+                    currentUser = freshMe;
                 }
-                currentUser = stillValid;
             }
-
-            if (currentUser) refreshAllUI();
         }
 
         async function fetchLatestCloudState() {
-            // Try KV store first
+            // 1. Fetch lightweight users registry first
             try {
-                const res = await fetch(KV_SYNC_URL + '?t=' + Date.now(), { cache: 'no-store' });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && (Array.isArray(data.users) || Array.isArray(data.permits))) {
-                        applyRemoteState(data);
-                        return;
+                const uRes = await fetch(`https://ntfy.sh/${NTFY_USERS_TOPIC}/json?poll=1&since=24h`, { cache: 'no-store' });
+                if (uRes.ok) {
+                    const text = await uRes.text();
+                    const lines = text.trim().split('\n').filter(Boolean);
+                    for (let i = lines.length - 1; i >= 0; i--) {
+                        try {
+                            const evt = JSON.parse(lines[i]);
+                            if (evt && evt.message) {
+                                const parsed = JSON.parse(evt.message);
+                                if (parsed) applyRemoteState(parsed);
+                            }
+                        } catch (err) {}
                     }
                 }
             } catch (e) {}
 
-            // Fallback to ntfy poll
+            // 2. Fetch full state from shared JSONBlob if available
+            if (activeBlobId) {
+                try {
+                    const bRes = await fetch(`https://jsonblob.com/api/jsonBlob/${activeBlobId}?t=${Date.now()}`, {
+                        headers: { 'Accept': 'application/json' },
+                        cache: 'no-store'
+                    });
+                    if (bRes.ok) {
+                        const data = await bRes.json();
+                        if (data && (Array.isArray(data.users) || Array.isArray(data.permits))) {
+                            applyRemoteState(data);
+                            return;
+                        }
+                    }
+                } catch (e) {}
+            }
+
+            // 3. Fallback to ntfy full state poll
             try {
-                const res = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=12h`, { cache: 'no-store' });
+                const res = await fetch(`https://ntfy.sh/${NTFY_TOPIC}/json?poll=1&since=24h`, { cache: 'no-store' });
                 if (res.ok) {
                     const text = await res.text();
                     const lines = text.trim().split('\n').filter(Boolean);
@@ -820,6 +1015,15 @@
                                     applyRemoteState(parsed);
                                     break;
                                 }
+                            } else if (evt && evt.attachment && evt.attachment.url) {
+                                const attRes = await fetch(evt.attachment.url);
+                                if (attRes.ok) {
+                                    const parsed = await attRes.json();
+                                    if (parsed && Array.isArray(parsed.users)) {
+                                        applyRemoteState(parsed);
+                                        break;
+                                    }
+                                }
                             }
                         } catch (err) {}
                     }
@@ -827,9 +1031,62 @@
             } catch (e) {}
         }
 
+        function encodePayloadBase64(obj) {
+            try {
+                const jsonStr = JSON.stringify(obj);
+                return btoa(unescape(encodeURIComponent(jsonStr)));
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function decodePayloadBase64(b64) {
+            try {
+                const jsonStr = decodeURIComponent(escape(atob(b64)));
+                return JSON.parse(jsonStr);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function importProvisionedUrlData() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const uParam = params.get('u');
+                const bParam = params.get('b');
+                if (bParam && !activeBlobId) {
+                    activeBlobId = bParam;
+                    localStorage.setItem(BLOB_ID_KEY, activeBlobId);
+                }
+                if (uParam) {
+                    const decoded = decodePayloadBase64(uParam);
+                    if (decoded && decoded.username && decoded.password) {
+                        const uLower = String(decoded.username).trim().toLowerCase();
+                        if (!deletedUserIds.includes(decoded.id) && !deletedUsernames.includes(uLower)) {
+                            const existingIdx = users.findIndex(x => String(x.username || '').toLowerCase() === uLower);
+                            const userObj = {
+                                id: decoded.id || ('usr_url_' + uLower),
+                                fullName: decoded.fullName || decoded.username,
+                                username: decoded.username,
+                                password: decoded.password,
+                                role: decoded.role || 'PA',
+                                active: true
+                            };
+                            if (existingIdx >= 0) {
+                                users[existingIdx] = { ...users[existingIdx], ...userObj };
+                            } else {
+                                users.push(userObj);
+                            }
+                            saveLocalState();
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+
         async function manualSaveAllData() {
             await pushCloudState(true);
-            showToast(currentLang === 'ar' ? 'تم الحفظ والمزامنة السحابية بنجاح' : 'Saved & synced to cloud');
+            showToast(currentLang === 'ar' ? 'تم حفظ ومزامنة جميع البيانات سحابياً بنجاح' : 'All data saved & synced to cloud');
         }
 
         // ==================== AUTHENTICATION ====================
@@ -846,7 +1103,7 @@
 
             if (errorBox) errorBox.classList.add('hidden');
             if (!rawUser || !rawPass) {
-                if (errorText) errorText.textContent = currentLang === 'ar' ? 'يرجى إدخال اسم المستخدم والرقم السري.' : 'Please enter username and password.';
+                if (errorText) errorText.textContent = currentLang === 'ar' ? 'يرجى إدخال اسم المستخدم والرقم السري' : 'Please enter username and password.';
                 if (errorBox) errorBox.classList.remove('hidden');
                 return;
             }
@@ -861,37 +1118,34 @@
                         return false;
                     }
                     const matchesName = String(u.username || '').trim().toLowerCase() === uLower;
-                    const matchesPass = String(u.password || '').trim() === rawPass || normalizeDigits(String(u.password || '').trim()) === normalizeDigits(rawPass);
+                    const matchesPass = String(u.password || '').trim() === rawPass ||
+                        normalizeDigits(String(u.password || '').trim()) === normalizeDigits(rawPass);
                     return matchesName && matchesPass;
                 });
             };
 
             let matchedUser = findValidUser();
 
-            // Sync with cloud quickly if not found locally or to verify not deleted
-            if (submitBtn) {
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.7';
-            }
+            // Always do a quick cloud check on login to verify latest users and deletions
+            if (submitBtn) { submitBtn.disabled = true; submitBtn.style.opacity = '0.7'; }
             try {
                 await Promise.race([
                     fetchLatestCloudState(),
                     new Promise(resolve => setTimeout(resolve, 2500))
                 ]);
-            } catch (err) {} finally {
-                if (submitBtn) {
-                    submitBtn.disabled = false;
-                    submitBtn.style.opacity = '1';
-                }
+            } catch (err) {
+            } finally {
+                if (submitBtn) { submitBtn.disabled = false; submitBtn.style.opacity = '1'; }
             }
+
             ensureDefaultAdminAccount();
             matchedUser = findValidUser();
 
             if (!matchedUser) {
                 if (errorText) {
                     errorText.textContent = currentLang === 'ar'
-                        ? 'اسم المستخدم أو الرقم السري غير صحيح، أو تم حذف الحساب.'
-                        : 'Invalid username or password, or account deleted.';
+                        ? 'اسم المستخدم أو الرقم السري غير صحيح، أو تم حذف الحساب'
+                        : 'Invalid username or password, or account has been deleted.';
                 }
                 if (errorBox) errorBox.classList.remove('hidden');
                 return;
@@ -899,25 +1153,15 @@
 
             currentUser = matchedUser;
             try {
-                localStorage.setItem(SESSION_KEY, JSON.stringify({ userId: currentUser.id, username: currentUser.username }));
+                localStorage.setItem(SESSION_KEY, JSON.stringify({
+                    userId: currentUser.id,
+                    username: currentUser.username
+                }));
             } catch (err) {}
 
-            enterPortalUI();
-        }
-
-        function enterPortalUI() {
             document.getElementById('login-screen').classList.add('hidden');
             document.getElementById('app-shell').classList.remove('hidden');
-
-            document.getElementById('header-user-name').textContent = currentUser.fullName;
-            document.getElementById('header-user-role').textContent = currentUser.role;
-            document.getElementById('header-user-avatar').textContent = (currentUser.fullName || 'U').charAt(0).toUpperCase();
-
-            const isAdmin = currentUser.role === 'Admin';
-            document.getElementById('tab-btn-admin').classList.toggle('hidden', !isAdmin);
-            document.getElementById('tab-btn-all').classList.toggle('hidden', !isAdmin);
-
-            setActiveTab('my');
+            setupUserRoleUI();
             refreshAllUI();
         }
 
@@ -926,29 +1170,52 @@
             try { localStorage.removeItem(SESSION_KEY); } catch (e) {}
             document.getElementById('app-shell').classList.add('hidden');
             document.getElementById('login-screen').classList.remove('hidden');
-            document.getElementById('login-password').value = '';
+            const passInput = document.getElementById('login-password');
+            if (passInput) passInput.value = '';
+        }
+
+        function setupUserRoleUI() {
+            if (!currentUser) return;
+            const headerName = document.getElementById('header-user-name');
+            const headerRole = document.getElementById('header-user-role');
+            const headerAvatar = document.getElementById('header-user-avatar');
+            if (headerName) headerName.textContent = currentUser.fullName || currentUser.username;
+            if (headerRole) headerRole.textContent = currentUser.role;
+            if (headerAvatar) headerAvatar.textContent = (currentUser.fullName || currentUser.username || 'U').charAt(0).toUpperCase();
+
+            const allTabBtn = document.getElementById('tab-btn-all');
+            const adminTabBtn = document.getElementById('tab-btn-admin');
+            if (currentUser.role === 'Admin') {
+                if (allTabBtn) allTabBtn.classList.remove('hidden');
+                if (adminTabBtn) adminTabBtn.classList.remove('hidden');
+            } else {
+                if (allTabBtn) allTabBtn.classList.add('hidden');
+                if (adminTabBtn) adminTabBtn.classList.add('hidden');
+                if (activeTab === 'all' || activeTab === 'admin') activeTab = 'my';
+            }
         }
 
         // ==================== NOTIFICATIONS ====================
-        function addNotification(targetUserId, title, message, type = 'info') {
+        function addNotification(targetUserId, titleEn, titleAr, msgEn, msgAr) {
             notifications.unshift({
                 id: 'ntf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-                targetUserId, // 'ALL_ADMINS' or specific userId
-                title,
-                message,
-                type,
+                targetUserId,
+                titleEn,
+                titleAr,
+                msgEn,
+                msgAr,
                 read: false,
-                timestamp: Date.now()
+                createdAt: new Date().toISOString()
             });
+            if (notifications.length > 100) notifications = notifications.slice(0, 100);
         }
 
         function getMyNotifications() {
             if (!currentUser) return [];
-            return notifications.filter(n => {
-                if (n.targetUserId === currentUser.id) return true;
-                if (n.targetUserId === 'ALL_ADMINS' && currentUser.role === 'Admin') return true;
-                return false;
-            });
+            return notifications.filter(n =>
+                n.targetUserId === currentUser.id ||
+                (currentUser.role === 'Admin' && n.targetUserId === 'ROLE_ADMIN')
+            );
         }
 
         function toggleNotifications() {
@@ -957,60 +1224,56 @@
         }
 
         function markAllNotificationsRead() {
-            getMyNotifications().forEach(n => n.read = true);
-            saveLocalState();
+            if (!currentUser) return;
+            notifications.forEach(n => {
+                if (n.targetUserId === currentUser.id || (currentUser.role === 'Admin' && n.targetUserId === 'ROLE_ADMIN')) {
+                    n.read = true;
+                }
+            });
+            pushCloudState(true);
             renderNotifications();
         }
 
         function renderNotifications() {
-            const list = document.getElementById('notif-list');
-            const badge = document.getElementById('notif-badge');
-            if (!list || !badge) return;
+            const listEl = document.getElementById('notif-list');
+            const badgeEl = document.getElementById('notif-badge');
+            if (!listEl || !badgeEl) return;
 
-            const mine = getMyNotifications();
-            const unreadCount = mine.filter(n => !n.read).length;
+            const myNotifs = getMyNotifications();
+            const unreadCount = myNotifs.filter(n => !n.read).length;
 
             if (unreadCount > 0) {
-                badge.textContent = unreadCount;
-                badge.classList.remove('hidden');
+                badgeEl.textContent = unreadCount > 9 ? '9+' : unreadCount;
+                badgeEl.classList.remove('hidden');
             } else {
-                badge.classList.add('hidden');
+                badgeEl.classList.add('hidden');
             }
 
-            if (mine.length === 0) {
-                list.innerHTML = `<div class="p-4 text-center text-slate-400">لا توجد إشعارات حالياً</div>`;
+            if (myNotifs.length === 0) {
+                listEl.innerHTML = `<div class="p-4 text-center text-slate-400">${currentLang === 'ar' ? 'لا توجد إشعارات' : 'No notifications'}</div>`;
                 return;
             }
 
-            list.innerHTML = mine.map(n => `
-                <div class="p-2.5 rounded-xl ${n.read ? 'bg-white' : 'bg-amber-50/70'}">
-                    <div class="flex items-center justify-between gap-2">
-                        <span class="font-bold text-slate-900">${n.title}</span>
-                        <span class="text-[10px] text-slate-400">${new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <p class="text-slate-600 mt-0.5 leading-relaxed">${n.message}</p>
+            listEl.innerHTML = myNotifs.slice(0, 20).map(n => `
+                <div class="p-3 rounded-xl ${n.read ? 'bg-white' : 'bg-amber-50/70'}">
+                    <div class="font-bold text-slate-900">${currentLang === 'ar' ? n.titleAr : n.titleEn}</div>
+                    <div class="text-slate-600 mt-0.5">${currentLang === 'ar' ? n.msgAr : n.msgEn}</div>
+                    <div class="text-[10px] text-slate-400 mt-1">${formatDateTime(n.createdAt)}</div>
                 </div>
             `).join('');
         }
 
-        // ==================== PERMIT OPERATIONS & ISOLATION ====================
-        function getUserVisiblePermits() {
-            if (!currentUser) return [];
-            if (currentUser.role === 'Admin') return permits;
-            // Strict isolation: PA sees ONLY permits created by them, currently in their custody, or pending handover to them
-            return permits.filter(p =>
-                p.createdById === currentUser.id ||
-                p.holderId === currentUser.id ||
-                p.pendingToId === currentUser.id
-            );
-        }
+        // ==================== TABS & UI RENDERING ====================
+        function setActiveTab(tabName) {
+            if (currentUser && currentUser.role !== 'Admin' && (tabName === 'all' || tabName === 'admin')) {
+                tabName = 'my';
+            }
+            activeTab = tabName;
 
-        function setActiveTab(tab) {
-            activeTab = tab;
             ['my', 'incoming', 'all', 'closed', 'admin'].forEach(t => {
                 const btn = document.getElementById('tab-btn-' + t);
                 if (!btn) return;
-                if (t === tab) {
+                if (t === activeTab) {
                     btn.classList.add('tab-active');
                     btn.classList.remove('text-slate-600');
                 } else {
@@ -1019,188 +1282,397 @@
                 }
             });
 
-            const isAdminView = tab === 'admin' && currentUser && currentUser.role === 'Admin';
-            document.getElementById('permits-section').classList.toggle('hidden', isAdminView);
-            document.getElementById('admin-section').classList.toggle('hidden', !isAdminView);
-            refreshAllUI();
+            const permitsSec = document.getElementById('permits-section');
+            const adminSec = document.getElementById('admin-section');
+            if (activeTab === 'admin') {
+                if (permitsSec) permitsSec.classList.add('hidden');
+                if (adminSec) adminSec.classList.remove('hidden');
+                renderAdminPanel();
+            } else {
+                if (adminSec) adminSec.classList.add('hidden');
+                if (permitsSec) permitsSec.classList.remove('hidden');
+                refreshAllUI();
+            }
         }
 
-        function openNewPermitModal() {
-            document.getElementById('np-number').value = '';
-            document.getElementById('np-location').value = '';
-            document.getElementById('np-desc').value = '';
-            const handoverSel = document.getElementById('np-handover-user');
-            if (handoverSel) {
-                const otherUsers = users.filter(u => u && u.active && currentUser && u.id !== currentUser.id);
-                const defaultOpt = currentLang === 'ar' ? '-- إبقاء التصريح في عهدتي --' : '-- Keep in My Custody --';
-                handoverSel.innerHTML = `<option value="">${defaultOpt}</option>` +
-                    otherUsers.map(u => `<option value="${u.id}">${u.fullName} (${u.username} - ${u.role})</option>`).join('');
+        function getVisiblePermitsForUser() {
+            if (!currentUser) return [];
+            if (currentUser.role === 'Admin') return permits;
+            return permits.filter(p =>
+                p.holderId === currentUser.id ||
+                p.createdById === currentUser.id ||
+                p.pendingReceiverId === currentUser.id ||
+                (Array.isArray(p.involvedUserIds) && p.involvedUserIds.includes(currentUser.id))
+            );
+        }
+
+        function refreshAllUI() {
+            if (!currentUser) return;
+            const t = I18N[currentLang];
+            const visible = getVisiblePermitsForUser();
+
+            const myCustody = visible.filter(p => p.status !== 'Closed' && p.holderId === currentUser.id);
+            const incoming = visible.filter(p => p.status === 'PendingHandover' && p.pendingReceiverId === currentUser.id);
+            const activeList = visible.filter(p => p.status !== 'Closed');
+            const closedList = visible.filter(p => p.status === 'Closed');
+
+            document.getElementById('kpi-custody-val').textContent = myCustody.length;
+            document.getElementById('kpi-incoming-val').textContent = incoming.length;
+            document.getElementById('kpi-active-val').textContent = activeList.length;
+            document.getElementById('kpi-closed-val').textContent = closedList.length;
+
+            renderNotifications();
+
+            if (activeTab === 'admin' && currentUser.role === 'Admin') {
+                renderAdminPanel();
+                return;
             }
-            const defaultValid = new Date(Date.now() + 8 * 3600 * 1000);
-            defaultValid.setMinutes(defaultValid.getMinutes() - defaultValid.getTimezoneOffset());
-            document.getElementById('np-valid').value = defaultValid.toISOString().slice(0, 16);
-            document.getElementById('modal-new-permit').classList.remove('hidden');
+
+            let list = [];
+            if (activeTab === 'my') list = myCustody;
+            else if (activeTab === 'incoming') list = incoming;
+            else if (activeTab === 'all') list = activeList;
+            else if (activeTab === 'closed') list = closedList;
+
+            const q = (document.getElementById('search-input')?.value || '').trim().toLowerCase();
+            if (q) {
+                list = list.filter(p =>
+                    String(p.permitNumber || '').toLowerCase().includes(q) ||
+                    String(p.location || '').toLowerCase().includes(q) ||
+                    String(p.holderName || '').toLowerCase().includes(q) ||
+                    String(p.description || '').toLowerCase().includes(q)
+                );
+            }
+
+            const container = document.getElementById('permits-section');
+            if (!container) return;
+
+            if (list.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full glass-card rounded-2xl p-10 text-center text-slate-400">
+                        <i class="fa-solid fa-folder-open text-3xl mb-2"></i>
+                        <p class="text-xs font-bold">${t.noPermits}</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = list.map(p => {
+                const typeBadgeClass =
+                    p.type === 'HOT' ? 'badge-hot' :
+                    p.type === 'COLD' ? 'badge-cold' :
+                    p.type === 'BREAKING' ? 'badge-breaking' : 'badge-spark';
+
+                const statusLabel =
+                    p.status === 'Active' ? t.statusActive :
+                    p.status === 'PendingHandover' ? t.statusPending : t.statusClosed;
+
+                const statusClass =
+                    p.status === 'Active' ? 'bg-emerald-100 text-emerald-700' :
+                    p.status === 'PendingHandover' ? 'bg-amber-100 text-amber-800' : 'bg-slate-200 text-slate-700';
+
+                const isIncomingForMe = p.status === 'PendingHandover' && p.pendingReceiverId === currentUser.id;
+                const canOperate = p.status !== 'Closed' && (p.holderId === currentUser.id || currentUser.role === 'Admin');
+
+                return `
+                    <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-4">
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-base font-black text-slate-900">${p.permitNumber}</span>
+                                    <span class="px-2.5 py-0.5 rounded-lg text-[11px] font-extrabold ${typeBadgeClass}">${p.type}</span>
+                                </div>
+                                <span class="px-3 py-1 rounded-full text-[11px] font-bold ${statusClass}">${statusLabel}</span>
+                            </div>
+
+                            <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                                <i class="fa-solid fa-location-dot text-amber-500"></i>
+                                <span>${p.location}</span>
+                            </div>
+
+                            <div class="p-3 bg-slate-50 rounded-xl text-xs text-slate-600 font-medium">
+                                ${p.description}
+                            </div>
+
+                            <div class="space-y-1 text-xs pt-1">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-400 font-semibold">${t.currentHolder}</span>
+                                    <span class="font-bold text-slate-900">${p.holderName}</span>
+                                </div>
+                                ${p.status === 'PendingHandover' ? `
+                                <div class="flex items-center justify-between text-amber-700">
+                                    <span class="font-semibold">${t.incomingFrom}</span>
+                                    <span class="font-bold">${p.holderName} → ${p.pendingReceiverName}</span>
+                                </div>` : ''}
+                                <div class="flex items-center justify-between">
+                                    <span class="text-slate-400 font-semibold">${t.validUntil}</span>
+                                    <span class="font-bold text-slate-800">${formatDateTime(p.validUntil)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+                            ${isIncomingForMe ? `
+                                <button onclick="acceptHandover('${p.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow">
+                                    <i class="fa-solid fa-check"></i>
+                                    <span>${t.btnAccept}</span>
+                                </button>
+                                <button onclick="rejectHandover('${p.id}')" class="px-3 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 text-xs font-bold">
+                                    <span>${t.btnReject}</span>
+                                </button>
+                            ` : ''}
+
+                            ${canOperate && !isIncomingForMe ? `
+                                <button onclick="openHandoverModal('${p.id}')" class="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-extrabold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-right-left"></i>
+                                    <span>${t.btnHandover}</span>
+                                </button>
+                                <button onclick="openRenewModal('${p.id}')" class="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-clock-rotate-left"></i>
+                                    <span>${t.btnRenew}</span>
+                                </button>
+                                <button onclick="openClosePermitModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1.5">
+                                    <i class="fa-solid fa-lock"></i>
+                                    <span>${t.btnClose}</span>
+                                </button>
+                            ` : ''}
+
+                            <button onclick="openAuditModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5">
+                                <i class="fa-solid fa-list-ul"></i>
+                                <span>${t.btnAudit}</span>
+                            </button>
+
+                            <button onclick="downloadHandoverReceiptPDF('${p.id}')" title="Download PDF Receipt" class="w-9 h-9 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 flex items-center justify-center">
+                                <i class="fa-solid fa-file-pdf"></i>
+                            </button>
+
+                            <button onclick="shareHandoverViaWhatsApp('${p.id}')" title="Share via WhatsApp" class="w-9 h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                                <i class="fa-brands fa-whatsapp text-sm"></i>
+                            </button>
+
+                            ${(canOperate || currentUser.role === 'Admin') ? `
+                                <button onclick="deletePermitRecord('${p.id}')" title="Delete Permit" class="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==================== PERMIT WORKFLOW ACTIONS ====================
+        function openNewPermitModal() {
+            const numInput = document.getElementById('np-number');
+            const locInput = document.getElementById('np-location');
+            const descInput = document.getElementById('np-desc');
+            const validInput = document.getElementById('np-valid');
+            const hoSelect = document.getElementById('np-handover-user');
+
+            if (numInput) numInput.value = '';
+            if (locInput) locInput.value = '';
+            if (descInput) descInput.value = '';
+
+            const defaultExpiry = new Date(Date.now() + 8 * 3600 * 1000);
+            const tzOffset = defaultExpiry.getTimezoneOffset() * 60000;
+            if (validInput) validInput.value = new Date(defaultExpiry - tzOffset).toISOString().slice(0, 16);
+
+            if (hoSelect) {
+                const otherUsers = users.filter(u => u && u.active && u.id !== currentUser.id);
+                const keepLabel = I18N[currentLang].npKeepCustody;
+                hoSelect.innerHTML = `<option value="">${keepLabel}</option>` +
+                    otherUsers.map(u => `<option value="${u.id}">${u.fullName} (${u.username})</option>`).join('');
+            }
+
+            openModal('modal-new-permit');
         }
 
         async function handleCreatePermit(e) {
             e.preventDefault();
-            const targetHandoverId = document.getElementById('np-handover-user')?.value || '';
-            const targetUser = targetHandoverId ? users.find(u => u.id === targetHandoverId) : null;
-            const permitNumber = document.getElementById('np-number').value.trim();
-            const permitLocation = document.getElementById('np-location').value.trim();
+            if (!currentUser) return;
 
-            const permit = {
-                id: 'ptw_' + Date.now(),
-                number: permitNumber,
-                type: document.getElementById('np-type').value,
-                location: permitLocation,
-                description: document.getElementById('np-desc').value.trim(),
-                validUntil: document.getElementById('np-valid').value,
-                status: targetUser ? 'PENDING_HANDOVER' : 'ACTIVE', // ACTIVE | PENDING_HANDOVER | CLOSED
+            const permitNumber = document.getElementById('np-number').value.trim();
+            const type = document.getElementById('np-type').value;
+            const location = document.getElementById('np-location').value.trim();
+            const handoverTargetId = document.getElementById('np-handover-user').value;
+            const description = document.getElementById('np-desc').value.trim();
+            const validUntil = document.getElementById('np-valid').value;
+
+            const targetUser = handoverTargetId ? users.find(u => u.id === handoverTargetId) : null;
+            const nowIso = new Date().toISOString();
+
+            const newPermit = {
+                id: 'ptw_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                permitNumber,
+                type,
+                location,
+                description,
+                validUntil,
                 createdById: currentUser.id,
                 createdByName: currentUser.fullName,
                 holderId: currentUser.id,
                 holderName: currentUser.fullName,
-                pendingToId: targetUser ? targetUser.id : null,
-                pendingToName: targetUser ? targetUser.fullName : null,
-                handoverNotes: targetUser ? (currentLang === 'ar' ? 'تسليم مباشر عند الإصدار' : 'Direct handover upon issuance') : '',
-                auditLog: [{
-                    action: 'ISSUED',
-                    by: currentUser.fullName,
-                    at: new Date().toISOString(),
-                    note: targetUser
-                        ? `Issued and sent for handover acceptance to ${targetUser.fullName}`
-                        : 'Permit issued and custody retained'
-                }]
+                status: targetUser ? 'PendingHandover' : 'Active',
+                pendingReceiverId: targetUser ? targetUser.id : '',
+                pendingReceiverName: targetUser ? targetUser.fullName : '',
+                involvedUserIds: targetUser ? [currentUser.id, targetUser.id] : [currentUser.id],
+                updatedAt: Date.now(),
+                auditLog: [
+                    {
+                        action: 'Issued',
+                        by: currentUser.fullName,
+                        at: nowIso,
+                        notes: targetUser
+                            ? `Issued and sent handover request to ${targetUser.fullName}`
+                            : 'Issued and held in custody'
+                    }
+                ]
             };
+
+            permits.unshift(newPermit);
 
             if (targetUser) {
                 addNotification(
                     targetUser.id,
-                    currentLang === 'ar' ? 'طلب قبول استلام تصريح عمل' : 'Permit Handover Acceptance Request',
-                    currentLang === 'ar'
-                        ? `قام ${currentUser.fullName} بإرسال التصريح (${permitNumber}) في موقع (${permitLocation}) إليك. يرجى قبول التسليم لإتمام نقل العهدة.`
-                        : `${currentUser.fullName} sent permit (${permitNumber}) at (${permitLocation}) to you. Please accept handover to complete transfer.`,
-                    'handover'
+                    'Incoming Permit Handover',
+                    'طلب استلام تصريح عمل جديد',
+                    `${currentUser.fullName} sent permit #${permitNumber} (${location}) for your acceptance.`,
+                    `أرسل إليك ${currentUser.fullName} التصريح رقم #${permitNumber} (${location}) بانتظار قبول الاستلام.`
                 );
             }
 
-            permits.unshift(permit);
             closeModal('modal-new-permit');
             refreshAllUI();
             await pushCloudState(true);
-            showToast(targetUser
-                ? (currentLang === 'ar' ? `تم إصدار التصريح وإرسال إشعار القبول إلى ${targetUser.fullName}` : `Permit issued & handover request sent to ${targetUser.fullName}`)
-                : (currentLang === 'ar' ? 'تم إصدار التصريح ومزامنته بنجاح' : 'Permit issued & synced successfully')
-            );
+            showToast(currentLang === 'ar' ? 'تم إصدار وحفظ التصريح بنجاح' : 'Work permit issued and synced successfully');
         }
 
         function openHandoverModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
             document.getElementById('ho-permit-id').value = p.id;
-            document.getElementById('ho-permit-label').textContent = `${p.number} — ${p.location}`;
+            document.getElementById('ho-permit-label').textContent = `${p.permitNumber} — ${p.location} (${p.type})`;
             document.getElementById('ho-notes').value = '';
 
-            const select = document.getElementById('ho-target-user');
-            const eligibleUsers = users.filter(u => u && u.active && u.id !== p.holderId);
-            select.innerHTML = eligibleUsers.map(u => `<option value="${u.id}">${u.fullName} (${u.role})</option>`).join('');
-
-            document.getElementById('modal-handover').classList.remove('hidden');
+            const targetSelect = document.getElementById('ho-target-user');
+            const candidates = users.filter(u => u && u.active && u.id !== p.holderId);
+            targetSelect.innerHTML = candidates.map(u => `<option value="${u.id}">${u.fullName} (${u.username})</option>`).join('');
+            openModal('modal-handover');
         }
 
         async function handleInitiateHandover(e) {
             e.preventDefault();
             const permitId = document.getElementById('ho-permit-id').value;
-            const targetId = document.getElementById('ho-target-user').value;
+            const targetUserId = document.getElementById('ho-target-user').value;
             const notes = document.getElementById('ho-notes').value.trim();
 
             const p = permits.find(x => x.id === permitId);
-            const targetUser = users.find(u => u.id === targetId);
+            const targetUser = users.find(u => u.id === targetUserId);
             if (!p || !targetUser) return;
 
-            p.status = 'PENDING_HANDOVER';
-            p.pendingToId = targetUser.id;
-            p.pendingToName = targetUser.fullName;
-            p.handoverNotes = notes;
-            p.auditLog.unshift({
-                action: 'HANDOVER_INITIATED',
+            p.status = 'PendingHandover';
+            p.pendingReceiverId = targetUser.id;
+            p.pendingReceiverName = targetUser.fullName;
+            p.updatedAt = Date.now();
+            if (!Array.isArray(p.involvedUserIds)) p.involvedUserIds = [];
+            if (!p.involvedUserIds.includes(targetUser.id)) p.involvedUserIds.push(targetUser.id);
+
+            p.auditLog.push({
+                action: 'Handover Requested',
                 by: currentUser.fullName,
-                to: targetUser.fullName,
                 at: new Date().toISOString(),
-                note: notes
+                notes: `To ${targetUser.fullName}: ${notes}`
             });
 
-            addNotification(targetUser.id, 'طلب استلام عهدة تصريح', `قام ${currentUser.fullName} بتوجيه التصريح ${p.number} إليك للاستلام.`);
+            addNotification(
+                targetUser.id,
+                'Incoming Permit Handover',
+                'طلب تسليم عهدة تصريح وارد',
+                `${currentUser.fullName} requested handover of permit #${p.permitNumber} (${p.location}).`,
+                `طلب ${currentUser.fullName} تسليم التصريح رقم #${p.permitNumber} (${p.location}) إليك.`
+            );
+
             closeModal('modal-handover');
             refreshAllUI();
             await pushCloudState(true);
-            showToast('تم إرسال طلب التسليم للمستلم بنجاح');
+            showToast(currentLang === 'ar' ? 'تم إرسال طلب التسليم وإشعار المستلم' : 'Handover request sent with notification');
         }
 
         async function acceptHandover(permitId) {
             const p = permits.find(x => x.id === permitId);
-            if (!p) return;
-            const prevHolder = p.holderName;
+            if (!p || !currentUser) return;
+
+            const prevHolderId = p.holderId;
             p.holderId = currentUser.id;
             p.holderName = currentUser.fullName;
-            p.pendingToId = null;
-            p.pendingToName = null;
-            p.status = 'ACTIVE';
-            p.auditLog.unshift({
-                action: 'HANDOVER_ACCEPTED',
+            p.status = 'Active';
+            p.pendingReceiverId = '';
+            p.pendingReceiverName = '';
+            p.updatedAt = Date.now();
+
+            p.auditLog.push({
+                action: 'Handover Accepted',
                 by: currentUser.fullName,
-                from: prevHolder,
                 at: new Date().toISOString(),
-                note: 'تم قبول استلام عهدة التصريح'
+                notes: 'Custody accepted and transferred'
             });
+
+            if (prevHolderId) {
+                addNotification(
+                    prevHolderId,
+                    'Handover Accepted',
+                    'تم قبول استلام التصريح',
+                    `${currentUser.fullName} accepted custody of permit #${p.permitNumber}.`,
+                    `قام ${currentUser.fullName} بقبول واستلام عهدة التصريح رقم #${p.permitNumber}.`
+                );
+            }
 
             refreshAllUI();
             await pushCloudState(true);
-            showToast('تم استلام عهدة التصريح بنجاح');
+            showToast(currentLang === 'ar' ? 'تم قبول واستلام عهدة التصريح' : 'Permit custody accepted');
         }
 
-        function openClosePermitModal(permitId) {
+        async function rejectHandover(permitId) {
             const p = permits.find(x => x.id === permitId);
-            if (!p) return;
-            document.getElementById('cp-permit-id').value = p.id;
-            document.getElementById('cp-permit-label').textContent = `${p.number} — ${p.location}`;
-            document.getElementById('cp-notes').value = '';
-            document.getElementById('modal-close-permit').classList.remove('hidden');
-        }
+            if (!p || !currentUser) return;
 
-        async function handleClosePermit(e) {
-            e.preventDefault();
-            const permitId = document.getElementById('cp-permit-id').value;
-            const notes = document.getElementById('cp-notes').value.trim();
-            const p = permits.find(x => x.id === permitId);
-            if (!p) return;
+            const prevHolderId = p.holderId;
+            p.status = 'Active';
+            p.pendingReceiverId = '';
+            p.pendingReceiverName = '';
+            p.updatedAt = Date.now();
 
-            p.status = 'CLOSED';
-            p.pendingToId = null;
-            p.pendingToName = null;
-            p.auditLog.unshift({
-                action: 'CLOSED',
+            p.auditLog.push({
+                action: 'Handover Rejected',
                 by: currentUser.fullName,
                 at: new Date().toISOString(),
-                note: notes
+                notes: 'Handover declined; custody remains with current holder'
             });
 
-            closeModal('modal-close-permit');
+            if (prevHolderId) {
+                addNotification(
+                    prevHolderId,
+                    'Handover Rejected',
+                    'تم رفض استلام التصريح',
+                    `${currentUser.fullName} rejected handover of permit #${p.permitNumber}.`,
+                    `رفض ${currentUser.fullName} استلام التصريح رقم #${p.permitNumber}.`
+                );
+            }
+
             refreshAllUI();
             await pushCloudState(true);
-            showToast('تم إغلاق التصريح وأرشفته');
+            showToast(currentLang === 'ar' ? 'تم رفض التسليم' : 'Handover rejected');
         }
 
-        function openRenewPermitModal(permitId) {
+        function openRenewModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
             document.getElementById('rp-permit-id').value = p.id;
-            document.getElementById('rp-permit-label').textContent = `${p.number} — ${p.location}`;
-            const nextValid = new Date(Date.now() + 8 * 3600 * 1000);
-            nextValid.setMinutes(nextValid.getMinutes() - nextValid.getTimezoneOffset());
-            document.getElementById('rp-new-valid').value = nextValid.toISOString().slice(0, 16);
-            document.getElementById('modal-renew-permit').classList.remove('hidden');
+            document.getElementById('rp-permit-label').textContent = `${p.permitNumber} — ${p.location}`;
+            const nextVal = new Date(Date.now() + 8 * 3600 * 1000);
+            const tzOffset = nextVal.getTimezoneOffset() * 60000;
+            document.getElementById('rp-new-valid').value = new Date(nextVal - tzOffset).toISOString().slice(0, 16);
+            openModal('modal-renew-permit');
         }
 
         async function handleRenewPermit(e) {
@@ -1211,88 +1683,217 @@
             if (!p) return;
 
             p.validUntil = newValid;
-            if (p.status === 'CLOSED') p.status = 'ACTIVE';
-            p.auditLog.unshift({
-                action: 'RENEWED',
+            p.updatedAt = Date.now();
+            p.auditLog.push({
+                action: 'Renewed',
                 by: currentUser.fullName,
                 at: new Date().toISOString(),
-                note: `تم تجديد الصلاحية لغاية ${newValid.replace('T', ' ')}`
+                notes: `Extended validity until ${formatDateTime(newValid)}`
             });
 
             closeModal('modal-renew-permit');
             refreshAllUI();
             await pushCloudState(true);
-            showToast('تم تجديد صلاحية التصريح بنجاح');
+            showToast(currentLang === 'ar' ? 'تم تجديد صلاحية التصريح' : 'Permit validity renewed');
+        }
+
+        function openClosePermitModal(permitId) {
+            const p = permits.find(x => x.id === permitId);
+            if (!p) return;
+            document.getElementById('cp-permit-id').value = p.id;
+            document.getElementById('cp-permit-label').textContent = `${p.permitNumber} — ${p.location}`;
+            document.getElementById('cp-notes').value = '';
+            openModal('modal-close-permit');
+        }
+
+        async function handleClosePermit(e) {
+            e.preventDefault();
+            const permitId = document.getElementById('cp-permit-id').value;
+            const notes = document.getElementById('cp-notes').value.trim();
+            const p = permits.find(x => x.id === permitId);
+            if (!p) return;
+
+            p.status = 'Closed';
+            p.pendingReceiverId = '';
+            p.pendingReceiverName = '';
+            p.updatedAt = Date.now();
+            p.auditLog.push({
+                action: 'Closed',
+                by: currentUser.fullName,
+                at: new Date().toISOString(),
+                notes
+            });
+
+            closeModal('modal-close-permit');
+            refreshAllUI();
+            await pushCloudState(true);
+            showToast(currentLang === 'ar' ? 'تم إغلاق التصريح وأرشفته' : 'Permit closed and archived');
         }
 
         async function deletePermitRecord(permitId) {
             const p = permits.find(x => x.id === permitId);
-            if (!p) return;
+            if (!p || !currentUser) return;
 
-            deletedPermitIds.push(p.id);
+            deletedPermitIds.push(permitId);
             permits = permits.filter(x => x.id !== permitId);
 
-            // Notify Admin immediately when a user deletes a permit
+            // Notify Admin when any non-admin user deletes a permit
             if (currentUser.role !== 'Admin') {
                 addNotification(
-                    'ALL_ADMINS',
-                    'تنبيه حذف تصريح عمل',
-                    `قام المستخدم (${currentUser.fullName}) بحذف التصريح رقم (${p.number}) الخاص بموقع (${p.location}).`,
-                    'alert'
+                    'ROLE_ADMIN',
+                    'Permit Deleted by User',
+                    'تنبيه: قام مستخدم بحذف تصريح',
+                    `User ${currentUser.fullName} (${currentUser.username}) deleted permit #${p.permitNumber} at ${p.location}.`,
+                    `قام المستخدم ${currentUser.fullName} (${currentUser.username}) بحذف التصريح رقم #${p.permitNumber} في موقع ${p.location}.`
                 );
             }
 
             refreshAllUI();
             await pushCloudState(true);
-            showToast('تم حذف التصريح وإشعار الإدارة');
+            showToast(currentLang === 'ar' ? 'تم حذف التصريح وإشعار الإدارة' : 'Permit deleted and Admin notified');
         }
 
         function openAuditModal(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-            document.getElementById('audit-modal-title').textContent = `سجل حركات التصريح: ${p.number}`;
+            document.getElementById('audit-modal-title').textContent = `${p.permitNumber} — Audit Log`;
             const body = document.getElementById('audit-modal-body');
             body.innerHTML = (p.auditLog || []).map(item => `
-                <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
                     <div class="flex items-center justify-between font-bold text-slate-900">
                         <span>${item.action}</span>
-                        <span class="text-[10px] text-slate-400">${new Date(item.at).toLocaleString()}</span>
+                        <span class="text-[10px] text-slate-400">${formatDateTime(item.at)}</span>
                     </div>
-                    <div class="text-slate-600 mt-1">بواسطة: <strong>${item.by}</strong> ${item.to ? `→ إلى: <strong>${item.to}</strong>` : ''}</div>
-                    ${item.note ? `<div class="text-slate-500 mt-1 italic">"${item.note}"</div>` : ''}
+                    <div class="text-slate-600 mt-1">${item.notes || ''}</div>
+                    <div class="text-[10px] font-semibold text-slate-500 mt-1">By: ${item.by}</div>
                 </div>
             `).join('');
-            document.getElementById('modal-audit').classList.remove('hidden');
+            openModal('modal-audit');
         }
 
         // ==================== PDF & WHATSAPP RECEIPT ====================
         function downloadHandoverReceiptPDF(permitId) {
             const p = permits.find(x => x.id === permitId);
-            if (!p || !window.jspdf) return;
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
-            doc.setFontSize(16);
-            doc.text('TGS - Work Permit Handover Receipt', 20, 20);
-            doc.setFontSize(11);
-            doc.text(`Permit Number: ${p.number}`, 20, 35);
-            doc.text(`Type: ${p.type}`, 20, 43);
-            doc.text(`Location: ${p.location}`, 20, 51);
-            doc.text(`Current Holder: ${p.holderName}`, 20, 59);
-            doc.text(`Status: ${p.status}`, 20, 67);
-            doc.text(`Valid Until: ${p.validUntil}`, 20, 75);
-            doc.text(`Generated At: ${new Date().toLocaleString()}`, 20, 85);
-            doc.save(`${p.number}_Receipt.pdf`);
-            showToast('تم تحميل إيصال PDF');
+            if (!p) return;
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                doc.setFillColor(15, 23, 42);
+                doc.rect(0, 0, 210, 28, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFontSize(15);
+                doc.text('TGS - WORK PERMIT HANDOVER & CUSTODY RECEIPT', 14, 18);
+
+                doc.setTextColor(15, 23, 42);
+                doc.setFontSize(11);
+                let y = 42;
+                const rows = [
+                    `Permit Number: ${p.permitNumber}`,
+                    `Permit Type: ${p.type}`,
+                    `Work Location: ${p.location}`,
+                    `Status: ${p.status}`,
+                    `Current Holder: ${p.holderName}`,
+                    `Valid Until: ${formatDateTime(p.validUntil)}`,
+                    `Description: ${p.description}`
+                ];
+                rows.forEach(line => {
+                    doc.text(line, 14, y);
+                    y += 9;
+                });
+
+                y += 6;
+                doc.setFontSize(12);
+                doc.text('Custody & Audit History:', 14, y);
+                y += 8;
+                doc.setFontSize(10);
+                (p.auditLog || []).forEach(entry => {
+                    doc.text(`- [${formatDateTime(entry.at)}] ${entry.action} by ${entry.by}: ${entry.notes || ''}`, 14, y);
+                    y += 7;
+                });
+
+                doc.save(`PTW_${p.permitNumber}_Receipt.pdf`);
+                showToast(currentLang === 'ar' ? 'تم تحميل إيصال PDF بنجاح' : 'PDF Receipt downloaded');
+            } catch (e) {
+                showToast('PDF export error');
+            }
         }
 
         function shareHandoverViaWhatsApp(permitId) {
             const p = permits.find(x => x.id === permitId);
             if (!p) return;
-            const msg = `*TGS PTW Handover Notice*\nPermit: ${p.number}\nLocation: ${p.location}\nCurrent Holder: ${p.holderName}\nStatus: ${p.status}\nLink: ${window.location.href}`;
-            window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`, '_blank');
+            const summary = [
+                `*TGS Work Permit (PTW) Update*`,
+                `Permit #: ${p.permitNumber} (${p.type})`,
+                `Location: ${p.location}`,
+                `Status: ${p.status}`,
+                `Current Holder: ${p.holderName}`,
+                `Valid Until: ${formatDateTime(p.validUntil)}`,
+                `Portal: ${window.location.origin + window.location.pathname}`
+            ].join('\n');
+            const url = `https://wa.me/?text=${encodeURIComponent(summary)}`;
+            window.open(url, '_blank');
         }
 
-        // ==================== ADMIN USER MANAGEMENT ====================
+        // ==================== ADMIN PANEL CONTROL ====================
+        function renderAdminPanel() {
+            if (!currentUser || currentUser.role !== 'Admin') return;
+
+            const uTbody = document.getElementById('admin-users-tbody');
+            if (uTbody) {
+                uTbody.innerHTML = users.map(u => `
+                    <tr class="hover:bg-slate-50">
+                        <td class="p-3 font-bold text-slate-900">${u.fullName}</td>
+                        <td class="p-3 font-mono font-bold text-slate-700">${u.username}</td>
+                        <td class="p-3 font-mono text-slate-600">${u.password}</td>
+                        <td class="p-3"><span class="px-2 py-0.5 rounded bg-slate-200 font-bold">${u.role}</span></td>
+                        <td class="p-3">
+                            <span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold ${u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
+                                ${u.active ? 'Active' : 'Disabled'}
+                            </span>
+                        </td>
+                        <td class="p-3 flex items-center justify-center gap-1.5">
+                            <button onclick="copyUserCredentials('${u.id}')" title="Copy Direct Login Link & Credentials" class="px-2.5 py-1.5 rounded-lg bg-slate-900 text-white font-bold hover:bg-slate-700">
+                                <i class="fa-solid fa-copy"></i>
+                            </button>
+                            <button onclick="openEditUserModal('${u.id}')" title="Edit User" class="px-2.5 py-1.5 rounded-lg bg-blue-100 text-blue-700 font-bold hover:bg-blue-200">
+                                <i class="fa-solid fa-pen"></i>
+                            </button>
+                            ${u.id !== 'usr_admin_1' ? `
+                                <button onclick="toggleUserStatus('${u.id}')" title="Enable/Disable" class="px-2.5 py-1.5 rounded-lg bg-amber-100 text-amber-800 font-bold hover:bg-amber-200">
+                                    <i class="fa-solid fa-power-off"></i>
+                                </button>
+                                <button onclick="deleteUserAccount('${u.id}')" title="Delete User Permanently" class="px-2.5 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold hover:bg-red-200">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </td>
+                    </tr>
+                `).join('');
+            }
+
+            const pTbody = document.getElementById('admin-permits-tbody');
+            if (pTbody) {
+                pTbody.innerHTML = permits.length === 0
+                    ? `<tr><td colspan="6" class="p-4 text-center text-slate-400">No permits in site</td></tr>`
+                    : permits.map(p => `
+                        <tr class="hover:bg-slate-50">
+                            <td class="p-3 font-black text-slate-900">${p.permitNumber}</td>
+                            <td class="p-3 font-bold">${p.type}</td>
+                            <td class="p-3">${p.location}</td>
+                            <td class="p-3 font-bold text-slate-800">${p.holderName}</td>
+                            <td class="p-3 font-bold">${p.status}</td>
+                            <td class="p-3 flex items-center justify-center gap-1.5">
+                                ${p.status !== 'Closed' ? `
+                                    <button onclick="openHandoverModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-bold">Transfer</button>
+                                    <button onclick="openClosePermitModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold">Close</button>
+                                ` : ''}
+                                <button onclick="deletePermitRecord('${p.id}')" class="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 font-bold">Delete</button>
+                            </td>
+                        </tr>
+                    `).join('');
+            }
+        }
+
         async function handleCreateUser(e) {
             e.preventDefault();
             const fullName = document.getElementById('new-user-fullname').value.trim();
@@ -1300,78 +1901,35 @@
             const password = document.getElementById('new-user-password').value.trim();
             const role = document.getElementById('new-user-role').value;
 
-            if (!fullName || !username || !password) return;
-
             const uLower = username.toLowerCase();
             if (users.some(u => String(u.username || '').toLowerCase() === uLower)) {
-                showToast('اسم المستخدم موجود مسبقاً!');
+                showToast(currentLang === 'ar' ? 'اسم المستخدم موجود مسبقاً!' : 'Username already exists!');
                 return;
             }
 
-            // Clear from deleted lists if previously deleted
-            deletedUsernames = deletedUsernames.filter(un => un !== uLower);
+            // Remove from deletion blocklist if recreated intentionally by Admin
+            deletedUsernames = deletedUsernames.filter(x => x !== uLower);
 
-            users.push({
-                id: 'usr_' + Date.now(),
+            const newUser = {
+                id: 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
                 fullName,
                 username,
                 password,
                 role,
                 active: true
-            });
+            };
+            users.push(newUser);
 
             document.getElementById('new-user-fullname').value = '';
             document.getElementById('new-user-username').value = '';
             document.getElementById('new-user-password').value = '';
 
-            refreshAllUI();
+            renderAdminPanel();
             await pushCloudState(true);
-            showToast(`تم إنشاء الحساب (${username}) ومزامنته سحابياً`);
+            showToast(currentLang === 'ar' ? 'تم إنشاء الحساب ومزامنته سحابياً بنجاح' : 'User account created & synced');
         }
 
-        function copyUserCredentials(userId) {
-            const u = users.find(x => x.id === userId);
-            if (!u) return;
-            const link = window.location.origin + window.location.pathname;
-            const text = `بوابة تسليم تصاريح العمل (TGS PTW)\nالرابط: ${link}\nاسم المستخدم: ${u.username}\nالرقم السري: ${u.password}`;
-            copyTextSafe(text);
-            showToast('تم نسخ رابط البوابة وبيانات الدخول');
-        }
-
-        function copyDeviceSyncLink() {
-            const link = window.location.origin + window.location.pathname;
-            copyTextSafe(link);
-            showToast('تم نسخ رابط البوابة لمشاركته مع المستخدمين');
-        }
-
-        async function toggleUserStatus(userId) {
-            if (userId === 'usr_admin_1') return;
-            const u = users.find(x => x.id === userId);
-            if (!u) return;
-            u.active = !u.active;
-            refreshAllUI();
-            await pushCloudState(true);
-            showToast(u.active ? 'تم تفعيل الحساب' : 'تم إيقاف الحساب فوراً');
-        }
-
-        async function deleteUserAccount(userId) {
-            if (userId === 'usr_admin_1') {
-                showToast('لا يمكن حذف حساب المدير الأساسي');
-                return;
-            }
-            const u = users.find(x => x.id === userId);
-            if (!u) return;
-
-            deletedUserIds.push(u.id);
-            deletedUsernames.push(String(u.username || '').trim().toLowerCase());
-            users = users.filter(x => x.id !== userId);
-
-            refreshAllUI();
-            await pushCloudState(true);
-            showToast(`تم حذف الحساب (${u.username}) وحظره من الدخول نهائياً`);
-        }
-
-        function openAdminEditUserModal(userId) {
+        function openEditUserModal(userId) {
             const u = users.find(x => x.id === userId);
             if (!u) return;
             document.getElementById('edit-user-id').value = u.id;
@@ -1379,7 +1937,7 @@
             document.getElementById('edit-user-username').value = u.username;
             document.getElementById('edit-user-password').value = u.password;
             document.getElementById('edit-user-role').value = u.role;
-            document.getElementById('modal-admin-edit-user').classList.remove('hidden');
+            openModal('modal-admin-edit-user');
         }
 
         async function handleAdminUpdateUser(e) {
@@ -1391,234 +1949,107 @@
             u.fullName = document.getElementById('edit-user-fullname').value.trim();
             u.username = document.getElementById('edit-user-username').value.trim();
             u.password = document.getElementById('edit-user-password').value.trim();
-            if (u.id !== 'usr_admin_1') {
-                u.role = document.getElementById('edit-user-role').value;
-            }
+            u.role = document.getElementById('edit-user-role').value;
 
             closeModal('modal-admin-edit-user');
-            refreshAllUI();
+            renderAdminPanel();
             await pushCloudState(true);
-            showToast('تم تحديث بيانات المستخدم ومزامنتها');
+            showToast(currentLang === 'ar' ? 'تم تحديث بيانات المستخدم' : 'User account updated');
         }
 
-        // ==================== UI RENDERING ====================
-        function refreshAllUI() {
-            if (!currentUser) return;
-
-            const visiblePermits = getUserVisiblePermits();
-            const myCustody = visiblePermits.filter(p => p.status !== 'CLOSED' && p.holderId === currentUser.id);
-            const incoming = visiblePermits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id);
-            const activeSite = visiblePermits.filter(p => p.status !== 'CLOSED');
-            const closedList = visiblePermits.filter(p => p.status === 'CLOSED');
-
-            document.getElementById('kpi-custody-val').textContent = myCustody.length;
-            document.getElementById('kpi-incoming-val').textContent = incoming.length;
-            document.getElementById('kpi-active-val').textContent = activeSite.length;
-            document.getElementById('kpi-closed-val').textContent = closedList.length;
-
-            renderNotifications();
-
-            if (activeTab === 'admin' && currentUser.role === 'Admin') {
-                renderAdminPanel();
-                return;
-            }
-
-            let listToShow = [];
-            if (activeTab === 'my') {
-                listToShow = visiblePermits.filter(p => p.status !== 'CLOSED' && (p.holderId === currentUser.id || p.createdById === currentUser.id));
-            } else if (activeTab === 'incoming') {
-                listToShow = incoming;
-            } else if (activeTab === 'all' && currentUser.role === 'Admin') {
-                listToShow = activeSite;
-            } else if (activeTab === 'closed') {
-                listToShow = closedList;
-            }
-
-            const query = (document.getElementById('search-input').value || '').trim().toLowerCase();
-            if (query) {
-                listToShow = listToShow.filter(p =>
-                    String(p.number).toLowerCase().includes(query) ||
-                    String(p.location).toLowerCase().includes(query) ||
-                    String(p.holderName).toLowerCase().includes(query)
-                );
-            }
-
-            const container = document.getElementById('permits-section');
-            const isAr = currentLang === 'ar';
-            if (listToShow.length === 0) {
-                container.innerHTML = `<div class="col-span-full glass-card rounded-2xl p-10 text-center text-slate-400 text-sm font-bold">${isAr ? 'لا توجد تصاريح مطابقة لهذا العرض حالياً.' : 'No matching permits found for this view.'}</div>`;
-                return;
-            }
-
-            container.innerHTML = listToShow.map(p => {
-                const isExpired = p.validUntil && new Date(p.validUntil) < new Date() && p.status !== 'CLOSED';
-                const isMyCustody = p.holderId === currentUser.id;
-                const isIncomingForMe = p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id;
-                const canDelete = currentUser.role === 'Admin' || p.createdById === currentUser.id || p.holderId === currentUser.id;
-
-                const typeBadgeClass = p.type === 'HOT' ? 'badge-hot' : p.type === 'COLD' ? 'badge-cold' : p.type === 'BREAKING' ? 'badge-breaking' : 'badge-spark';
-                const statusLabel = p.status === 'CLOSED'
-                    ? (isAr ? 'مغلق' : 'Closed')
-                    : p.status === 'PENDING_HANDOVER'
-                        ? (isAr ? 'بانتظار الاستلام' : 'Pending Handover')
-                        : (isAr ? 'نشط' : 'Active');
-
-                return `
-                <div class="glass-card rounded-2xl p-5 shadow-sm hover:shadow-md transition flex flex-col justify-between gap-4">
-                    <div>
-                        <div class="flex items-start justify-between gap-2">
-                            <div class="flex items-center gap-2 flex-wrap">
-                                <span class="text-base font-black text-slate-900">${p.number}</span>
-                                <span class="text-[10px] font-extrabold px-2.5 py-0.5 rounded-lg ${typeBadgeClass}">${p.type}</span>
-                            </div>
-                            <div class="flex items-center gap-1.5 flex-wrap">
-                                <span class="text-[10px] font-extrabold px-2.5 py-1 rounded-lg ${p.status === 'CLOSED' ? 'bg-slate-200 text-slate-700' : p.status === 'PENDING_HANDOVER' ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'}">
-                                    ${statusLabel}
-                                </span>
-                                ${isExpired ? `<span class="text-[10px] font-extrabold px-2 py-1 rounded-lg bg-red-600 text-white">${isAr ? 'منتهي الصلاحية' : 'Expired'}</span>` : ''}
-                            </div>
-                        </div>
-
-                        <div class="text-xs font-bold text-slate-600 mt-1.5 flex items-center gap-1.5">
-                            <i class="fa-solid fa-location-dot text-amber-500"></i>
-                            <span>${p.location}</span>
-                        </div>
-
-                        <p class="mt-3 p-3 bg-slate-50 rounded-xl text-xs text-slate-700 border border-slate-100 leading-relaxed">
-                            ${p.description}
-                        </p>
-
-                        <div class="mt-3 space-y-1 text-xs">
-                            <div class="flex justify-between">
-                                <span class="text-slate-500">${isAr ? 'حامل العهدة الحالي:' : 'Current Holder:'}</span>
-                                <span class="font-bold text-slate-900">${p.holderName}</span>
-                            </div>
-                            ${p.pendingToName ? `
-                            <div class="flex justify-between text-amber-700">
-                                <span>${isAr ? 'موجه للاستلام إلى:' : 'Pending Handover To:'}</span>
-                                <span class="font-bold">${p.pendingToName}</span>
-                            </div>` : ''}
-                            <div class="flex justify-between">
-                                <span class="text-slate-500">${isAr ? 'صالح لغاية:' : 'Valid Until:'}</span>
-                                <span class="font-bold ${isExpired ? 'text-red-600' : 'text-slate-800'}">${String(p.validUntil || '').replace('T', ' ')}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Card Action Buttons -->
-                    <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
-                        ${isIncomingForMe ? `
-                            <button onclick="acceptHandover('${p.id}')" class="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                                <i class="fa-solid fa-check"></i>
-                                <span>${isAr ? 'قبول واستلام العهدة' : 'Accept Custody'}</span>
-                            </button>
-                        ` : ''}
-
-                        ${p.status !== 'CLOSED' && (isMyCustody || currentUser.role === 'Admin') ? `
-                            <button onclick="openHandoverModal('${p.id}')" class="px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-500 text-slate-950 text-xs font-extrabold flex items-center gap-1.5">
-                                <i class="fa-solid fa-right-left"></i>
-                                <span>${isAr ? 'تسليم' : 'Handover'}</span>
-                            </button>
-                            <button onclick="openRenewPermitModal('${p.id}')" class="px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold flex items-center gap-1">
-                                <i class="fa-solid fa-clock-rotate-left"></i>
-                                <span>${isAr ? 'تجديد' : 'Renew'}</span>
-                            </button>
-                            <button onclick="openClosePermitModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1">
-                                <i class="fa-solid fa-lock"></i>
-                                <span>${isAr ? 'إغلاق' : 'Close'}</span>
-                            </button>
-                        ` : ''}
-
-                        <button onclick="openAuditModal('${p.id}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1">
-                            <i class="fa-solid fa-list-ul"></i>
-                            <span>${isAr ? 'السجل' : 'Audit Log'}</span>
-                        </button>
-
-                        <button onclick="downloadHandoverReceiptPDF('${p.id}')" title="${isAr ? 'تحميل PDF' : 'Download PDF'}" class="px-2.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
-                            <i class="fa-solid fa-file-pdf text-red-600"></i>
-                        </button>
-
-                        <button onclick="shareHandoverViaWhatsApp('${p.id}')" title="${isAr ? 'مشاركة واتساب' : 'Share via WhatsApp'}" class="px-2.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold">
-                            <i class="fa-brands fa-whatsapp text-sm"></i>
-                        </button>
-
-                        ${canDelete ? `
-                            <button onclick="deletePermitRecord('${p.id}')" title="${isAr ? 'حذف التصريح' : 'Delete Permit'}" class="${isAr ? 'mr-auto' : 'ml-auto'} px-2.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold">
-                                <i class="fa-solid fa-trash"></i>
-                            </button>
-                        ` : ''}
-                    </div>
-                </div>`;
-            }).join('');
+        function copyUserCredentials(userId) {
+            const u = users.find(x => x.id === userId);
+            if (!u) return;
+            const baseUrl = window.location.origin + window.location.pathname;
+            const token = encodePayloadBase64({
+                id: u.id,
+                fullName: u.fullName,
+                username: u.username,
+                password: u.password,
+                role: u.role
+            });
+            const params = new URLSearchParams();
+            if (token) params.set('u', token);
+            if (activeBlobId) params.set('b', activeBlobId);
+            const directLink = `${baseUrl}?${params.toString()}`;
+            const text = `TGS PTW Portal Login\nLink: ${directLink}\nUsername: ${u.username}\nPassword: ${u.password}`;
+            copyTextSafe(text);
+            showToast(currentLang === 'ar' ? 'تم نسخ رابط الدخول المباشر وبيانات المستخدم' : 'Direct activation link & credentials copied');
         }
 
-        function renderAdminPanel() {
-            const usersTbody = document.getElementById('admin-users-tbody');
-            usersTbody.innerHTML = users.map(u => `
-                <tr class="hover:bg-slate-50">
-                    <td class="p-3 font-bold text-slate-900">${u.fullName}</td>
-                    <td class="p-3 font-mono font-bold text-blue-700">${u.username}</td>
-                    <td class="p-3 font-mono text-slate-600">${u.password}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded-md font-bold ${u.role === 'Admin' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}">${u.role}</span></td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded-md font-bold ${u.active ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">${u.active ? 'نشط' : 'موقوف'}</span></td>
-                    <td class="p-3 flex items-center justify-center gap-1.5 flex-wrap">
-                        <button onclick="copyUserCredentials('${u.id}')" title="نسخ بيانات الدخول" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold"><i class="fa-solid fa-copy"></i></button>
-                        <button onclick="openAdminEditUserModal('${u.id}')" title="تعديل" class="px-2.5 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold"><i class="fa-solid fa-pen"></i></button>
-                        ${u.id !== 'usr_admin_1' ? `
-                            <button onclick="toggleUserStatus('${u.id}')" title="تفعيل/إيقاف" class="px-2.5 py-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold"><i class="fa-solid fa-power-off"></i></button>
-                            <button onclick="deleteUserAccount('${u.id}')" title="حذف نهائي" class="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold"><i class="fa-solid fa-trash"></i></button>
-                        ` : ''}
-                    </td>
-                </tr>
-            `).join('');
+        function copyDeviceSyncLink() {
+            const baseUrl = window.location.origin + window.location.pathname;
+            const link = activeBlobId ? `${baseUrl}?b=${encodeURIComponent(activeBlobId)}` : baseUrl;
+            copyTextSafe(link);
+            showToast(currentLang === 'ar' ? 'تم نسخ رابط البوابة المتزامن للمستخدمين' : 'Synced portal link copied');
+        }
 
-            const permitsTbody = document.getElementById('admin-permits-tbody');
-            if (permits.length === 0) {
-                permitsTbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-slate-400">لا توجد تصاريح مسجلة في النظام</td></tr>`;
-                return;
-            }
+        async function toggleUserStatus(userId) {
+            const u = users.find(x => x.id === userId);
+            if (!u || u.id === 'usr_admin_1') return;
+            u.active = !u.active;
+            renderAdminPanel();
+            await pushCloudState(true);
+            showToast(u.active ? 'Account enabled' : 'Account disabled');
+        }
 
-            permitsTbody.innerHTML = permits.map(p => `
-                <tr class="hover:bg-slate-50">
-                    <td class="p-3 font-extrabold text-slate-900">${p.number}</td>
-                    <td class="p-3 font-bold">${p.type}</td>
-                    <td class="p-3 text-slate-600">${p.location}</td>
-                    <td class="p-3 font-bold text-blue-700">${p.holderName}</td>
-                    <td class="p-3"><span class="px-2 py-0.5 rounded-md font-bold ${p.status === 'CLOSED' ? 'bg-slate-200 text-slate-700' : 'bg-emerald-100 text-emerald-700'}">${p.status}</span></td>
-                    <td class="p-3 flex items-center justify-center gap-1.5 flex-wrap">
-                        <button onclick="openHandoverModal('${p.id}')" class="px-2.5 py-1.5 rounded-lg bg-amber-100 text-amber-900 font-bold">نقل عهدة</button>
-                        <button onclick="openRenewPermitModal('${p.id}')" class="px-2.5 py-1.5 rounded-lg bg-blue-100 text-blue-800 font-bold">تجديد</button>
-                        ${p.status !== 'CLOSED' ? `<button onclick="openClosePermitModal('${p.id}')" class="px-2.5 py-1.5 rounded-lg bg-slate-800 text-white font-bold">إغلاق</button>` : ''}
-                        <button onclick="deletePermitRecord('${p.id}')" class="px-2.5 py-1.5 rounded-lg bg-red-100 text-red-700 font-bold"><i class="fa-solid fa-trash"></i></button>
-                    </td>
-                </tr>
-            `).join('');
+        async function deleteUserAccount(userId) {
+            const u = users.find(x => x.id === userId);
+            if (!u || u.id === 'usr_admin_1') return;
+
+            deletedUserIds.push(u.id);
+            deletedUsernames.push(String(u.username || '').toLowerCase());
+            users = users.filter(x => x.id !== userId);
+
+            renderAdminPanel();
+            await pushCloudState(true);
+            showToast(currentLang === 'ar' ? 'تم حذف الحساب وحظره نهائياً' : 'User deleted and blocked permanently');
         }
 
         // ==================== INITIALIZATION & FAST SYNC LOOP ====================
         function initApp() {
             applyLanguage(currentLang);
             loadLocalState();
+            importProvisionedUrlData();
 
             // Restore active session immediately if valid
             try {
                 const rawSession = localStorage.getItem(SESSION_KEY);
                 if (rawSession) {
                     const sess = JSON.parse(rawSession);
-                    const found = users.find(u => u && u.active && (u.id === sess.userId || u.username === sess.username));
-                    if (found && (found.id === 'usr_admin_1' || (!deletedUserIds.includes(found.id) && !deletedUsernames.includes(String(found.username || '').toLowerCase())))) {
+                    const found = users.find(u =>
+                        u && u.active &&
+                        (u.id === sess.userId || String(u.username || '').toLowerCase() === String(sess.username || '').toLowerCase())
+                    );
+                    const isDeleted = found && found.id !== 'usr_admin_1' &&
+                        (deletedUserIds.includes(found.id) || deletedUsernames.includes(String(found.username || '').toLowerCase()));
+                    if (found && !isDeleted) {
                         currentUser = found;
-                        enterPortalUI();
+                        document.getElementById('login-screen').classList.add('hidden');
+                        document.getElementById('app-shell').classList.remove('hidden');
+                        setupUserRoleUI();
+                        refreshAllUI();
+                    } else {
+                        localStorage.removeItem(SESSION_KEY);
                     }
                 }
             } catch (e) {}
 
-            // Initial cloud sync + fast 2.5s polling + immediate focus sync
-            fetchLatestCloudState();
-            setInterval(fetchLatestCloudState, 2500);
-            window.addEventListener('focus', fetchLatestCloudState);
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) fetchLatestCloudState();
+            // Initial non-blocking cloud sync + periodic fast polling
+            fetchLatestCloudState().then(() => {
+                if (currentUser) refreshAllUI();
+            }).catch(() => {});
+
+            setInterval(() => {
+                fetchLatestCloudState().then(() => {
+                    if (currentUser) refreshAllUI();
+                }).catch(() => {});
+            }, 2500);
+
+            window.addEventListener('focus', () => {
+                fetchLatestCloudState().then(() => {
+                    if (currentUser) refreshAllUI();
+                }).catch(() => {});
             });
         }
 
