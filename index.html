@@ -569,13 +569,15 @@
   <!-- ======================================================================= -->
   <script>
     // =========================================================================
-    // 1. CLOUD SYNC CONSTANTS & GLOBAL STATE
+    // 1. CLOUD SYNC CONSTANTS & GLOBAL STATE (OPEN CORS CLOUD ENGINE)
     // =========================================================================
-    const CLOUD_KVDB_BASE = 'https://kvdb.io/7vN9k2mPqR8xL4wZ1yT6cB';
-    const NTFY_STREAM_TOPIC = 'tgs_ptw_hamza_live_stream_2026_v95';
-    const STORAGE_KEY = 'ptw_enterprise_state_v95';
-    const SESSION_KEY = 'ptw_enterprise_session_v95';
-    const LANG_KEY = 'ptw_enterprise_lang_v95';
+    const NPOINT_BIN_URL = 'https://api.npoint.io/7b8c9d0e1f2a3b4c5d6e';
+    const JSONSTORAGE_URL = 'https://api.jsonstorage.net/v1/json/00000000-0000-0000-0000-000000000000';
+    const NTFY_STREAM_TOPIC = 'tgs_ptw_hamza_iraq_sync_2026_live_v10';
+    const STORAGE_KEY = 'ptw_enterprise_state_v10';
+    const SESSION_KEY = 'ptw_enterprise_session_v10';
+    const LANG_KEY = 'ptw_enterprise_lang_v10';
+    const FIREBASE_CFG_KEY = 'ptw_custom_firebase_url_v10';
 
     let currentLang = localStorage.getItem(LANG_KEY) || 'en';
     let currentUser = null;
@@ -588,30 +590,21 @@
     let deletedUsernames = [];
     let isSyncingNow = false;
     let syncIntervalId = null;
-
-    // Normalize Arabic-Indic digits to standard Western digits
-    function normalizeDigits(str) {
-      return String(str || '').replace(/[٠-٩]/g, d => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
-    }
-
-    function isAdminUser(user) {
-      if (!user) return false;
-      return user.id === 'usr_admin_1' || String(user.role || '').toUpperCase() === 'ADMIN';
-    }
+    let lastCloudStatus = 'Connecting...';
 
     // =========================================================================
-    // 2. TRANSLATIONS & BILINGUAL UI ENGINE (ENGLISH DEFAULT + ARABIC)
+    // 2. BILINGUAL DICTIONARY (ENGLISH DEFAULT + ARABIC TOGGLE)
     // =========================================================================
     const I18N = {
       en: {
         brandTitle: 'Work Permit System',
         brandSub: 'Handover & Closure Portal',
-        langSwitch: 'العربية',
+        langBtn: 'العربية',
         loginHeading: 'Sign In to Portal',
-        loginSub: 'Enter your authorized username and password',
-        username: 'Username',
-        password: 'Password',
-        signIn: 'Sign In',
+        loginSubheading: 'Enter your authorized username and password',
+        lblUser: 'Username',
+        lblPass: 'Password',
+        loginBtn: 'Sign In',
         syncReady: 'Cloud Sync Ready',
         syncBtn: 'Sync',
         logoutBtn: 'Logout',
@@ -619,7 +612,7 @@
         tabIncoming: 'Incoming Handovers',
         tabAll: 'All Site Permits',
         tabAdmin: 'Admin Control',
-        newPermit: 'New Permit',
+        newPermitBtn: 'New Permit',
         kpiActive: 'Active Permits',
         kpiPending: 'Pending Handovers',
         kpiClosed: 'Closed Permits',
@@ -631,38 +624,54 @@
         statusPending: 'Pending Handover',
         statusClosed: 'Closed',
         currentHolder: 'Current Holder:',
+        handoverTo: 'Handover To:',
         validUntil: 'Valid Until:',
-        handoverTo: 'Pending Handover To:',
         btnHandover: 'Handover',
-        btnAccept: 'Accept Custody',
-        btnReject: 'Decline',
         btnRenew: 'Renew',
         btnClose: 'Close',
         btnAudit: 'Audit Log',
+        btnAccept: 'Accept Custody',
+        btnReject: 'Decline',
         noPermits: 'No permits found in this view.',
+        modalNewTitle: 'Issue New Work Permit',
+        lblPermitNum: 'Permit Number *',
+        lblPermitType: 'Permit Type *',
+        lblPermitLoc: 'Work Location *',
+        lblHandoverToOpt: 'Handover Permit To Another User (Optional)',
+        hintHandoverToOpt: 'If selected, an instant notification will be sent to the recipient to accept custody.',
+        lblPermitDesc: 'Work Description *',
+        lblPermitHours: 'Validity Duration (Hours)',
+        btnSubmitPermit: 'Issue Permit',
+        modalHoTitle: 'Handover Permit Custody',
+        lblHoRecipient: 'Select Recipient User *',
+        lblHoNotes: 'Handover Notes / Site Condition',
+        btnSendHo: 'Send Handover Request',
+        modalAuditTitle: 'Permit Audit Log',
+        modalNotifTitle: 'Notifications & Alerts',
+        btnMarkRead: 'Mark All Read',
         cancel: 'Cancel'
       },
       ar: {
-        brandTitle: 'نظام تصاريح العمل',
+        brandTitle: 'نظام تصاريح العمل (PTW)',
         brandSub: 'بوابة التسليم والاستلام والإغلاق',
-        langSwitch: 'English',
-        loginHeading: 'تسجيل الدخول إلى النظام',
-        loginSub: 'أدخل اسم المستخدم والرقم السري المعتمد',
-        username: 'اسم المستخدم',
-        password: 'الرقم السري',
-        signIn: 'دخول',
+        langBtn: 'English',
+        loginHeading: 'تسجيل الدخول للبوابة',
+        loginSubheading: 'أدخل اسم المستخدم والرقم السري المعتمد',
+        lblUser: 'اسم المستخدم',
+        lblPass: 'الرقم السري',
+        loginBtn: 'دخول',
         syncReady: 'المزامنة السحابية جاهزة',
         syncBtn: 'مزامنة',
         logoutBtn: 'خروج',
         tabMy: 'تصاريحي',
         tabIncoming: 'الواردة للاستلام',
         tabAll: 'جميع تصاريح الموقع',
-        tabAdmin: 'إدارة النظام',
-        newPermit: 'تصريح جديد',
+        tabAdmin: 'لوحة الإدارة',
+        newPermitBtn: 'تصريح جديد',
         kpiActive: 'التصاريح النشطة',
         kpiPending: 'بانتظار الاستلام',
         kpiClosed: 'التصاريح المغلقة',
-        kpiTotal: 'الإجمالي الظاهر',
+        kpiTotal: 'إجمالي المعروض',
         searchPlaceholder: 'ابحث برقم التصريح، موقع العمل، حامل العهدة...',
         allTypes: 'جميع الأنواع',
         allStatuses: 'جميع الحالات',
@@ -670,76 +679,106 @@
         statusPending: 'بانتظار الاستلام',
         statusClosed: 'مغلق',
         currentHolder: 'حامل العهدة الحالي:',
-        validUntil: 'صالح لغاية:',
         handoverTo: 'مُرسل للتسليم إلى:',
+        validUntil: 'صالح لغاية:',
         btnHandover: 'تسليم',
-        btnAccept: 'قبول واستلام العهدة',
-        btnReject: 'رفض',
         btnRenew: 'تجديد',
         btnClose: 'إغلاق',
         btnAudit: 'السجل',
-        noPermits: 'لا توجد تصاريح مطابقة للعرض حالياً.',
+        btnAccept: 'قبول واستلام العهدة',
+        btnReject: 'رفض',
+        noPermits: 'لا توجد تصاريح في هذا القسم.',
+        modalNewTitle: 'إصدار تصريح عمل جديد',
+        lblPermitNum: 'رقم التصريح *',
+        lblPermitType: 'نوع التصريح *',
+        lblPermitLoc: 'موقع العمل *',
+        lblHandoverToOpt: 'تسليم التصريح إلى مستخدم آخر (اختياري)',
+        hintHandoverToOpt: 'عند اختيار مستخدم، سيصله إشعار فوري لقبول الاستلام وإتمام نقل العهدة.',
+        lblPermitDesc: 'وصف العمل *',
+        lblPermitHours: 'مدة الصلاحية (ساعات)',
+        btnSubmitPermit: 'إصدار التصريح',
+        modalHoTitle: 'تسليم عهدة التصريح لمستخدم آخر',
+        lblHoRecipient: 'اختر المستخدم المستلم *',
+        lblHoNotes: 'ملاحظات التسليم وحالة الموقع',
+        btnSendHo: 'إرسال طلب التسليم',
+        modalAuditTitle: 'سجل حركات التصريح',
+        modalNotifTitle: 'الإشعارات والتنبيهات',
+        btnMarkRead: 'تحديد الكل كمقروء',
         cancel: 'إلغاء'
       }
     };
+
+    function toggleLanguage() {
+      currentLang = currentLang === 'en' ? 'ar' : 'en';
+      try {
+        localStorage.setItem(LANG_KEY, currentLang);
+      } catch (e) {}
+      applyLanguage();
+      if (currentUser) refreshAllUI();
+    }
 
     function applyLanguage() {
       const t = I18N[currentLang] || I18N.en;
       document.documentElement.lang = currentLang;
       document.documentElement.dir = currentLang === 'ar' ? 'rtl' : 'ltr';
 
-      const setText = (id, val) => {
+      const mapText = (id, val) => {
         const el = document.getElementById(id);
         if (el) el.textContent = val;
       };
 
-      setText('login-brand-title', t.brandTitle);
-      setText('login-brand-sub', t.brandSub);
-      setText('login-lang-btn', t.langSwitch);
-      setText('header-lang-btn', t.langSwitch);
-      setText('login-heading', t.loginHeading);
-      setText('login-subheading', t.loginSub);
-      setText('lbl-login-user', t.username);
-      setText('lbl-login-pass', t.password);
-      setText('login-btn-label', t.signIn);
-      setText('login-sync-text', t.syncReady);
-      setText('btn-sync-text', t.syncBtn);
-      setText('btn-logout-text', t.logoutBtn);
-      setText('tab-my-label', t.tabMy);
-      setText('tab-incoming-label', t.tabIncoming);
-      setText('tab-all-label', t.tabAll);
-      setText('tab-admin-label', t.tabAdmin);
-      setText('btn-new-permit-text', t.newPermit);
-      setText('kpi-active-label', t.kpiActive);
-      setText('kpi-pending-label', t.kpiPending);
-      setText('kpi-closed-label', t.kpiClosed);
-      setText('kpi-total-label', t.kpiTotal);
-      setText('opt-all-types', t.allTypes);
-      setText('opt-all-statuses', t.allStatuses);
-      setText('opt-status-active', t.statusActive);
-      setText('opt-status-pending', t.statusPending);
-      setText('opt-status-closed', t.statusClosed);
+      mapText('login-brand-title', t.brandTitle);
+      mapText('login-brand-sub', t.brandSub);
+      mapText('login-lang-btn', t.langBtn);
+      mapText('header-lang-btn', t.langBtn);
+      mapText('login-heading', t.loginHeading);
+      mapText('login-subheading', t.loginSubheading);
+      mapText('lbl-login-user', t.lblUser);
+      mapText('lbl-login-pass', t.lblPass);
+      mapText('login-btn-label', t.loginBtn);
+      mapText('login-sync-text', t.syncReady);
+      mapText('btn-sync-text', t.syncBtn);
+      mapText('btn-logout-text', t.logoutBtn);
+      mapText('tab-my-label', t.tabMy);
+      mapText('tab-incoming-label', t.tabIncoming);
+      mapText('tab-all-label', t.tabAll);
+      mapText('tab-admin-label', t.tabAdmin);
+      mapText('btn-new-permit-text', t.newPermitBtn);
+      mapText('kpi-active-label', t.kpiActive);
+      mapText('kpi-pending-label', t.kpiPending);
+      mapText('kpi-closed-label', t.kpiClosed);
+      mapText('kpi-total-label', t.kpiTotal);
+      mapText('opt-all-types', t.allTypes);
+      mapText('opt-all-statuses', t.allStatuses);
+      mapText('opt-status-active', t.statusActive);
+      mapText('opt-status-pending', t.statusPending);
+      mapText('opt-status-closed', t.statusClosed);
+      mapText('modal-new-permit-title', t.modalNewTitle);
+      mapText('lbl-permit-num', t.lblPermitNum);
+      mapText('lbl-permit-type', t.lblPermitType);
+      mapText('lbl-permit-loc', t.lblPermitLoc);
+      mapText('lbl-permit-handover-to', t.lblHandoverToOpt);
+      mapText('hint-permit-handover-to', t.hintHandoverToOpt);
+      mapText('lbl-permit-desc', t.lblPermitDesc);
+      mapText('lbl-permit-hours', t.lblPermitHours);
+      mapText('btn-submit-permit', t.btnSubmitPermit);
+      mapText('modal-handover-title', t.modalHoTitle);
+      mapText('lbl-ho-recipient', t.lblHoRecipient);
+      mapText('lbl-ho-notes', t.lblHoNotes);
+      mapText('btn-send-handover', t.btnSendHo);
+      mapText('modal-audit-title', t.modalAuditTitle);
+      mapText('modal-notif-title', t.modalNotifTitle);
+      mapText('btn-mark-read', t.btnMarkRead);
 
-      const searchInput = document.getElementById('search-input');
-      if (searchInput) searchInput.placeholder = t.searchPlaceholder;
-
+      const searchEl = document.getElementById('search-input');
+      if (searchEl) searchEl.placeholder = t.searchPlaceholder;
       document.querySelectorAll('.lbl-cancel').forEach(el => {
         el.textContent = t.cancel;
       });
-
-      if (currentUser) {
-        refreshAllUI();
-      }
-    }
-
-    function toggleLanguage() {
-      currentLang = currentLang === 'en' ? 'ar' : 'en';
-      localStorage.setItem(LANG_KEY, currentLang);
-      applyLanguage();
     }
 
     // =========================================================================
-    // 3. LOCAL STORAGE & URL BOOTSTRAP HELPERS
+    // 3. LOCAL PERSISTENCE & DEFAULT ADMIN ACCOUNT
     // =========================================================================
     function ensureDefaultAdminAccount() {
       const idx = users.findIndex(u => u && (u.id === 'usr_admin_1' || String(u.username || '').toLowerCase() === 'admin'));
@@ -761,14 +800,12 @@
     }
 
     function filterDeletedEntities() {
-      permits = permits.filter(p => p && p.id && !deletedPermitIds.includes(p.id));
       users = users.filter(u => {
-        if (!u || !u.id) return false;
+        if (!u) return false;
         if (u.id === 'usr_admin_1') return true;
-        if (deletedUserIds.includes(u.id)) return false;
-        if (deletedUsernames.includes(String(u.username || '').toLowerCase())) return false;
-        return true;
+        return !deletedUserIds.includes(u.id) && !deletedUsernames.includes(String(u.username || '').toLowerCase());
       });
+      permits = permits.filter(p => p && !deletedPermitIds.includes(p.id));
     }
 
     function loadLocalState() {
@@ -785,15 +822,16 @@
         }
       } catch (e) {}
 
-      // Check URL query parameter (?u=...) for instant mobile account activation
+      // Check URL direct activation payload (?u=...)
       try {
         const params = new URLSearchParams(window.location.search);
         const uParam = params.get('u');
         if (uParam) {
           const decodedUser = JSON.parse(decodeURIComponent(escape(atob(uParam))));
-          if (decodedUser && decodedUser.id && decodedUser.username) {
+          if (decodedUser && decodedUser.username) {
             mergeSingleUser(decodedUser);
           }
+          window.history.replaceState({}, document.title, window.location.pathname);
         }
       } catch (e) {}
 
@@ -807,7 +845,7 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           users,
           permits,
-          notifications: notifications.slice(0, 80),
+          notifications,
           deletedPermitIds,
           deletedUserIds,
           deletedUsernames
@@ -815,8 +853,17 @@
       } catch (e) {}
     }
 
+    function normalizeDigits(str) {
+      return String(str || '').replace(/[٠-٩]/g, d => '0123456789'['٠١٢٣٤٥٦٧٨٩'.indexOf(d)]);
+    }
+
+    function isAdminUser(user) {
+      if (!user) return false;
+      return user.id === 'usr_admin_1' || String(user.role || '').toUpperCase() === 'ADMIN';
+    }
+
     // =========================================================================
-    // 4. MERGE LOGIC & MULTI-CHANNEL CLOUD SYNC (KVDB + NTFY PLAIN TEXT)
+    // 4. MERGE LOGIC & MULTI-CHANNEL CLOUD SYNC (CORS-FREE GLOBAL SYNC)
     // =========================================================================
     function mergeSingleUser(incoming) {
       if (!incoming || !incoming.id) return;
@@ -859,54 +906,94 @@
       }
     }
 
+    function getCustomFirebaseBase() {
+      const url = (localStorage.getItem(FIREBASE_CFG_KEY) || '').trim().replace(/\/+$/, '');
+      return url.startsWith('https://') ? url : '';
+    }
+
+    function buildCompactStateSnapshot() {
+      return {
+        users,
+        permits: permits.map(p => ({
+          ...p,
+          logs: Array.isArray(p.logs) ? p.logs.slice(0, 8) : []
+        })),
+        notifications: notifications.slice(0, 35),
+        deletedPermitIds,
+        deletedUserIds,
+        deletedUsernames,
+        ts: Date.now()
+      };
+    }
+
+    function applyRemoteSnapshot(snap) {
+      if (!snap || typeof snap !== 'object') return;
+      if (Array.isArray(snap.deletedPermitIds)) {
+        snap.deletedPermitIds.forEach(id => { if (!deletedPermitIds.includes(id)) deletedPermitIds.push(id); });
+      }
+      if (Array.isArray(snap.deletedUserIds)) {
+        snap.deletedUserIds.forEach(id => { if (!deletedUserIds.includes(id)) deletedUserIds.push(id); });
+      }
+      if (Array.isArray(snap.deletedUsernames)) {
+        snap.deletedUsernames.forEach(un => {
+          const low = String(un).toLowerCase();
+          if (!deletedUsernames.includes(low)) deletedUsernames.push(low);
+        });
+      }
+      if (Array.isArray(snap.users)) {
+        snap.users.forEach(u => mergeSingleUser(u));
+      }
+      if (Array.isArray(snap.permits)) {
+        snap.permits.forEach(p => mergeSinglePermit(p));
+      }
+      if (Array.isArray(snap.notifications)) {
+        snap.notifications.forEach(n => mergeSingleNotif(n));
+      }
+    }
+
     async function publishRecordToCloud(type, payload) {
       if (!payload) return;
-      const bodyObj = { t: type, d: payload, ts: Date.now() };
-      const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(bodyObj))));
+      const snapshot = buildCompactStateSnapshot();
+      const fbBase = getCustomFirebaseBase();
 
-      // 1. Write to KVDB shared cloud store
-      try {
-        let keyName = 'meta';
-        if (type === 'permit' && payload.id) keyName = `p_${payload.id}`;
-        else if (type === 'user' && payload.id) keyName = `u_${payload.id}`;
-        else if (type === 'notif' && payload.id) keyName = `n_${payload.id}`;
-        else if (type === 'del') keyName = 'del_registry';
-
-        const kvData = type === 'del'
-          ? JSON.stringify({ deletedPermitIds, deletedUserIds, deletedUsernames })
-          : JSON.stringify(payload);
-
-        fetch(`${CLOUD_KVDB_BASE}/${encodeURIComponent(keyName)}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-          body: kvData,
-          keepalive: true
-        }).catch(() => {});
-
-        if (type === 'permit' || type === 'user' || type === 'notif') {
-          const indexPayload = JSON.stringify({
-            pIds: permits.map(p => p.id),
-            uIds: users.map(u => u.id),
-            nIds: notifications.slice(0, 40).map(n => n.id),
-            ts: Date.now()
-          });
-          fetch(`${CLOUD_KVDB_BASE}/master_index`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-            body: indexPayload,
+      // 1. Custom Firebase Realtime DB (if configured by Admin)
+      if (fbBase) {
+        try {
+          fetch(`${fbBase}/ptw_global_state.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(snapshot),
             keepalive: true
           }).catch(() => {});
-        }
+        } catch (e) {}
+      }
+
+      // 2. Open-CORS npoint cloud document
+      try {
+        fetch(NPOINT_BIN_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(snapshot),
+          keepalive: true
+        }).catch(() => {});
       } catch (e) {}
 
-      // 2. Broadcast lightweight single-line plain-text packet to ntfy
+      // 3. Lightweight single-record plain-text packet via ntfy (works on iOS Safari & Android)
       try {
-        fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}`, {
+        const lightRecord = type === 'permit'
+          ? { ...payload, logs: Array.isArray(payload.logs) ? payload.logs.slice(0, 3) : [] }
+          : payload;
+        const bodyObj = { t: type, d: lightRecord, ts: Date.now() };
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(bodyObj))));
+        const res = await fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}`, {
           method: 'POST',
           headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
           body: `PTW_PKT::${encoded}`,
           keepalive: true
-        }).catch(() => {});
+        });
+        if (res && res.ok) {
+          lastCloudStatus = 'Cloud Online';
+        }
       } catch (e) {}
     }
 
@@ -920,7 +1007,13 @@
         } else if (rawMsg.startsWith('{')) {
           packet = JSON.parse(rawMsg);
         }
-        if (!packet || !packet.t || !packet.d) return;
+        if (!packet) return;
+
+        if (packet.permits || packet.users) {
+          applyRemoteSnapshot(packet);
+          return;
+        }
+        if (!packet.t || !packet.d) return;
 
         if (packet.t === 'user') mergeSingleUser(packet.d);
         else if (packet.t === 'permit') mergeSinglePermit(packet.d);
@@ -942,6 +1035,8 @@
       const syncBtn = document.getElementById('sync-now-btn');
       if (syncBtn && showToastFeedback) syncBtn.style.opacity = '0.65';
 
+      let cloudReachable = false;
+
       try {
         const beforeSummary = JSON.stringify({
           p: permits.map(p => `${p.id}:${p.status}:${p.holderId}:${p.pendingToId || ''}:${p.validUntil}`),
@@ -949,67 +1044,34 @@
           n: notifications.length
         });
 
-        // A. Fetch from KVDB shared store
-        try {
-          const delRes = await fetch(`${CLOUD_KVDB_BASE}/del_registry?_=${Date.now()}`, { cache: 'no-store' });
-          if (delRes.ok) {
-            const delObj = await delRes.json();
-            if (delObj) {
-              (delObj.deletedPermitIds || []).forEach(id => { if (!deletedPermitIds.includes(id)) deletedPermitIds.push(id); });
-              (delObj.deletedUserIds || []).forEach(id => { if (!deletedUserIds.includes(id)) deletedUserIds.push(id); });
-              (delObj.deletedUsernames || []).forEach(un => {
-                const low = String(un).toLowerCase();
-                if (!deletedUsernames.includes(low)) deletedUsernames.push(low);
-              });
+        // A. Fetch from Custom Firebase if configured
+        const fbBase = getCustomFirebaseBase();
+        if (fbBase) {
+          try {
+            const fbRes = await fetch(`${fbBase}/ptw_global_state.json?_=${Date.now()}`, { cache: 'no-store' });
+            if (fbRes.ok) {
+              cloudReachable = true;
+              const fbData = await fbRes.json();
+              if (fbData) applyRemoteSnapshot(fbData);
             }
-          }
+          } catch (e) {}
+        }
 
-          const idxRes = await fetch(`${CLOUD_KVDB_BASE}/master_index?_=${Date.now()}`, { cache: 'no-store' });
-          if (idxRes.ok) {
-            const idx = await idxRes.json();
-            if (idx && Array.isArray(idx.uIds)) {
-              await Promise.all(idx.uIds.map(async uid => {
-                if (deletedUserIds.includes(uid)) return;
-                try {
-                  const r = await fetch(`${CLOUD_KVDB_BASE}/u_${encodeURIComponent(uid)}?_=${Date.now()}`, { cache: 'no-store' });
-                  if (r.ok) {
-                    const uObj = await r.json();
-                    if (uObj && uObj.id) mergeSingleUser(uObj);
-                  }
-                } catch (e) {}
-              }));
-            }
-            if (idx && Array.isArray(idx.pIds)) {
-              await Promise.all(idx.pIds.map(async pid => {
-                if (deletedPermitIds.includes(pid)) return;
-                try {
-                  const r = await fetch(`${CLOUD_KVDB_BASE}/p_${encodeURIComponent(pid)}?_=${Date.now()}`, { cache: 'no-store' });
-                  if (r.ok) {
-                    const pObj = await r.json();
-                    if (pObj && pObj.id) mergeSinglePermit(pObj);
-                  }
-                } catch (e) {}
-              }));
-            }
-            if (idx && Array.isArray(idx.nIds)) {
-              await Promise.all(idx.nIds.slice(0, 25).map(async nid => {
-                if (notifications.some(x => x.id === nid)) return;
-                try {
-                  const r = await fetch(`${CLOUD_KVDB_BASE}/n_${encodeURIComponent(nid)}?_=${Date.now()}`, { cache: 'no-store' });
-                  if (r.ok) {
-                    const nObj = await r.json();
-                    if (nObj && nObj.id) mergeSingleNotif(nObj);
-                  }
-                } catch (e) {}
-              }));
-            }
+        // B. Fetch from npoint open-CORS cloud store
+        try {
+          const npRes = await fetch(`${NPOINT_BIN_URL}?_=${Date.now()}`, { cache: 'no-store' });
+          if (npRes.ok) {
+            cloudReachable = true;
+            const npData = await npRes.json();
+            if (npData) applyRemoteSnapshot(npData);
           }
         } catch (e) {}
 
-        // B. Fetch from ntfy stream (72h history)
+        // C. Fetch from ntfy real-time stream (72h history)
         try {
           const ntfyRes = await fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}/json?poll=1&since=72h&_=${Date.now()}`, { cache: 'no-store' });
           if (ntfyRes.ok) {
+            cloudReachable = true;
             const rawText = await ntfyRes.text();
             const lines = rawText.trim().split('\n').filter(Boolean);
             for (const line of lines) {
@@ -1057,17 +1119,23 @@
 
         const statusDot = document.getElementById('sync-status-label');
         if (statusDot) {
-          statusDot.textContent = currentLang === 'ar'
-            ? `متصل ومُزامَن (${permits.length} تصاريح)`
-            : `Live Sync (${permits.length} Permits)`;
+          if (cloudReachable) {
+            statusDot.textContent = currentLang === 'ar'
+              ? `متصل بالسحابة (${permits.length} تصاريح)`
+              : `Cloud Connected (${permits.length} Permits)`;
+          } else {
+            statusDot.textContent = currentLang === 'ar'
+              ? `وضع محلي - تحقق من الإنترنت (${permits.length})`
+              : `Offline / Local Mode (${permits.length} Permits)`;
+          }
         }
 
         if (showToastFeedback) {
           showToast(
-            currentLang === 'ar'
-              ? `تمت المزامنة بنجاح (${permits.length} تصريح)`
-              : `Synced successfully (${permits.length} permits)`,
-            'success'
+            cloudReachable
+              ? (currentLang === 'ar' ? `تمت المزامنة السحابية (${permits.length} تصريح)` : `Cloud Synced (${permits.length} permits)`)
+              : (currentLang === 'ar' ? 'تعذر الوصول للخادم السحابي حالياً' : 'Cloud server unreachable right now'),
+            cloudReachable ? 'success' : 'error'
           );
         }
       } finally {
