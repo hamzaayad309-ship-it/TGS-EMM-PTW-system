@@ -1746,9 +1746,18 @@
             const u = users.find(x => x.id === userId);
             if (!u) return;
             const baseUrl = window.location.origin + window.location.pathname;
-            const text = `TGS PTW Portal Login\nLink: ${baseUrl}\nUsername: ${u.username}\nPassword: ${u.password}`;
+            const payloadObj = {
+                id: u.id,
+                fullName: u.fullName,
+                username: u.username,
+                password: u.password,
+                role: u.role
+            };
+            const encodedU = btoa(unescape(encodeURIComponent(JSON.stringify(payloadObj))));
+            const magicLink = `${baseUrl}?u=${encodeURIComponent(encodedU)}${customFirebaseUrl ? '&fb=' + encodeURIComponent(customFirebaseUrl) : ''}`;
+            const text = `TGS PTW Portal Login\nDirect Link: ${magicLink}\nUsername: ${u.username}\nPassword: ${u.password}`;
             copyTextSafe(text);
-            showToast(currentLang === 'ar' ? 'تم نسخ رابط البرنامج وبيانات الدخول للمستخدم' : 'Portal link & user credentials copied');
+            showToast(currentLang === 'ar' ? 'تم نسخ رابط التفعيل المباشر وبيانات الدخول للمستخدم' : 'Direct activation link & credentials copied');
         }
 
         function copyDeviceSyncLink() {
