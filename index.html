@@ -525,16 +525,17 @@
 
     <script>
         // ==================== STATE & CLOUD CONFIG ====================
-        const STORAGE_KEY = 'tgs_ptw_state_v5';
-        const SESSION_KEY = 'tgs_ptw_session_v5';
-        const FB_URL_KEY = 'tgs_ptw_firebase_url_v5';
+        const STORAGE_KEY = 'tgs_ptw_state_v6';
+        const SESSION_KEY = 'tgs_ptw_session_v6';
+        const FB_URL_KEY = 'tgs_ptw_firebase_url_v6';
+        const DEFAULT_FIREBASE_URL = 'https://tgs-ptw-global-sync-default-rtdb.firebaseio.com';
         const NTFY_BASE = 'https://ntfy.sh';
-        const TOPIC_USERS = 'tgs_ptw_v5_users_stream_998122';
-        const TOPIC_PERMITS = 'tgs_ptw_v5_permits_stream_998122';
-        const TOPIC_NOTIFS = 'tgs_ptw_v5_notifs_stream_998122';
-        const TOPIC_DELETIONS = 'tgs_ptw_v5_deletions_stream_998122';
+        const TOPIC_USERS = 'tgs_ptw_v6_users_stream_998122';
+        const TOPIC_PERMITS = 'tgs_ptw_v6_permits_stream_998122';
+        const TOPIC_NOTIFS = 'tgs_ptw_v6_notifs_stream_998122';
+        const TOPIC_DELETIONS = 'tgs_ptw_v6_deletions_stream_998122';
 
-        let customFirebaseUrl = localStorage.getItem(FB_URL_KEY) || '';
+        let customFirebaseUrl = localStorage.getItem(FB_URL_KEY) || DEFAULT_FIREBASE_URL;
         let currentLang = 'en';
         let activeTab = 'my';
         let currentUser = null;
@@ -800,9 +801,91 @@
         function publishStreamRecord(topic, recordObj) {
             return fetch(`${NTFY_BASE}/${topic}`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-                body: JSON.stringify(recordObj)
+                headers: {
+                    'Content-Type': 'text/plain; charset=utf-8',
+                    'Title': 'ptw_sync'
+                },
+                body: btoa(unescape(encodeURIComponent(JSON.stringify(recordObj))))
             }).catch(() => {});
+        }
+
+        async function pushCloudState(bumpTimestamp = true) {
+            if (bumpTimestamp) stateUpdatedAt = Date.now();
+            const payload = saveLocalState();
+
+            const userPromises = users.map(u =>
+                publishStreamRecord(TOPIC_USERS, {
+                    t: 'user',
+                    ts: stateUpdatedAt,
+                    fb: customFirebaseUrl || '',
+                    data: u
+                })
+            );
+
+            const permitPromises = permits.map(p =>
+                publishStreamRecord(TOPIC_PERMITS, {
+                    t: 'permit',
+                    ts: p.updatedAt || stateUpdatedAt,
+                    data: p
+                })
+            );
+
+            const notifPromises = notifications.slice(0, 25).map(n =>
+                publishStreamRecord(TOPIC_NOTIFS, {
+                    t: 'notif',
+                    ts: stateUpdatedAt,
+                    data: n
+                })
+            );
+
+            const delPromise = publishStreamRecord(TOPIC_DELETIONS, {
+                t: 'del',
+                ts: stateUpdatedAt,
+                deletedUserIds,
+                deletedUsernames,
+                deletedPermitIds
+            });
+
+            let fbPromises = [];
+            const activeFb = (customFirebaseUrl || DEFAULT_FIREBASE_URL).replace(/\/+$/, '');
+            if (activeFb) {
+                fbPromises.push(
+                    fetch(`${activeFb}/ptw_v6/deletions.json`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ deletedUserIds, deletedUsernames, deletedPermitIds, updatedAt: stateUpdatedAt })
+                    }).catch(() => {})
+                );
+                users.forEach(u => {
+                    fbPromises.push(
+                        fetch(`${activeFb}/ptw_v6/users/${encodeURIComponent(u.id)}.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ...u, _ts: stateUpdatedAt })
+                        }).catch(() => {})
+                    );
+                });
+                permits.forEach(p => {
+                    fbPromises.push(
+                        fetch(`${activeFb}/ptw_v6/permits/${encodeURIComponent(p.id)}.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(p)
+                        }).catch(() => {})
+                    );
+                });
+                notifications.slice(0, 30).forEach(n => {
+                    fbPromises.push(
+                        fetch(`${activeFb}/ptw_v6/notifications/${encodeURIComponent(n.id)}.json`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(n)
+                        }).catch(() => {})
+                    );
+                });
+            }
+
+            await Promise.allSettled([...userPromises, ...permitPromises, ...notifPromises, delPromise, ...fbPromises]);
         }
 
         async function pushCloudState(bumpTimestamp = true) {
@@ -898,28 +981,46 @@
                 for (let i = 0; i < lines.length; i++) {
                     try {
                         const evt = JSON.parse(lines[i]);
-                        if (!evt || !evt.message) continue;
-                        const msg = JSON.parse(evt.message);
-                        handler(msg);
+                        let rawMsg = evt && evt.message ? evt.message : '';
+                        if (!rawMsg && evt && evt.attachment && evt.attachment.url) {
+                            const attRes = await fetch(evt.attachment.url);
+                            if (attRes.ok) rawMsg = await attRes.text();
+                        }
+                        if (!rawMsg) continue;
+                        let msg = null;
+                        if (rawMsg.trim().startsWith('{')) {
+                            msg = JSON.parse(rawMsg);
+                        } else {
+                            msg = JSON.parse(decodeURIComponent(escape(atob(rawMsg.trim()))));
+                        }
+                        if (msg) handler(msg);
                     } catch (err) {}
                 }
             } catch (e) {}
         }
 
         async function fetchLatestCloudState() {
-            if (customFirebaseUrl) {
+            const activeFb = (customFirebaseUrl || DEFAULT_FIREBASE_URL).replace(/\/+$/, '');
+            if (activeFb) {
                 try {
-                    const cleanFb = customFirebaseUrl.replace(/\/+$/, '');
-                    const fbRes = await fetch(`${cleanFb}/ptw_global_state.json?t=${Date.now()}`, { cache: 'no-store' });
+                    const fbRes = await fetch(`${activeFb}/ptw_v6.json?t=${Date.now()}`, { cache: 'no-store' });
                     if (fbRes.ok) {
                         const fbData = await fbRes.json();
                         if (fbData && typeof fbData === 'object') {
-                            if (Array.isArray(fbData.deletedUserIds)) deletedUserIds = Array.from(new Set([...deletedUserIds, ...fbData.deletedUserIds]));
-                            if (Array.isArray(fbData.deletedUsernames)) deletedUsernames = Array.from(new Set([...deletedUsernames, ...fbData.deletedUsernames]));
-                            if (Array.isArray(fbData.deletedPermitIds)) deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...fbData.deletedPermitIds]));
-                            if (Array.isArray(fbData.users)) fbData.users.forEach(u => mergeSingleUser(u, fbData.stateUpdatedAt || 0));
-                            if (Array.isArray(fbData.permits)) fbData.permits.forEach(p => mergeSinglePermit(p));
-                            if (Array.isArray(fbData.notifications)) fbData.notifications.forEach(n => mergeSingleNotif(n));
+                            if (fbData.deletions) {
+                                if (Array.isArray(fbData.deletions.deletedUserIds)) deletedUserIds = Array.from(new Set([...deletedUserIds, ...fbData.deletions.deletedUserIds]));
+                                if (Array.isArray(fbData.deletions.deletedUsernames)) deletedUsernames = Array.from(new Set([...deletedUsernames, ...fbData.deletions.deletedUsernames]));
+                                if (Array.isArray(fbData.deletions.deletedPermitIds)) deletedPermitIds = Array.from(new Set([...deletedPermitIds, ...fbData.deletions.deletedPermitIds]));
+                            }
+                            if (fbData.users && typeof fbData.users === 'object') {
+                                Object.values(fbData.users).forEach(u => mergeSingleUser(u, u._ts || 0));
+                            }
+                            if (fbData.permits && typeof fbData.permits === 'object') {
+                                Object.values(fbData.permits).forEach(p => mergeSinglePermit(p));
+                            }
+                            if (fbData.notifications && typeof fbData.notifications === 'object') {
+                                Object.values(fbData.notifications).forEach(n => mergeSingleNotif(n));
+                            }
                         }
                     }
                 } catch (e) {}
@@ -1087,7 +1188,10 @@
             const isAdmin = currentUser.role === 'Admin';
             document.getElementById('tab-all-btn').classList.toggle('hidden', !isAdmin);
             document.getElementById('tab-admin-btn').classList.toggle('hidden', !isAdmin);
-            if (!isAdmin && (activeTab === 'all' || activeTab === 'admin')) {
+            if (isAdmin) {
+                setActiveTab('all');
+                return;
+            } else if (activeTab === 'all' || activeTab === 'admin') {
                 activeTab = 'my';
             }
             refreshAllUI();
@@ -1233,6 +1337,15 @@
             };
 
             permits.unshift(newPermit);
+            if (currentUser.role !== 'Admin') {
+                addNotification(
+                    'Admin',
+                    `New Permit Issued: #${permitNumber}`,
+                    `تم إصدار تصريح جديد: #${permitNumber}`,
+                    `${currentUser.fullName || currentUser.username} issued ${permitType} permit #${permitNumber} (${workLocation}).`,
+                    `أصدر ${currentUser.fullName || currentUser.username} تصريح ${permitType} رقم #${permitNumber} (${workLocation}).`
+                );
+            }
             if (receiver) {
                 addNotification(
                     receiver.id,
@@ -1845,7 +1958,16 @@
             setInterval(async () => {
                 await fetchLatestCloudState();
                 if (currentUser) refreshAllUI();
-            }, 2200);
+            }, 1800);
+
+            // Real-time instant stream listener so mobile permit additions appear immediately on Admin PC
+            try {
+                const liveStream = new EventSource(`${NTFY_BASE}/${TOPIC_PERMITS},${TOPIC_USERS},${TOPIC_NOTIFS},${TOPIC_DELETIONS}/sse`);
+                liveStream.onmessage = async () => {
+                    await fetchLatestCloudState();
+                    if (currentUser) refreshAllUI();
+                };
+            } catch (e) {}
 
             window.addEventListener('focus', async () => {
                 await fetchLatestCloudState();
