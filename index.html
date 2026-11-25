@@ -560,12 +560,10 @@
     // =========================================================================
     // 1. CLOUD SYNC CONSTANTS & GLOBAL STATE (FIREBASE REALTIME DB EMBEDDED)
     // =========================================================================
-    const DEFAULT_FIREBASE_URLS = [
-      'https://tgs-emm-ptw-8616b-default-rtdb.asia-southeast1.firebasedatabase.app',
-      'https://tgs-emm-ptw-8616b-default-rtdb.firebaseio.com'
-    ];
-    let resolvedFirebaseUrl = DEFAULT_FIREBASE_URLS[0];
-    const NTFY_STREAM_TOPIC = 'tgs_ptw_hamza_iraq_sync_2026_live_v10';
+    const PRIMARY_FIREBASE_URL = 'https://tgs-emm-ptw-8616b-default-rtdb.asia-southeast1.firebasedatabase.app';
+    const FALLBACK_FIREBASE_URL = 'https://tgs-emm-ptw-8616b-default-rtdb.firebaseio.com';
+    let resolvedFirebaseUrl = PRIMARY_FIREBASE_URL;
+    const NTFY_STREAM_TOPIC = 'tgs_ptw_hamza_iraq_sync_2026_live_v11';
     const STORAGE_KEY = 'ptw_enterprise_state_v10';
     const SESSION_KEY = 'ptw_enterprise_session_v10';
     const LANG_KEY = 'ptw_enterprise_lang_v10';
@@ -875,22 +873,25 @@
       if (saved.startsWith('https://') && (saved.includes('firebaseio.com') || saved.includes('firebasedatabase.app'))) {
         return saved;
       }
-      return resolvedFirebaseUrl;
+      return resolvedFirebaseUrl || PRIMARY_FIREBASE_URL;
     }
 
     async function resolveWorkingFirebaseUrl() {
       const saved = (localStorage.getItem(FIREBASE_CFG_KEY) || '').trim().replace(/\/+$/, '');
-      const candidates = saved ? [saved, ...DEFAULT_FIREBASE_URLS] : [...DEFAULT_FIREBASE_URLS];
+      const candidates = saved
+        ? [saved, PRIMARY_FIREBASE_URL, FALLBACK_FIREBASE_URL]
+        : [PRIMARY_FIREBASE_URL, FALLBACK_FIREBASE_URL];
+
       for (const base of candidates) {
         try {
-          const res = await fetch(`${base}/ptw_live/ping.json?_=${Date.now()}`, { cache: 'no-store' });
+          const res = await fetch(`${base}/ptw_live/permits.json?shallow=true&_=${Date.now()}`, { cache: 'no-store' });
           if (res.ok) {
             resolvedFirebaseUrl = base;
             return base;
           }
         } catch (e) {}
       }
-      return resolvedFirebaseUrl;
+      return PRIMARY_FIREBASE_URL;
     }
 
     function mergeSingleUser(u) {
@@ -1040,36 +1041,38 @@
     }
 
     async function publishRecordToCloud(type, payload) {
-      if (!payload) return;
+      if (!payload) return false;
       const fbBase = await resolveWorkingFirebaseUrl();
+      let fbSaved = false;
 
       // 1. Atomic per-record write to Firebase Realtime DB
       if (fbBase) {
         try {
+          let targetUrl = '';
+          let method = 'PUT';
+          let body = JSON.stringify(payload);
+
           if (type === 'permit' && payload.id) {
-            await fetch(`${fbBase}/ptw_live/permits/${encodeURIComponent(payload.id)}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
+            targetUrl = `${fbBase}/ptw_live/permits/${encodeURIComponent(payload.id)}.json`;
           } else if (type === 'user' && payload.id) {
-            await fetch(`${fbBase}/ptw_live/users/${encodeURIComponent(payload.id)}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
+            targetUrl = `${fbBase}/ptw_live/users/${encodeURIComponent(payload.id)}.json`;
           } else if (type === 'notif' && payload.id) {
-            await fetch(`${fbBase}/ptw_live/notifications/${encodeURIComponent(payload.id)}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload)
-            });
+            targetUrl = `${fbBase}/ptw_live/notifications/${encodeURIComponent(payload.id)}.json`;
           } else if (type === 'del') {
-            await fetch(`${fbBase}/ptw_live/deletions.json`, {
-              method: 'PUT',
+            targetUrl = `${fbBase}/ptw_live/deletions.json`;
+            body = JSON.stringify({ deletedPermitIds, deletedUserIds, deletedUsernames });
+          }
+
+          if (targetUrl) {
+            const res = await fetch(targetUrl, {
+              method,
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ deletedPermitIds, deletedUserIds, deletedUsernames })
+              body
             });
+            fbSaved = res.ok;
+          }
+
+          if (type === 'del') {
             if (Array.isArray(payload.deletedPermitIds)) {
               for (const pid of payload.deletedPermitIds) {
                 fetch(`${fbBase}/ptw_live/permits/${encodeURIComponent(pid)}.json`, { method: 'DELETE' }).catch(() => {});
@@ -1095,6 +1098,8 @@
           keepalive: true
         }).catch(() => {});
       } catch (e) {}
+
+      return fbSaved;
     }
 
     async function fetchLatestCloudState(showToastFeedback = false) {
@@ -1125,7 +1130,6 @@
         try {
           const res = await fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}/json?poll=1&since=48h`, { cache: 'no-store' });
           if (res.ok) {
-            cloudReachable = true;
             const text = await res.text();
             const lines = text.split('\n').filter(Boolean);
             for (const line of lines) {
@@ -1140,12 +1144,15 @@
         const statusEl = document.getElementById('sync-status-label');
         if (statusEl) {
           statusEl.textContent = cloudReachable
-            ? `Firebase Live (${permits.length} Permits)`
-            : 'Local Mode (Check Internet)';
+            ? `Firebase Connected (${permits.length} Permits)`
+            : 'Firebase Blocked / Offline';
         }
 
         if (showToastFeedback) {
-          showToast(cloudReachable ? 'Cloud Sync Completed ✓' : 'Cloud Unreachable - Local Data Shown', cloudReachable ? 'success' : 'warn');
+          showToast(
+            cloudReachable ? `Firebase Synced ✓ (${permits.length} Permits)` : 'Cannot reach Firebase - Check Rules or Internet',
+            cloudReachable ? 'success' : 'error'
+          );
         }
       } finally {
         isSyncingNow = false;
@@ -1428,10 +1435,13 @@
       saveLocalState();
       closeModal('new-permit-modal');
       refreshAllUI();
-      showToast(`Permit ${permitNum} issued & synced!`, 'success');
 
-      await publishRecordToCloud('permit', newPermit);
+      const savedToFb = await publishRecordToCloud('permit', newPermit);
       await publishRecordToCloud('notif', adminNotif);
+      showToast(
+        savedToFb ? `Permit ${permitNum} saved to Firebase Cloud ✓` : `Saved locally (Firebase offline)`,
+        savedToFb ? 'success' : 'warn'
+      );
     }
 
     function openHandoverModal(permitId) {
