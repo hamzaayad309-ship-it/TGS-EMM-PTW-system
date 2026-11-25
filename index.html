@@ -125,7 +125,7 @@
             </div>
             <div class="flex items-center gap-1.5 text-[11px] text-slate-400 mt-0.5">
               <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-dot"></span>
-              <span id="sync-status-label">Cloud Sync Active</span>
+              <span id="sync-status-label">Connecting to Firebase...</span>
             </div>
           </div>
         </div>
@@ -1118,9 +1118,28 @@
             if (fbRes.ok) {
               cloudReachable = true;
               const fbData = await fbRes.json();
+              const remotePermitIds = (fbData && fbData.permits && typeof fbData.permits === 'object')
+                ? Object.keys(fbData.permits)
+                : [];
+              const remoteUserIds = (fbData && fbData.users && typeof fbData.users === 'object')
+                ? Object.keys(fbData.users)
+                : [];
+
               if (fbData) {
                 if (fbData.deletions) applyRemoteSnapshot(fbData.deletions);
                 applyRemoteSnapshot(fbData);
+              }
+
+              // Two-way auto-push: upload any local permits/users not yet in Firebase
+              for (const localP of permits) {
+                if (!deletedPermitIds.includes(localP.id) && !remotePermitIds.includes(localP.id)) {
+                  await publishRecordToCloud('permit', localP);
+                }
+              }
+              for (const localU of users) {
+                if (!deletedUserIds.includes(localU.id) && !remoteUserIds.includes(localU.id)) {
+                  await publishRecordToCloud('user', localU);
+                }
               }
             }
           } catch (e) {}
