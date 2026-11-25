@@ -560,12 +560,22 @@
     // =========================================================================
     // 1. CLOUD SYNC CONSTANTS & GLOBAL STATE (FIREBASE REALTIME DB EMBEDDED)
     // =========================================================================
-    const DEFAULT_FIREBASE_URL = 'https://tgs-emm-ptw-8616b-default-rtdb.firebaseio.com';
+    const DEFAULT_FIREBASE_URLS = [
+      'https://tgs-emm-ptw-8616b-default-rtdb.asia-southeast1.firebasedatabase.app',
+      'https://tgs-emm-ptw-8616b-default-rtdb.firebaseio.com'
+    ];
+    let resolvedFirebaseUrl = DEFAULT_FIREBASE_URLS[0];
     const NTFY_STREAM_TOPIC = 'tgs_ptw_hamza_iraq_sync_2026_live_v10';
     const STORAGE_KEY = 'ptw_enterprise_state_v10';
     const SESSION_KEY = 'ptw_enterprise_session_v10';
     const LANG_KEY = 'ptw_enterprise_lang_v10';
     const FIREBASE_CFG_KEY = 'ptw_custom_firebase_url_v10';
+
+    let currentLang = localStorage.getItem(LANG_KEY) || 'en';
+    let currentUser = null;
+    let activeTab = 'my';
+    let isSyncingNow = false;
+    let eventSourceConn = null;
 
     let users = [];
     let permits = [];
@@ -573,136 +583,136 @@
     let deletedPermitIds = [];
     let deletedUserIds = [];
     let deletedUsernames = [];
-    let currentUser = null;
-    let activeTab = 'my';
-    let currentLang = localStorage.getItem(LANG_KEY) || 'en';
-    let isSyncingNow = false;
-    let pollTimer = null;
-    let lastCloudStatus = 'Initializing...';
 
+    const DEFAULT_ADMIN = {
+      id: 'usr_admin_master',
+      fullName: 'System Administrator',
+      username: 'admin',
+      password: '123',
+      role: 'ADMIN',
+      active: true,
+      updatedAt: 1700000000000
+    };
+
+    // =========================================================================
+    // 2. BILINGUAL DICTIONARY (ENGLISH DEFAULT + ARABIC)
+    // =========================================================================
     const I18N = {
       en: {
         brandTitle: 'Work Permit System',
         brandSub: 'Handover & Closure Portal',
         loginHeading: 'Sign In to Portal',
         loginSub: 'Enter your authorized username and password',
-        lblUser: 'Username',
-        lblPass: 'Password',
-        btnSignIn: 'Sign In',
-        langToggle: 'العربية',
-        btnSync: 'Sync',
-        btnLogout: 'Logout',
-        tabMy: 'My Permits',
-        tabIncoming: 'Incoming Handovers',
-        tabAll: 'All Site Permits',
-        tabAdmin: 'Admin Control',
-        btnNewPermit: 'New Permit',
-        kpiActive: 'Active Permits',
-        kpiPending: 'Pending Handovers',
-        kpiClosed: 'Closed Permits',
-        kpiTotal: 'Total Visible',
+        username: 'Username',
+        password: 'Password',
+        signIn: 'Sign In',
+        sync: 'Sync',
+        logout: 'Logout',
+        myPermits: 'My Permits',
+        incomingHandovers: 'Incoming Handovers',
+        allSitePermits: 'All Site Permits',
+        adminControl: 'Admin Control',
+        newPermit: 'New Permit',
+        activePermits: 'Active Permits',
+        pendingHandovers: 'Pending Handovers',
+        closedPermits: 'Closed Permits',
+        totalVisible: 'Total Visible',
         searchPlaceholder: 'Search permit number, location, holder...',
-        optAllTypes: 'All Types',
-        optAllStatuses: 'All Statuses',
+        allTypes: 'All Types',
+        allStatuses: 'All Statuses',
         statusActive: 'Active',
         statusPending: 'Pending Handover',
         statusClosed: 'Closed',
-        currentHolder: 'Current Holder:',
-        validUntil: 'Valid Until:',
-        awaitingAcceptance: 'Awaiting Acceptance By:',
-        acceptHandover: 'Accept Handover',
-        declineHandover: 'Decline',
-        btnHandover: 'Handover',
-        btnRenew: 'Renew',
-        btnClose: 'Close',
-        btnAudit: 'Audit Log',
-        noPermitsFound: 'No permits found in this view.',
-        noNotifications: 'No notifications yet.',
-        errInvalidLogin: 'Invalid username or password. Please verify and try again.',
-        errSuspended: 'Your account is suspended. Contact System Administrator.',
-        modalNewPermitTitle: 'Issue New Work Permit',
-        lblPermitNum: 'Permit Number *',
-        lblPermitType: 'Permit Type *',
-        lblPermitLoc: 'Work Location *',
-        lblPermitHandoverTo: 'Handover Permit To Another User (Optional)',
-        hintPermitHandoverTo: 'If selected, an instant notification will be sent to the recipient to accept custody.',
-        lblPermitDesc: 'Work Description *',
-        lblPermitHours: 'Valid Until Date & Time *',
-        btnSubmitPermit: 'Issue Permit',
-        modalHandoverTitle: 'Handover Permit Custody',
-        lblHoRecipient: 'Select Recipient User *',
-        lblHoNotes: 'Handover Notes / Site Condition',
-        btnSendHandover: 'Send Handover Request',
-        modalAuditTitle: 'Permit Audit Log',
-        modalNotifTitle: 'Notifications & Alerts',
-        btnMarkRead: 'Mark All Read',
-        btnCancel: 'Cancel'
+        issueNewPermit: 'Issue New Work Permit',
+        permitNum: 'Permit Number *',
+        permitType: 'Permit Type *',
+        permitLoc: 'Work Location *',
+        handoverTo: 'Handover Permit To Another User (Optional)',
+        handoverHint: 'If selected, an instant notification will be sent to the recipient to accept custody.',
+        permitDesc: 'Work Description *',
+        validUntilLabel: 'Valid Until Date & Time *',
+        cancel: 'Cancel',
+        issueBtn: 'Issue Permit',
+        handoverTitle: 'Handover Permit Custody',
+        hoRecipient: 'Select Recipient User *',
+        hoNotes: 'Handover Notes / Site Condition',
+        sendHandover: 'Send Handover Request',
+        auditTitle: 'Permit Audit Log',
+        notifTitle: 'Notifications & Alerts',
+        markRead: 'Mark All Read',
+        noneSelf: '-- Keep in My Custody (No Handover) --',
+        selectUser: '-- Select User --',
+        noPermits: 'No permits found in this view.',
+        holder: 'Current Holder',
+        validUntil: 'Valid Until',
+        pendingTo: 'Pending Handover To',
+        acceptBtn: 'Accept Custody',
+        rejectBtn: 'Reject',
+        handoverBtn: 'Handover',
+        renewBtn: 'Renew +12h',
+        closeBtn: 'Close Permit',
+        auditBtn: 'Audit Log',
+        waBtn: 'WhatsApp',
+        delBtn: 'Delete'
       },
       ar: {
-        brandTitle: 'نظام تصاريح العمل (PTW)',
-        brandSub: 'بوابة التسليم والاستلام والإغلاق الآمن',
-        loginHeading: 'تسجيل الدخول إلى البوابة',
+        brandTitle: 'نظام تصاريح العمل',
+        brandSub: 'بوابة التسليم والإغلاق الميداني',
+        loginHeading: 'تسجيل الدخول للبوابة',
         loginSub: 'أدخل اسم المستخدم وكلمة المرور المعتمدة',
-        lblUser: 'اسم المستخدم',
-        lblPass: 'كلمة المرور',
-        btnSignIn: 'دخول',
-        langToggle: 'English',
-        btnSync: 'مزامنة',
-        btnLogout: 'خروج',
-        tabMy: 'تصاريحي',
-        tabIncoming: 'طلبات التسليم الواردة',
-        tabAll: 'جميع تصاريح الموقع',
-        tabAdmin: 'لوحة الإدارة',
-        btnNewPermit: 'تصريح جديد',
-        kpiActive: 'التصاريح النشطة',
-        kpiPending: 'بانتظار الاستلام',
-        kpiClosed: 'التصاريح المغلقة',
-        kpiTotal: 'الإجمالي المعروض',
-        searchPlaceholder: 'ابحث برقم التصريح، الموقع، أو حامل العهدة...',
-        optAllTypes: 'جميع الأنواع',
-        optAllStatuses: 'جميع الحالات',
+        username: 'اسم المستخدم',
+        password: 'كلمة المرور',
+        signIn: 'دخول النظام',
+        sync: 'مزامنة',
+        logout: 'خروج',
+        myPermits: 'تصاريحي',
+        incomingHandovers: 'طلبات التسليم الواردة',
+        allSitePermits: 'جميع تصاريح الموقع',
+        adminControl: 'لوحة الإدارة',
+        newPermit: 'تصريح جديد',
+        activePermits: 'التصاريح النشطة',
+        pendingHandovers: 'بانتظار الاستلام',
+        closedPermits: 'التصاريح المغلقة',
+        totalVisible: 'الإجمالي المعروض',
+        searchPlaceholder: 'بحث برقم التصريح، الموقع، أو المستلم...',
+        allTypes: 'كل الأنواع',
+        allStatuses: 'كل الحالات',
         statusActive: 'نشط',
         statusPending: 'بانتظار الاستلام',
         statusClosed: 'مغلق',
-        currentHolder: 'حامل العهدة الحالي:',
-        validUntil: 'صالح لغاية:',
-        awaitingAcceptance: 'بانتظار موافقة واستلام:',
-        acceptHandover: 'قبول واستلام العهدة',
-        declineHandover: 'رفض',
-        btnHandover: 'تسليم',
-        btnRenew: 'تجديد',
-        btnClose: 'إغلاق',
-        btnAudit: 'السجل',
-        noPermitsFound: 'لا توجد تصاريح مطابقة في هذه القائمة.',
-        noNotifications: 'لا توجد إشعارات حالياً.',
-        errInvalidLogin: 'اسم المستخدم أو كلمة المرور غير صحيحة.',
-        errSuspended: 'تم إيقاف حسابك. يرجى مراجعة الإدارة.',
-        modalNewPermitTitle: 'إصدار تصريح عمل جديد',
-        lblPermitNum: 'رقم التصريح *',
-        lblPermitType: 'نوع التصريح *',
-        lblPermitLoc: 'موقع العمل *',
-        lblPermitHandoverTo: 'تسليم التصريح لمستخدم آخر مباشرة (اختياري)',
-        hintPermitHandoverTo: 'في حال اختيار مستخدم، سيصله إشعار فوري لقبول واستلام عهدة التصريح.',
-        lblPermitDesc: 'وصف العمل واجراءات السلامة *',
-        lblPermitHours: 'تاريخ ووقت انتهاء الصلاحية *',
-        btnSubmitPermit: 'إصدار التصريح',
-        modalHandoverTitle: 'تسليم عهدة التصريح',
-        lblHoRecipient: 'اختر المستخدم المستلم *',
-        lblHoNotes: 'ملاحظات التسليم وحالة الموقع',
-        btnSendHandover: 'إرسال طلب التسليم',
-        modalAuditTitle: 'سجل حركات التصريح',
-        modalNotifTitle: 'الإشعارات والتنبيهات',
-        btnMarkRead: 'تحديد الكل كمقروء',
-        btnCancel: 'إلغاء'
+        issueNewPermit: 'إصدار تصريح عمل جديد',
+        permitNum: 'رقم التصريح *',
+        permitType: 'نوع التصريح *',
+        permitLoc: 'موقع العمل *',
+        handoverTo: 'تسليم التصريح لمستخدم آخر (اختياري)',
+        handoverHint: 'عند اختيار مستخدم سيصله إشعار فوري لقبول استلام التصريح.',
+        permitDesc: 'وصف العمل واجراءات السلامة *',
+        validUntilLabel: 'تاريخ ووقت انتهاء الصلاحية *',
+        cancel: 'إلغاء',
+        issueBtn: 'إصدار التصريح',
+        handoverTitle: 'تسليم عهدة التصريح',
+        hoRecipient: 'اختر المستخدم المستلم *',
+        hoNotes: 'ملاحظات التسليم وحالة الموقع',
+        sendHandover: 'إرسال طلب التسليم',
+        auditTitle: 'سجل حركات التصريح',
+        notifTitle: 'الإشعارات والتنبيهات',
+        markRead: 'تحديد الكل كمقروء',
+        noneSelf: '-- إبقاء التصريح بعهدتي (بدون تسليم) --',
+        selectUser: '-- اختر المستخدم --',
+        noPermits: 'لا توجد تصاريح في هذه القائمة.',
+        holder: 'حامل التصريح الحالي',
+        validUntil: 'صالح لغاية',
+        pendingTo: 'بانتظار استلام',
+        acceptBtn: 'قبول الاستلام',
+        rejectBtn: 'رفض',
+        handoverBtn: 'تسليم',
+        renewBtn: 'تجديد +12س',
+        closeBtn: 'إغلاق التصريح',
+        auditBtn: 'السجل',
+        waBtn: 'واتساب',
+        delBtn: 'حذف'
       }
     };
-
-    function toggleLanguage() {
-      currentLang = currentLang === 'en' ? 'ar' : 'en';
-      localStorage.setItem(LANG_KEY, currentLang);
-      applyLanguage();
-      if (currentUser) refreshAllUI();
-    }
 
     function applyLanguage() {
       const t = I18N[currentLang] || I18N.en;
@@ -718,97 +728,88 @@
       setTxt('login-brand-sub', t.brandSub);
       setTxt('login-heading', t.loginHeading);
       setTxt('login-subheading', t.loginSub);
-      setTxt('lbl-login-user', t.lblUser);
-      setTxt('lbl-login-pass', t.lblPass);
-      setTxt('login-btn-label', t.btnSignIn);
-      setTxt('login-lang-btn', t.langToggle);
-      setTxt('header-lang-btn', t.langToggle);
-      setTxt('btn-sync-text', t.btnSync);
-      setTxt('btn-logout-text', t.btnLogout);
-      setTxt('tab-my-label', t.tabMy);
-      setTxt('tab-incoming-label', t.tabIncoming);
-      setTxt('tab-all-label', t.tabAll);
-      setTxt('tab-admin-label', t.tabAdmin);
-      setTxt('btn-new-permit-text', t.btnNewPermit);
-      setTxt('kpi-active-label', t.kpiActive);
-      setTxt('kpi-pending-label', t.kpiPending);
-      setTxt('kpi-closed-label', t.kpiClosed);
-      setTxt('kpi-total-label', t.kpiTotal);
-      setTxt('opt-all-types', t.optAllTypes);
-      setTxt('opt-all-statuses', t.optAllStatuses);
+      setTxt('lbl-login-user', t.username);
+      setTxt('lbl-login-pass', t.password);
+      setTxt('login-btn-label', t.signIn);
+      setTxt('login-lang-btn', currentLang === 'en' ? 'العربية' : 'English');
+      setTxt('header-lang-btn', currentLang === 'en' ? 'العربية' : 'English');
+      setTxt('btn-sync-text', t.sync);
+      setTxt('btn-logout-text', t.logout);
+      setTxt('tab-my-label', t.myPermits);
+      setTxt('tab-incoming-label', t.incomingHandovers);
+      setTxt('tab-all-label', t.allSitePermits);
+      setTxt('tab-admin-label', t.adminControl);
+      setTxt('btn-new-permit-text', t.newPermit);
+      setTxt('kpi-active-label', t.activePermits);
+      setTxt('kpi-pending-label', t.pendingHandovers);
+      setTxt('kpi-closed-label', t.closedPermits);
+      setTxt('kpi-total-label', t.totalVisible);
+      setTxt('opt-all-types', t.allTypes);
+      setTxt('opt-all-statuses', t.allStatuses);
       setTxt('opt-status-active', t.statusActive);
       setTxt('opt-status-pending', t.statusPending);
       setTxt('opt-status-closed', t.statusClosed);
-      setTxt('modal-new-permit-title', t.modalNewPermitTitle);
-      setTxt('lbl-permit-num', t.lblPermitNum);
-      setTxt('lbl-permit-type', t.lblPermitType);
-      setTxt('lbl-permit-loc', t.lblPermitLoc);
-      setTxt('lbl-permit-handover-to', t.lblPermitHandoverTo);
-      setTxt('hint-permit-handover-to', t.hintPermitHandoverTo);
-      setTxt('lbl-permit-desc', t.lblPermitDesc);
-      setTxt('lbl-permit-hours', t.lblPermitHours);
-      setTxt('btn-submit-permit', t.btnSubmitPermit);
-      setTxt('modal-handover-title', t.modalHandoverTitle);
-      setTxt('lbl-ho-recipient', t.lblHoRecipient);
-      setTxt('lbl-ho-notes', t.lblHoNotes);
-      setTxt('btn-send-handover', t.btnSendHandover);
-      setTxt('modal-audit-title', t.modalAuditTitle);
-      setTxt('modal-notif-title', t.modalNotifTitle);
-      setTxt('btn-mark-read', t.btnMarkRead);
+      setTxt('modal-new-permit-title', t.issueNewPermit);
+      setTxt('lbl-permit-num', t.permitNum);
+      setTxt('lbl-permit-type', t.permitType);
+      setTxt('lbl-permit-loc', t.permitLoc);
+      setTxt('lbl-permit-handover-to', t.handoverTo);
+      setTxt('hint-permit-handover-to', t.handoverHint);
+      setTxt('lbl-permit-desc', t.permitDesc);
+      setTxt('lbl-permit-hours', t.validUntilLabel);
+      setTxt('btn-submit-permit', t.issueBtn);
+      setTxt('modal-handover-title', t.handoverTitle);
+      setTxt('lbl-ho-recipient', t.hoRecipient);
+      setTxt('lbl-ho-notes', t.hoNotes);
+      setTxt('btn-send-handover', t.sendHandover);
+      setTxt('modal-audit-title', t.auditTitle);
+      setTxt('modal-notif-title', t.notifTitle);
+      setTxt('btn-mark-read', t.markRead);
 
-      const searchInp = document.getElementById('search-input');
-      if (searchInp) searchInp.placeholder = t.searchPlaceholder;
-      document.querySelectorAll('.lbl-cancel').forEach(btn => { btn.textContent = t.btnCancel; });
+      const searchEl = document.getElementById('search-input');
+      if (searchEl) searchEl.placeholder = t.searchPlaceholder;
+      document.querySelectorAll('.lbl-cancel').forEach(el => { el.textContent = t.cancel; });
+
+      if (currentUser) refreshAllUI();
     }
 
+    function toggleLanguage() {
+      currentLang = currentLang === 'en' ? 'ar' : 'en';
+      localStorage.setItem(LANG_KEY, currentLang);
+      applyLanguage();
+    }
+
+    // =========================================================================
+    // 3. LOCAL STATE PERSISTENCE & HELPERS
+    // =========================================================================
     function normalizeDigits(str) {
-      return String(str || '').replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d));
-    }
-
-    function ensureDefaultAdminAccount() {
-      if (!users.some(u => u.id === 'usr_admin_1' || u.username.toLowerCase() === 'admin')) {
-        users.unshift({
-          id: 'usr_admin_1',
-          fullName: 'System Administrator',
-          username: 'admin',
-          password: '123',
-          role: 'ADMIN',
-          active: true,
-          updatedAt: 1
-        });
-      }
-    }
-
-    function filterDeletedEntities() {
-      permits = permits.filter(p => p && p.id && !deletedPermitIds.includes(p.id));
-      users = users.filter(u => {
-        if (!u || !u.id) return false;
-        if (u.id === 'usr_admin_1') return true;
-        if (deletedUserIds.includes(u.id)) return false;
-        if (u.username && deletedUsernames.includes(u.username.toLowerCase())) return false;
-        return true;
-      });
-      ensureDefaultAdminAccount();
+      if (!str) return '';
+      return String(str)
+        .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
+        .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
     }
 
     function loadLocalState() {
       try {
-        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-        users = Array.isArray(raw.users) ? raw.users : [];
-        permits = Array.isArray(raw.permits) ? raw.permits : [];
-        notifications = Array.isArray(raw.notifications) ? raw.notifications : [];
-        deletedPermitIds = Array.isArray(raw.deletedPermitIds) ? raw.deletedPermitIds : [];
-        deletedUserIds = Array.isArray(raw.deletedUserIds) ? raw.deletedUserIds : [];
-        deletedUsernames = Array.isArray(raw.deletedUsernames) ? raw.deletedUsernames : [];
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          users = Array.isArray(parsed.users) ? parsed.users : [];
+          permits = Array.isArray(parsed.permits) ? parsed.permits : [];
+          notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+          deletedPermitIds = Array.isArray(parsed.deletedPermitIds) ? parsed.deletedPermitIds : [];
+          deletedUserIds = Array.isArray(parsed.deletedUserIds) ? parsed.deletedUserIds : [];
+          deletedUsernames = Array.isArray(parsed.deletedUsernames) ? parsed.deletedUsernames : [];
+        }
       } catch (e) {
         users = [];
         permits = [];
         notifications = [];
-        deletedPermitIds = [];
-        deletedUserIds = [];
-        deletedUsernames = [];
       }
-      filterDeletedEntities();
+
+      if (!users.some(u => u.username && u.username.toLowerCase() === 'admin')) {
+        users.unshift({ ...DEFAULT_ADMIN });
+      }
     }
 
     function saveLocalState() {
@@ -816,7 +817,7 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           users,
           permits,
-          notifications: notifications.slice(0, 100),
+          notifications: notifications.slice(0, 120),
           deletedPermitIds,
           deletedUserIds,
           deletedUsernames
@@ -824,152 +825,189 @@
       } catch (e) {}
     }
 
-    function mergeSingleUser(incoming) {
-      if (!incoming || !incoming.id || !incoming.username) return;
-      if (incoming.id !== 'usr_admin_1') {
-        if (deletedUserIds.includes(incoming.id) || deletedUsernames.includes(incoming.username.toLowerCase())) return;
-      }
-      const idx = users.findIndex(u => u.id === incoming.id || u.username.toLowerCase() === incoming.username.toLowerCase());
-      if (idx === -1) {
-        users.push(incoming);
-      } else if ((incoming.updatedAt || 0) >= (users[idx].updatedAt || 0)) {
-        users[idx] = { ...users[idx], ...incoming };
-      }
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) return;
+      const el = document.createElement('div');
+      const colors = {
+        success: 'bg-emerald-600 text-white border-emerald-500',
+        error: 'bg-red-600 text-white border-red-500',
+        warn: 'bg-amber-500 text-slate-950 border-amber-400',
+        info: 'bg-slate-900 text-white border-slate-700'
+      };
+      el.className = `pointer-events-auto px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold flex items-center justify-between gap-2 transition-all ${colors[type] || colors.info}`;
+      el.innerHTML = `<span>${escapeHtml(msg)}</span><button type="button" onclick="this.parentElement.remove()" class="opacity-80 hover:opacity-100 text-sm font-extrabold">&times;</button>`;
+      container.appendChild(el);
+      setTimeout(() => { if (el.parentElement) el.remove(); }, 4500);
     }
 
-    function mergeSinglePermit(incoming) {
-      if (!incoming || !incoming.id) return;
-      if (deletedPermitIds.includes(incoming.id)) return;
-      const idx = permits.findIndex(p => p.id === incoming.id);
-      if (idx === -1) {
-        permits.unshift(incoming);
-      } else if ((incoming.updatedAt || 0) >= (permits[idx].updatedAt || 0)) {
-        const mergedLogs = Array.isArray(incoming.logs) && incoming.logs.length >= (permits[idx].logs || []).length
-          ? incoming.logs
-          : (permits[idx].logs || incoming.logs || []);
-        permits[idx] = { ...permits[idx], ...incoming, logs: mergedLogs };
-      }
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
     }
 
-    function mergeSingleNotif(incoming) {
-      if (!incoming || !incoming.id) return;
-      const idx = notifications.findIndex(n => n.id === incoming.id);
-      if (idx === -1) {
-        notifications.unshift(incoming);
-      } else if (incoming.read) {
-        notifications[idx].read = true;
-      }
+    function formatDateTime(ts) {
+      if (!ts) return '-';
+      const d = new Date(ts);
+      if (isNaN(d.getTime())) return String(ts);
+      const pad = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
 
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    }
+
+    // =========================================================================
+    // 4. CLOUD SYNC ENGINE (FIREBASE REALTIME DB + NTFY BACKUP STREAM)
+    // =========================================================================
     function getCustomFirebaseBase() {
       const saved = (localStorage.getItem(FIREBASE_CFG_KEY) || '').trim().replace(/\/+$/, '');
-      if (saved.startsWith('https://') && saved.includes('firebaseio.com')) return saved;
-      return DEFAULT_FIREBASE_URL;
+      if (saved.startsWith('https://') && (saved.includes('firebaseio.com') || saved.includes('firebasedatabase.app'))) {
+        return saved;
+      }
+      return resolvedFirebaseUrl;
+    }
+
+    async function resolveWorkingFirebaseUrl() {
+      const saved = (localStorage.getItem(FIREBASE_CFG_KEY) || '').trim().replace(/\/+$/, '');
+      const candidates = saved ? [saved, ...DEFAULT_FIREBASE_URLS] : [...DEFAULT_FIREBASE_URLS];
+      for (const base of candidates) {
+        try {
+          const res = await fetch(`${base}/ptw_live/ping.json?_=${Date.now()}`, { cache: 'no-store' });
+          if (res.ok) {
+            resolvedFirebaseUrl = base;
+            return base;
+          }
+        } catch (e) {}
+      }
+      return resolvedFirebaseUrl;
+    }
+
+    function mergeSingleUser(u) {
+      if (!u || !u.id) return false;
+      const unameLow = (u.username || '').toLowerCase();
+      if (deletedUserIds.includes(u.id) || (unameLow && deletedUsernames.includes(unameLow))) {
+        users = users.filter(x => x.id !== u.id && (x.username || '').toLowerCase() !== unameLow);
+        return true;
+      }
+      const idx = users.findIndex(x => x.id === u.id || (x.username && u.username && x.username.toLowerCase() === unameLow));
+      if (idx === -1) {
+        users.push(u);
+        return true;
+      }
+      if ((u.updatedAt || 0) >= (users[idx].updatedAt || 0)) {
+        users[idx] = { ...users[idx], ...u };
+        return true;
+      }
+      return false;
+    }
+
+    function mergeSinglePermit(p) {
+      if (!p || !p.id) return false;
+      if (deletedPermitIds.includes(p.id)) {
+        const before = permits.length;
+        permits = permits.filter(x => x.id !== p.id);
+        return permits.length !== before;
+      }
+      const idx = permits.findIndex(x => x.id === p.id);
+      if (idx === -1) {
+        permits.unshift(p);
+        return true;
+      }
+      if ((p.updatedAt || 0) >= (permits[idx].updatedAt || 0)) {
+        permits[idx] = { ...permits[idx], ...p };
+        return true;
+      }
+      return false;
+    }
+
+    function mergeSingleNotif(n) {
+      if (!n || !n.id) return false;
+      const idx = notifications.findIndex(x => x.id === n.id);
+      if (idx === -1) {
+        notifications.unshift(n);
+        return true;
+      }
+      if (n.read && !notifications[idx].read) {
+        notifications[idx].read = true;
+        return true;
+      }
+      return false;
     }
 
     function applyRemoteSnapshot(snap) {
-      if (!snap || typeof snap !== 'object') return;
+      if (!snap || typeof snap !== 'object') return false;
+      let changed = false;
+
       if (Array.isArray(snap.deletedPermitIds)) {
-        snap.deletedPermitIds.forEach(id => { if (!deletedPermitIds.includes(id)) deletedPermitIds.push(id); });
-      } else if (snap.deletedPermitIds && typeof snap.deletedPermitIds === 'object') {
-        Object.keys(snap.deletedPermitIds).forEach(id => { if (!deletedPermitIds.includes(id)) deletedPermitIds.push(id); });
+        snap.deletedPermitIds.forEach(id => {
+          if (!deletedPermitIds.includes(id)) {
+            deletedPermitIds.push(id);
+            changed = true;
+          }
+        });
       }
       if (Array.isArray(snap.deletedUserIds)) {
-        snap.deletedUserIds.forEach(id => { if (!deletedUserIds.includes(id)) deletedUserIds.push(id); });
-      } else if (snap.deletedUserIds && typeof snap.deletedUserIds === 'object') {
-        Object.keys(snap.deletedUserIds).forEach(id => { if (!deletedUserIds.includes(id)) deletedUserIds.push(id); });
+        snap.deletedUserIds.forEach(id => {
+          if (!deletedUserIds.includes(id)) {
+            deletedUserIds.push(id);
+            changed = true;
+          }
+        });
       }
       if (Array.isArray(snap.deletedUsernames)) {
         snap.deletedUsernames.forEach(un => {
           const low = String(un).toLowerCase();
-          if (!deletedUsernames.includes(low)) deletedUsernames.push(low);
+          if (!deletedUsernames.includes(low)) {
+            deletedUsernames.push(low);
+            changed = true;
+          }
         });
       }
-      if (Array.isArray(snap.users)) {
-        snap.users.forEach(u => mergeSingleUser(u));
-      } else if (snap.users && typeof snap.users === 'object') {
-        Object.values(snap.users).forEach(u => mergeSingleUser(u));
-      }
-      if (Array.isArray(snap.permits)) {
-        snap.permits.forEach(p => mergeSinglePermit(p));
-      } else if (snap.permits && typeof snap.permits === 'object') {
-        Object.values(snap.permits).forEach(p => mergeSinglePermit(p));
-      }
-      if (Array.isArray(snap.notifications)) {
-        snap.notifications.forEach(n => mergeSingleNotif(n));
-      } else if (snap.notifications && typeof snap.notifications === 'object') {
-        Object.values(snap.notifications).forEach(n => mergeSingleNotif(n));
-      }
-    }
 
-    async function publishRecordToCloud(type, payload) {
-      if (!payload) return;
-      const fbBase = getCustomFirebaseBase();
-
-      // 1. Atomic per-record write to Firebase Realtime DB (Zero overwrite conflicts across devices)
-      if (fbBase) {
-        try {
-          if (type === 'permit' && payload.id) {
-            await fetch(`${fbBase}/ptw_live/permits/${encodeURIComponent(payload.id)}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-              keepalive: true
-            });
-          } else if (type === 'user' && payload.id) {
-            await fetch(`${fbBase}/ptw_live/users/${encodeURIComponent(payload.id)}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-              keepalive: true
-            });
-          } else if (type === 'notif' && payload.id) {
-            await fetch(`${fbBase}/ptw_live/notifications/${encodeURIComponent(payload.id)}.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(payload),
-              keepalive: true
-            });
-          } else if (type === 'del') {
-            await fetch(`${fbBase}/ptw_live/deletions.json`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                deletedPermitIds,
-                deletedUserIds,
-                deletedUsernames,
-                ts: Date.now()
-              }),
-              keepalive: true
-            });
-            // Also remove deleted items directly from Firebase nodes
-            for (const pid of deletedPermitIds) {
-              fetch(`${fbBase}/ptw_live/permits/${encodeURIComponent(pid)}.json`, { method: 'DELETE', keepalive: true }).catch(() => {});
-            }
-            for (const uid of deletedUserIds) {
-              if (uid !== 'usr_admin_1') {
-                fetch(`${fbBase}/ptw_live/users/${encodeURIComponent(uid)}.json`, { method: 'DELETE', keepalive: true }).catch(() => {});
-              }
-            }
-          }
-          lastCloudStatus = 'Firebase Connected';
-        } catch (e) {}
+      if (deletedPermitIds.length) {
+        const before = permits.length;
+        permits = permits.filter(p => !deletedPermitIds.includes(p.id));
+        if (permits.length !== before) changed = true;
+      }
+      if (deletedUserIds.length || deletedUsernames.length) {
+        const beforeU = users.length;
+        users = users.filter(u => !deletedUserIds.includes(u.id) && !deletedUsernames.includes((u.username || '').toLowerCase()));
+        if (users.length !== beforeU) changed = true;
       }
 
-      // 2. Parallel real-time push notification packet via ntfy
-      try {
-        const lightRecord = type === 'permit'
-          ? { ...payload, logs: Array.isArray(payload.logs) ? payload.logs.slice(0, 3) : [] }
-          : payload;
-        const bodyObj = { t: type, d: lightRecord, ts: Date.now() };
-        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(bodyObj))));
-        fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-          body: `PTW_PKT::${encoded}`,
-          keepalive: true
-        }).catch(() => {});
-      } catch (e) {}
+      if (snap.users && typeof snap.users === 'object') {
+        const list = Array.isArray(snap.users) ? snap.users : Object.values(snap.users);
+        list.forEach(u => { if (mergeSingleUser(u)) changed = true; });
+      }
+      if (snap.permits && typeof snap.permits === 'object') {
+        const list = Array.isArray(snap.permits) ? snap.permits : Object.values(snap.permits);
+        list.forEach(p => { if (mergeSinglePermit(p)) changed = true; });
+      }
+      if (snap.notifications && typeof snap.notifications === 'object') {
+        const list = Array.isArray(snap.notifications) ? snap.notifications : Object.values(snap.notifications);
+        list.forEach(n => { if (mergeSingleNotif(n)) changed = true; });
+      }
+
+      if (changed) {
+        saveLocalState();
+        enforceCurrentUserAccess();
+        if (currentUser) {
+          if (activeTab === 'admin' && currentUser.role === 'ADMIN') renderAdminPanel();
+          else refreshAllUI();
+        }
+      }
+      return changed;
     }
 
     function processIncomingCloudMessage(rawMsg) {
@@ -983,10 +1021,79 @@
           packet = JSON.parse(rawMsg);
         }
         if (!packet || !packet.t || !packet.d) return;
-        if (packet.t === 'user') mergeSingleUser(packet.d);
-        else if (packet.t === 'permit') mergeSinglePermit(packet.d);
-        else if (packet.t === 'notif') mergeSingleNotif(packet.d);
-        else if (packet.t === 'del') applyRemoteSnapshot(packet.d);
+
+        let changed = false;
+        if (packet.t === 'user') changed = mergeSingleUser(packet.d);
+        else if (packet.t === 'permit') changed = mergeSinglePermit(packet.d);
+        else if (packet.t === 'notif') changed = mergeSingleNotif(packet.d);
+        else if (packet.t === 'del') changed = applyRemoteSnapshot(packet.d);
+
+        if (changed) {
+          saveLocalState();
+          enforceCurrentUserAccess();
+          if (currentUser) {
+            if (activeTab === 'admin' && currentUser.role === 'ADMIN') renderAdminPanel();
+            else refreshAllUI();
+          }
+        }
+      } catch (e) {}
+    }
+
+    async function publishRecordToCloud(type, payload) {
+      if (!payload) return;
+      const fbBase = await resolveWorkingFirebaseUrl();
+
+      // 1. Atomic per-record write to Firebase Realtime DB
+      if (fbBase) {
+        try {
+          if (type === 'permit' && payload.id) {
+            await fetch(`${fbBase}/ptw_live/permits/${encodeURIComponent(payload.id)}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+          } else if (type === 'user' && payload.id) {
+            await fetch(`${fbBase}/ptw_live/users/${encodeURIComponent(payload.id)}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+          } else if (type === 'notif' && payload.id) {
+            await fetch(`${fbBase}/ptw_live/notifications/${encodeURIComponent(payload.id)}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+          } else if (type === 'del') {
+            await fetch(`${fbBase}/ptw_live/deletions.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ deletedPermitIds, deletedUserIds, deletedUsernames })
+            });
+            if (Array.isArray(payload.deletedPermitIds)) {
+              for (const pid of payload.deletedPermitIds) {
+                fetch(`${fbBase}/ptw_live/permits/${encodeURIComponent(pid)}.json`, { method: 'DELETE' }).catch(() => {});
+              }
+            }
+            if (Array.isArray(payload.deletedUserIds)) {
+              for (const uid of payload.deletedUserIds) {
+                fetch(`${fbBase}/ptw_live/users/${encodeURIComponent(uid)}.json`, { method: 'DELETE' }).catch(() => {});
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 2. Broadcast lightweight single-line plain-text packet to ntfy backup stream
+      try {
+        const bodyObj = { t: type, d: payload, ts: Date.now() };
+        const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(bodyObj))));
+        fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: `PTW_PKT::${encoded}`,
+          keepalive: true
+        }).catch(() => {});
       } catch (e) {}
     }
 
@@ -998,8 +1105,8 @@
       let cloudReachable = false;
 
       try {
-        // A. Fetch from Embedded Firebase Realtime Database (Primary Source of Truth)
-        const fbBase = getCustomFirebaseBase();
+        // A. Fetch from Embedded Firebase Realtime Database
+        const fbBase = await resolveWorkingFirebaseUrl();
         if (fbBase) {
           try {
             const fbRes = await fetch(`${fbBase}/ptw_live.json?_=${Date.now()}`, { cache: 'no-store' });
@@ -1016,11 +1123,11 @@
 
         // B. Fetch from ntfy real-time stream (backup push channel)
         try {
-          const ntfyRes = await fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}/json?poll=1&since=24h&_=${Date.now()}`, { cache: 'no-store' });
-          if (ntfyRes.ok) {
+          const res = await fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}/json?poll=1&since=48h`, { cache: 'no-store' });
+          if (res.ok) {
             cloudReachable = true;
-            const rawText = await ntfyRes.text();
-            const lines = rawText.split('\n').map(l => l.trim()).filter(Boolean);
+            const text = await res.text();
+            const lines = text.split('\n').filter(Boolean);
             for (const line of lines) {
               try {
                 const evt = JSON.parse(line);
@@ -1030,35 +1137,15 @@
           }
         } catch (e) {}
 
-        filterDeletedEntities();
-        saveLocalState();
-
-        // Enforce immediate logout if current user was deleted/suspended by admin
-        if (currentUser && currentUser.id !== 'usr_admin_1') {
-          const freshMe = users.find(u => u.id === currentUser.id || u.username.toLowerCase() === currentUser.username.toLowerCase());
-          if (!freshMe || freshMe.active === false) {
-            handleLogout();
-            showToast(currentLang === 'ar' ? 'تم إيقاف أو حذف حسابك من قبل الإدارة.' : 'Your account has been suspended or removed by Admin.', 'error');
-            return;
-          }
-          currentUser = freshMe;
+        const statusEl = document.getElementById('sync-status-label');
+        if (statusEl) {
+          statusEl.textContent = cloudReachable
+            ? `Firebase Live (${permits.length} Permits)`
+            : 'Local Mode (Check Internet)';
         }
 
-        const statusLbl = document.getElementById('sync-status-label');
-        if (statusLbl) {
-          statusLbl.textContent = cloudReachable
-            ? (currentLang === 'ar' ? `متصل بالسحابة (${permits.length} تصاريح)` : `Firebase Synced (${permits.length} Permits)`)
-            : (currentLang === 'ar' ? 'وضع محلي (تحقق من الإنترنت)' : 'Offline / Local Mode');
-        }
-
-        if (currentUser) refreshAllUI();
         if (showToastFeedback) {
-          showToast(
-            cloudReachable
-              ? (currentLang === 'ar' ? `تمت المزامنة مع Firebase (${permits.length} تصاريح)` : `Synced with Firebase (${permits.length} permits)`)
-              : (currentLang === 'ar' ? 'تعذر الوصول للسحابة حالياً' : 'Cloud unreachable right now'),
-            cloudReachable ? 'success' : 'error'
-          );
+          showToast(cloudReachable ? 'Cloud Sync Completed ✓' : 'Cloud Unreachable - Local Data Shown', cloudReachable ? 'success' : 'warn');
         }
       } finally {
         isSyncingNow = false;
@@ -1067,62 +1154,41 @@
     }
 
     function startLiveCloudStream() {
+      if (eventSourceConn) {
+        try { eventSourceConn.close(); } catch (e) {}
+      }
       try {
-        const es = new EventSource(`https://ntfy.sh/${NTFY_STREAM_TOPIC}/sse`);
-        es.onmessage = (event) => {
+        eventSourceConn = new EventSource(`https://ntfy.sh/${NTFY_STREAM_TOPIC}/sse`);
+        eventSourceConn.onmessage = (event) => {
           try {
             const evt = JSON.parse(event.data);
-            if (evt && evt.message) {
-              processIncomingCloudMessage(evt.message);
-              filterDeletedEntities();
-              saveLocalState();
-              if (currentUser) refreshAllUI();
-            }
+            if (evt && evt.message) processIncomingCloudMessage(evt.message);
           } catch (e) {}
         };
       } catch (e) {}
-
-      if (pollTimer) clearInterval(pollTimer);
-      pollTimer = setInterval(() => {
-        fetchLatestCloudState(false);
-      }, 4500);
     }
 
     // =========================================================================
-    // 2. CLOUD SETUP & DIRECT LINK SHARING HELPERS
+    // 5. AUTHENTICATION & ACCESS ENFORCEMENT
     // =========================================================================
-    function openCloudSetupModal() {
-      const inp = document.getElementById('cloud-fb-url-input');
-      if (inp) inp.value = getCustomFirebaseBase();
-      openModal('cloud-setup-modal');
-    }
-
-    function handleSaveCloudUrl(e) {
-      e.preventDefault();
-      const val = (document.getElementById('cloud-fb-url-input').value || '').trim().replace(/\/+$/, '');
-      if (val) localStorage.setItem(FIREBASE_CFG_KEY, val);
-      else localStorage.removeItem(FIREBASE_CFG_KEY);
-      closeModal('cloud-setup-modal');
-      users.forEach(u => publishRecordToCloud('user', u));
-      permits.forEach(p => publishRecordToCloud('permit', p));
-      fetchLatestCloudState(true);
-    }
-
-    function importSharedPayloadFromUrl() {
+    function checkMagicInviteLink() {
       try {
         const params = new URLSearchParams(window.location.search);
         const fbParam = params.get('fb');
-        if (fbParam && fbParam.startsWith('https://')) {
-          localStorage.setItem(FIREBASE_CFG_KEY, fbParam.replace(/\/+$/, ''));
+        if (fbParam) {
+          const decodedFb = decodeURIComponent(escape(atob(fbParam)));
+          if (decodedFb.startsWith('https://')) {
+            localStorage.setItem(FIREBASE_CFG_KEY, decodedFb);
+          }
         }
         const uParam = params.get('u');
         if (uParam) {
-          const decodedUser = JSON.parse(decodeURIComponent(escape(atob(uParam))));
-          if (decodedUser && decodedUser.username) {
-            mergeSingleUser(decodedUser);
+          const invitedUser = JSON.parse(decodeURIComponent(escape(atob(uParam))));
+          if (invitedUser && invitedUser.id && invitedUser.username) {
+            mergeSingleUser(invitedUser);
             saveLocalState();
-            const uInp = document.getElementById('login-username');
-            if (uInp) uInp.value = decodedUser.username;
+            const uInput = document.getElementById('login-username');
+            if (uInput) uInput.value = invitedUser.username;
           }
         }
         if (fbParam || uParam) {
@@ -1131,70 +1197,67 @@
       } catch (e) {}
     }
 
-    function copyTextFallback(text) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.position = 'fixed';
-      ta.style.opacity = '0';
-      document.body.appendChild(ta);
-      ta.select();
-      try { document.execCommand('copy'); } catch (e) {}
-      document.body.removeChild(ta);
-    }
-
-    function copyPortalLink() {
-      const base = window.location.origin + window.location.pathname;
-      const fb = getCustomFirebaseBase();
-      const fullUrl = fb ? `${base}?fb=${encodeURIComponent(fb)}` : base;
-      copyTextFallback(fullUrl);
-      showToast(currentLang === 'ar' ? 'تم نسخ رابط البوابة!' : 'Portal link copied!', 'success');
-    }
-
-    function copyUserCredentials(userId) {
-      const u = users.find(x => x.id === userId);
-      if (!u) return;
-      const base = window.location.origin + window.location.pathname;
-      const fb = getCustomFirebaseBase();
-      const encodedU = btoa(unescape(encodeURIComponent(JSON.stringify(u))));
-      const link = `${base}?u=${encodeURIComponent(encodedU)}${fb ? `&fb=${encodeURIComponent(fb)}` : ''}`;
-      const msg = `PTW System Login:\nLink: ${link}\nUsername: ${u.username}\nPassword: ${u.password}`;
-      copyTextFallback(msg);
-      showToast(currentLang === 'ar' ? `تم نسخ رابط وبيانات دخول ${u.fullName}` : `Login link & credentials copied for ${u.fullName}`, 'success');
-    }
-
-    // =========================================================================
-    // 3. AUTHENTICATION & SESSION HANDLERS
-    // =========================================================================
     async function handleLogin(e) {
       e.preventDefault();
       const errBox = document.getElementById('login-error-box');
       const errTxt = document.getElementById('login-error-text');
       errBox.classList.add('hidden');
 
-      const rawUser = (document.getElementById('login-username').value || '').trim();
-      const rawPass = normalizeDigits((document.getElementById('login-password').value || '').trim());
+      const rawUser = document.getElementById('login-username').value.trim();
+      const rawPass = normalizeDigits(document.getElementById('login-password').value.trim());
+      const unameLow = rawUser.toLowerCase();
 
-      let matched = users.find(u => u.username.toLowerCase() === rawUser.toLowerCase() && normalizeDigits(u.password) === rawPass);
-      if (!matched) {
-        await fetchLatestCloudState(false);
-        matched = users.find(u => u.username.toLowerCase() === rawUser.toLowerCase() && normalizeDigits(u.password) === rawPass);
-      }
+      if (!rawUser || !rawPass) return;
 
-      if (!matched) {
-        errTxt.textContent = I18N[currentLang].errInvalidLogin;
+      // Sync latest users from cloud before verifying
+      await fetchLatestCloudState(false);
+
+      if (deletedUsernames.includes(unameLow)) {
+        errTxt.textContent = currentLang === 'ar'
+          ? 'تم إيقاف أو حذف هذا الحساب من قبل الإدارة.'
+          : 'This user account has been revoked by Administrator.';
         errBox.classList.remove('hidden');
         return;
       }
-      if (matched.active === false) {
-        errTxt.textContent = I18N[currentLang].errSuspended;
+
+      const found = users.find(u =>
+        u.username &&
+        u.username.toLowerCase() === unameLow &&
+        normalizeDigits(u.password) === rawPass &&
+        u.active !== false
+      );
+
+      if (!found) {
+        errTxt.textContent = currentLang === 'ar'
+          ? 'اسم المستخدم أو كلمة المرور غير صحيحة.'
+          : 'Invalid username or password.';
         errBox.classList.remove('hidden');
         return;
       }
 
-      currentUser = matched;
-      localStorage.setItem(SESSION_KEY, JSON.stringify({ id: matched.id, username: matched.username }));
-      activeTab = matched.role === 'ADMIN' ? 'all' : 'my';
+      currentUser = found;
+      localStorage.setItem(SESSION_KEY, JSON.stringify({ id: found.id, username: found.username }));
+      activeTab = found.role === 'ADMIN' ? 'all' : 'my';
       enterAppShell();
+    }
+
+    function enforceCurrentUserAccess() {
+      if (!currentUser) return;
+      const unameLow = (currentUser.username || '').toLowerCase();
+      if (deletedUserIds.includes(currentUser.id) || deletedUsernames.includes(unameLow)) {
+        handleLogout();
+        showToast('Your account was removed by Administrator.', 'error');
+        return;
+      }
+      const latest = users.find(u => u.id === currentUser.id);
+      if (latest) {
+        if (latest.active === false) {
+          handleLogout();
+          showToast('Your account is disabled.', 'error');
+          return;
+        }
+        currentUser = latest;
+      }
     }
 
     function enterAppShell() {
@@ -1206,8 +1269,20 @@
       document.getElementById('header-avatar').textContent = (currentUser.fullName || 'U').charAt(0).toUpperCase();
 
       const isAdmin = currentUser.role === 'ADMIN';
-      document.getElementById('tab-all').classList.toggle('hidden', !isAdmin);
-      document.getElementById('tab-admin').classList.toggle('hidden', !isAdmin);
+      const tabAllEl = document.getElementById('tab-all');
+      const tabAdminEl = document.getElementById('tab-admin');
+      if (tabAllEl) {
+        tabAllEl.classList.toggle('hidden', !isAdmin);
+        tabAllEl.style.display = isAdmin ? '' : 'none';
+      }
+      if (tabAdminEl) {
+        tabAdminEl.classList.toggle('hidden', !isAdmin);
+        tabAdminEl.style.display = isAdmin ? '' : 'none';
+      }
+
+      if (!isAdmin && (activeTab === 'all' || activeTab === 'admin')) {
+        activeTab = 'my';
+      }
 
       switchTab(activeTab);
       fetchLatestCloudState(false);
@@ -1221,335 +1296,20 @@
       document.getElementById('login-password').value = '';
     }
 
-    // =========================================================================
-    // 4. PERMIT LIFECYCLE (CREATE, HANDOVER, ACCEPT, RENEW, CLOSE, DELETE)
-    // =========================================================================
-    function openNewPermitModal() {
-      document.getElementById('new-permit-number').value = '';
-      document.getElementById('new-permit-type').value = 'HOT';
-      document.getElementById('new-permit-location').value = '';
-      document.getElementById('new-permit-desc').value = '';
-
-      // Default Valid Until to +12 hours in local YYYY-MM-DDTHH:MM format
-      const defaultEnd = new Date(Date.now() + 12 * 3600000);
-      const pad = n => String(n).padStart(2, '0');
-      const localIso = `${defaultEnd.getFullYear()}-${pad(defaultEnd.getMonth() + 1)}-${pad(defaultEnd.getDate())}T${pad(defaultEnd.getHours())}:${pad(defaultEnd.getMinutes())}`;
-      document.getElementById('new-permit-valid-until').value = localIso;
-
-      const sel = document.getElementById('new-permit-handover-user');
-      const noneOpt = currentLang === 'ar' ? '-- إبقاء التصريح في عهدتي --' : '-- Keep Permit In My Custody --';
-      sel.innerHTML = `<option value="">${noneOpt}</option>`;
-      users.filter(u => u.id !== currentUser.id && u.active !== false).forEach(u => {
-        sel.innerHTML += `<option value="${u.id}">${escapeHtml(u.fullName)} (@${escapeHtml(u.username)} - ${u.role})</option>`;
-      });
-
-      openModal('new-permit-modal');
-    }
-
-    function handleCreatePermit(e) {
-      e.preventDefault();
-      const number = (document.getElementById('new-permit-number').value || '').trim();
-      const type = document.getElementById('new-permit-type').value;
-      const location = (document.getElementById('new-permit-location').value || '').trim();
-      const description = (document.getElementById('new-permit-desc').value || '').trim();
-      const validUntilRaw = document.getElementById('new-permit-valid-until').value;
-      const targetUserId = document.getElementById('new-permit-handover-user').value;
-
-      if (!number || !location || !description || !validUntilRaw) return;
-
-      const now = Date.now();
-      const parsedDate = new Date(validUntilRaw);
-      const validUntil = isNaN(parsedDate.getTime())
-        ? new Date(now + 12 * 3600000).toISOString()
-        : parsedDate.toISOString();
-      const targetUser = targetUserId ? users.find(u => u.id === targetUserId) : null;
-
-      const permit = {
-        id: 'ptw_' + now + '_' + Math.random().toString(36).slice(2, 6),
-        number,
-        type,
-        location,
-        description,
-        status: targetUser ? 'PENDING_HANDOVER' : 'ACTIVE',
-        issuerId: currentUser.id,
-        issuerName: currentUser.fullName,
-        holderId: currentUser.id,
-        holderName: currentUser.fullName,
-        pendingToId: targetUser ? targetUser.id : null,
-        pendingToName: targetUser ? targetUser.fullName : null,
-        handoverNotes: targetUser ? 'Initial handover upon permit issuance' : '',
-        validUntil,
-        createdAt: now,
-        updatedAt: now,
-        logs: [
-          {
-            ts: now,
-            actor: currentUser.fullName,
-            action: targetUser
-              ? `Issued permit #${number} and initiated handover to ${targetUser.fullName}`
-              : `Issued permit #${number} (${type}) at ${location}`
-          }
-        ]
-      };
-
-      permits.unshift(permit);
-      saveLocalState();
-      publishRecordToCloud('permit', permit);
-
-      if (targetUser) {
-        pushNotification(
-          targetUser.id,
-          `Incoming Permit Handover: #${number} from ${currentUser.fullName}. Please accept custody.`,
-          permit.id
-        );
-      }
-
-      if (currentUser.role !== 'ADMIN') {
-        pushNotification(
-          'usr_admin_1',
-          `New Permit Issued: #${number} (${type}) at ${location} by ${currentUser.fullName}.`,
-          permit.id
-        );
-      }
-
-      closeModal('new-permit-modal');
-      refreshAllUI();
-      showToast(
-        targetUser
-          ? (currentLang === 'ar' ? `تم إصدار التصريح وإرسال طلب التسليم إلى ${targetUser.fullName}` : `Permit issued & handover sent to ${targetUser.fullName}`)
-          : (currentLang === 'ar' ? 'تم إصدار التصريح بنجاح!' : 'Work permit issued successfully!'),
-        'success'
-      );
-    }
-
-    function openHandoverModal(permitId) {
-      const p = permits.find(x => x.id === permitId);
-      if (!p) return;
-      document.getElementById('handover-permit-id').value = p.id;
-      document.getElementById('handover-permit-label').textContent = `#${p.number} (${p.type}) - ${p.location}`;
-      document.getElementById('handover-notes').value = '';
-
-      const sel = document.getElementById('handover-recipient-select');
-      sel.innerHTML = '';
-      users.filter(u => u.id !== p.holderId && u.active !== false).forEach(u => {
-        sel.innerHTML += `<option value="${u.id}">${escapeHtml(u.fullName)} (@${escapeHtml(u.username)} - ${u.role})</option>`;
-      });
-
-      openModal('handover-modal');
-    }
-
-    function handleInitiateHandover(e) {
-      e.preventDefault();
-      const permitId = document.getElementById('handover-permit-id').value;
-      const recipientId = document.getElementById('handover-recipient-select').value;
-      const notes = (document.getElementById('handover-notes').value || '').trim();
-
-      const p = permits.find(x => x.id === permitId);
-      const rec = users.find(u => u.id === recipientId);
-      if (!p || !rec) return;
-
-      const now = Date.now();
-      p.status = 'PENDING_HANDOVER';
-      p.pendingToId = rec.id;
-      p.pendingToName = rec.fullName;
-      p.handoverNotes = notes;
-      p.updatedAt = now;
-      p.logs.unshift({
-        ts: now,
-        actor: currentUser.fullName,
-        action: `Initiated handover to ${rec.fullName}${notes ? ` (${notes})` : ''}`
-      });
-
-      saveLocalState();
-      publishRecordToCloud('permit', p);
-      pushNotification(
-        rec.id,
-        `Handover Request: ${currentUser.fullName} wants to hand over Permit #${p.number} (${p.location}).`,
-        p.id
-      );
-
-      closeModal('handover-modal');
-      refreshAllUI();
-      showToast(currentLang === 'ar' ? `تم إرسال إشعار التسليم إلى ${rec.fullName}` : `Handover request sent to ${rec.fullName}`, 'success');
-    }
-
-    function acceptHandover(permitId) {
-      const p = permits.find(x => x.id === permitId);
-      if (!p) return;
-      const now = Date.now();
-      const prevHolderId = p.holderId;
-
-      p.holderId = currentUser.id;
-      p.holderName = currentUser.fullName;
-      p.status = 'ACTIVE';
-      p.pendingToId = null;
-      p.pendingToName = null;
-      p.updatedAt = now;
-      p.logs.unshift({
-        ts: now,
-        actor: currentUser.fullName,
-        action: `Accepted handover custody of Permit #${p.number}`
-      });
-
-      saveLocalState();
-      publishRecordToCloud('permit', p);
-      if (prevHolderId && prevHolderId !== currentUser.id) {
-        pushNotification(prevHolderId, `Handover Accepted: ${currentUser.fullName} accepted Permit #${p.number}.`, p.id);
-      }
-      refreshAllUI();
-      showToast(currentLang === 'ar' ? 'تم قبول واستلام عهدة التصريح بنجاح!' : 'Permit custody accepted successfully!', 'success');
-    }
-
-    function rejectHandover(permitId) {
-      const p = permits.find(x => x.id === permitId);
-      if (!p) return;
-      const now = Date.now();
-      const prevHolderId = p.holderId;
-
-      p.status = 'ACTIVE';
-      p.pendingToId = null;
-      p.pendingToName = null;
-      p.updatedAt = now;
-      p.logs.unshift({
-        ts: now,
-        actor: currentUser.fullName,
-        action: `Declined handover request for Permit #${p.number}`
-      });
-
-      saveLocalState();
-      publishRecordToCloud('permit', p);
-      if (prevHolderId) {
-        pushNotification(prevHolderId, `Handover Declined: ${currentUser.fullName} declined Permit #${p.number}.`, p.id);
-      }
-      refreshAllUI();
-      showToast(currentLang === 'ar' ? 'تم رفض طلب التسليم وإعادته لصاحبه' : 'Handover declined and returned to holder', 'info');
-    }
-
-    function renewPermit(permitId) {
-      const p = permits.find(x => x.id === permitId);
-      if (!p) return;
-      const now = Date.now();
-      const baseTime = Math.max(now, new Date(p.validUntil).getTime());
-      p.validUntil = new Date(baseTime + 12 * 3600000).toISOString();
-      p.updatedAt = now;
-      p.logs.unshift({
-        ts: now,
-        actor: currentUser.fullName,
-        action: `Renewed permit validity for +12 hours`
-      });
-      saveLocalState();
-      publishRecordToCloud('permit', p);
-      refreshAllUI();
-      showToast(currentLang === 'ar' ? 'تم تمديد صلاحية التصريح 12 ساعة' : 'Permit validity extended by +12 hours', 'success');
-    }
-
-    function closePermit(permitId) {
-      const p = permits.find(x => x.id === permitId);
-      if (!p) return;
-      const now = Date.now();
-      p.status = 'CLOSED';
-      p.pendingToId = null;
-      p.pendingToName = null;
-      p.updatedAt = now;
-      p.logs.unshift({
-        ts: now,
-        actor: currentUser.fullName,
-        action: `Closed & signed off Permit #${p.number}`
-      });
-      saveLocalState();
-      publishRecordToCloud('permit', p);
-      refreshAllUI();
-      showToast(currentLang === 'ar' ? 'تم إغلاق التصريح نهائياً' : 'Permit closed successfully', 'success');
-    }
-
-    function deletePermit(permitId) {
-      const idx = permits.findIndex(x => x.id === permitId);
-      if (idx === -1) return;
-      const target = permits[idx];
-      if (!deletedPermitIds.includes(permitId)) deletedPermitIds.push(permitId);
-      permits.splice(idx, 1);
-      saveLocalState();
-      publishRecordToCloud('del', { deletedPermitIds, deletedUserIds, deletedUsernames });
-
-      if (currentUser.role !== 'ADMIN') {
-        pushNotification(
-          'usr_admin_1',
-          `ALERT: User ${currentUser.fullName} deleted Permit #${target.number} (${target.location}).`,
-          permitId
-        );
-      }
-
-      refreshAllUI();
-      showToast(currentLang === 'ar' ? 'تم حذف التصريح نهائياً' : 'Permit permanently deleted', 'info');
-    }
-
-    // =========================================================================
-    // 5. AUDIT LOG, NOTIFICATIONS & UI RENDERING
-    // =========================================================================
-    function openAuditModal(permitId) {
-      const p = permits.find(x => x.id === permitId);
-      if (!p) return;
-      const container = document.getElementById('audit-log-content');
-      container.innerHTML = (p.logs || []).map(l => `
-        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-          <div class="flex justify-between text-[11px] font-bold text-slate-500">
-            <span>${escapeHtml(l.actor)}</span>
-            <span>${formatDateTime(l.ts)}</span>
-          </div>
-          <p class="text-slate-800 font-semibold mt-1">${escapeHtml(l.action)}</p>
-        </div>
-      `).join('') || '<p class="text-slate-400 text-center py-6">No logs recorded.</p>';
-      openModal('audit-modal');
-    }
-
-    function pushNotification(userId, message, permitId = '') {
-      const n = {
-        id: 'ntf_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
-        userId,
-        message,
-        permitId,
-        read: false,
-        ts: Date.now()
-      };
-      notifications.unshift(n);
-      saveLocalState();
-      publishRecordToCloud('notif', n);
-    }
-
-    function openNotificationsModal() {
-      const myNotifs = notifications.filter(n => n.userId === currentUser.id);
-      const list = document.getElementById('notifications-list');
-      list.innerHTML = myNotifs.length
-        ? myNotifs.map(n => `
-          <div class="p-3.5 rounded-2xl border ${n.read ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-300'}">
-            <div class="flex justify-between items-center text-[10px] text-slate-400 font-bold mb-1">
-              <span>${n.read ? 'READ' : 'NEW ALERT'}</span>
-              <span>${formatDateTime(n.ts)}</span>
-            </div>
-            <p class="text-slate-800 font-semibold">${escapeHtml(n.message)}</p>
-          </div>
-        `).join('')
-        : `<p class="text-center text-slate-400 py-8">${I18N[currentLang].noNotifications}</p>`;
-      openModal('notifications-modal');
-    }
-
-    function markAllNotificationsRead() {
-      notifications.forEach(n => {
-        if (n.userId === currentUser.id && !n.read) {
-          n.read = true;
-          publishRecordToCloud('notif', n);
-        }
-      });
-      saveLocalState();
-      refreshAllUI();
-      openNotificationsModal();
-    }
-
     function switchTab(tab) {
+      if (currentUser && currentUser.role !== 'ADMIN' && (tab === 'all' || tab === 'admin')) {
+        tab = 'my';
+      }
       activeTab = tab;
       ['my', 'incoming', 'all', 'admin'].forEach(t => {
         const btn = document.getElementById(`tab-${t}`);
         if (!btn) return;
+        const isAdminOnly = (t === 'all' || t === 'admin');
+        if (isAdminOnly && (!currentUser || currentUser.role !== 'ADMIN')) {
+          btn.classList.add('hidden');
+          btn.style.display = 'none';
+          return;
+        }
         if (t === tab) {
           btn.className = 'px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 bg-emerald-500 text-slate-950';
         } else {
@@ -1557,7 +1317,7 @@
         }
       });
 
-      const isAdminTab = tab === 'admin';
+      const isAdminTab = tab === 'admin' && currentUser && currentUser.role === 'ADMIN';
       document.getElementById('permits-section').classList.toggle('hidden', isAdminTab);
       document.getElementById('admin-section').classList.toggle('hidden', !isAdminTab);
 
@@ -1565,52 +1325,384 @@
       else refreshAllUI();
     }
 
+    // =========================================================================
+    // 6. PERMIT CREATION, HANDOVER, RENEWAL, CLOSURE & DELETION
+    // =========================================================================
+    function openNewPermitModal() {
+      document.getElementById('new-permit-number').value = '';
+      document.getElementById('new-permit-type').value = 'HOT';
+      document.getElementById('new-permit-location').value = '';
+      document.getElementById('new-permit-desc').value = '';
+
+      // Default Valid Until = Today + 12 hours (formatted for datetime-local)
+      const defDate = new Date(Date.now() + 12 * 3600 * 1000);
+      const pad = n => String(n).padStart(2, '0');
+      const localIso = `${defDate.getFullYear()}-${pad(defDate.getMonth() + 1)}-${pad(defDate.getDate())}T${pad(defDate.getHours())}:${pad(defDate.getMinutes())}`;
+      document.getElementById('new-permit-valid-until').value = localIso;
+
+      // Populate optional handover user select
+      const t = I18N[currentLang] || I18N.en;
+      const sel = document.getElementById('new-permit-handover-user');
+      sel.innerHTML = `<option value="">${escapeHtml(t.noneSelf)}</option>`;
+      users.filter(u => u.active !== false && u.id !== currentUser.id).forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = `${u.fullName} (@${u.username} - ${u.role})`;
+        sel.appendChild(opt);
+      });
+
+      openModal('new-permit-modal');
+    }
+
+    async function handleCreatePermit(e) {
+      e.preventDefault();
+      const permitNum = document.getElementById('new-permit-number').value.trim();
+      const permitType = document.getElementById('new-permit-type').value;
+      const location = document.getElementById('new-permit-location').value.trim();
+      const desc = document.getElementById('new-permit-desc').value.trim();
+      const validInput = document.getElementById('new-permit-valid-until').value;
+      const handoverTargetId = document.getElementById('new-permit-handover-user').value;
+
+      if (!permitNum || !location || !desc || !validInput) return;
+
+      const validUntilTs = new Date(validInput).getTime() || (Date.now() + 12 * 3600 * 1000);
+      const now = Date.now();
+      const targetUser = handoverTargetId ? users.find(u => u.id === handoverTargetId) : null;
+
+      const newPermit = {
+        id: 'ptw_' + now + '_' + Math.random().toString(36).slice(2, 6),
+        permitNumber: permitNum,
+        type: permitType,
+        location: location,
+        description: desc,
+        issuedById: currentUser.id,
+        issuedByName: currentUser.fullName,
+        holderId: currentUser.id,
+        holderName: currentUser.fullName,
+        pendingToId: targetUser ? targetUser.id : null,
+        pendingToName: targetUser ? targetUser.fullName : null,
+        status: targetUser ? 'PENDING_HANDOVER' : 'ACTIVE',
+        validUntil: validUntilTs,
+        createdAt: now,
+        updatedAt: now,
+        logs: [
+          {
+            ts: now,
+            actor: currentUser.fullName,
+            action: targetUser
+              ? `Issued permit (${permitType}) & initiated handover to ${targetUser.fullName}`
+              : `Issued permit (${permitType}) at ${location}`
+          }
+        ]
+      };
+
+      permits.unshift(newPermit);
+
+      // Notify recipient if direct handover selected
+      if (targetUser) {
+        const notif = {
+          id: 'ntf_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          toUserId: targetUser.id,
+          toRole: targetUser.role,
+          title: `Incoming Permit Handover: ${permitNum}`,
+          body: `${currentUser.fullName} assigned permit ${permitNum} (${permitType}) at ${location} to you. Please accept custody.`,
+          ts: now,
+          read: false
+        };
+        notifications.unshift(notif);
+        publishRecordToCloud('notif', notif);
+      }
+
+      // Notify Admin of new permit issuance
+      const adminNotif = {
+        id: 'ntf_adm_' + now + '_' + Math.random().toString(36).slice(2, 6),
+        toUserId: 'ADMIN_ALL',
+        toRole: 'ADMIN',
+        title: `New Permit Issued: ${permitNum}`,
+        body: `${currentUser.fullName} issued ${permitType} permit ${permitNum} at ${location}.`,
+        ts: now,
+        read: false
+      };
+      notifications.unshift(adminNotif);
+
+      saveLocalState();
+      closeModal('new-permit-modal');
+      refreshAllUI();
+      showToast(`Permit ${permitNum} issued & synced!`, 'success');
+
+      await publishRecordToCloud('permit', newPermit);
+      await publishRecordToCloud('notif', adminNotif);
+    }
+
+    function openHandoverModal(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p) return;
+      document.getElementById('handover-permit-id').value = p.id;
+      document.getElementById('handover-permit-label').textContent = `${p.permitNumber} (${p.type}) - ${p.location}`;
+      document.getElementById('handover-notes').value = '';
+
+      const t = I18N[currentLang] || I18N.en;
+      const sel = document.getElementById('handover-recipient-select');
+      sel.innerHTML = `<option value="">${escapeHtml(t.selectUser)}</option>`;
+      users.filter(u => u.active !== false && u.id !== p.holderId).forEach(u => {
+        const opt = document.createElement('option');
+        opt.value = u.id;
+        opt.textContent = `${u.fullName} (@${u.username} - ${u.role})`;
+        sel.appendChild(opt);
+      });
+
+      openModal('handover-modal');
+    }
+
+    async function handleInitiateHandover(e) {
+      e.preventDefault();
+      const permitId = document.getElementById('handover-permit-id').value;
+      const recipientId = document.getElementById('handover-recipient-select').value;
+      const notes = document.getElementById('handover-notes').value.trim();
+
+      const p = permits.find(x => x.id === permitId);
+      const target = users.find(u => u.id === recipientId);
+      if (!p || !target) return;
+
+      const now = Date.now();
+      p.status = 'PENDING_HANDOVER';
+      p.pendingToId = target.id;
+      p.pendingToName = target.fullName;
+      p.updatedAt = now;
+      p.logs = p.logs || [];
+      p.logs.unshift({
+        ts: now,
+        actor: currentUser.fullName,
+        action: `Initiated handover to ${target.fullName}${notes ? ' | Notes: ' + notes : ''}`
+      });
+
+      const notif = {
+        id: 'ntf_' + now + '_' + Math.random().toString(36).slice(2, 6),
+        toUserId: target.id,
+        toRole: target.role,
+        title: `Handover Request: ${p.permitNumber}`,
+        body: `${currentUser.fullName} requested handover of permit ${p.permitNumber} (${p.location}).`,
+        ts: now,
+        read: false
+      };
+      notifications.unshift(notif);
+
+      saveLocalState();
+      closeModal('handover-modal');
+      refreshAllUI();
+      showToast(`Handover sent to ${target.fullName}`, 'success');
+
+      await publishRecordToCloud('permit', p);
+      await publishRecordToCloud('notif', notif);
+    }
+
+    async function respondToHandover(permitId, accept) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p) return;
+      const now = Date.now();
+
+      if (accept) {
+        const prevHolder = p.holderName;
+        p.holderId = currentUser.id;
+        p.holderName = currentUser.fullName;
+        p.pendingToId = null;
+        p.pendingToName = null;
+        p.status = 'ACTIVE';
+        p.updatedAt = now;
+        p.logs = p.logs || [];
+        p.logs.unshift({
+          ts: now,
+          actor: currentUser.fullName,
+          action: `Accepted permit custody from ${prevHolder}`
+        });
+        showToast(`You are now the active holder of ${p.permitNumber}`, 'success');
+      } else {
+        const rejectedBy = currentUser.fullName;
+        p.pendingToId = null;
+        p.pendingToName = null;
+        p.status = 'ACTIVE';
+        p.updatedAt = now;
+        p.logs = p.logs || [];
+        p.logs.unshift({
+          ts: now,
+          actor: rejectedBy,
+          action: `Rejected handover request; custody remains with ${p.holderName}`
+        });
+        showToast(`Handover rejected for ${p.permitNumber}`, 'warn');
+      }
+
+      saveLocalState();
+      refreshAllUI();
+      await publishRecordToCloud('permit', p);
+    }
+
+    async function renewPermit(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p || p.status === 'CLOSED') return;
+      const now = Date.now();
+      const baseTime = Math.max(now, p.validUntil || now);
+      p.validUntil = baseTime + 12 * 3600 * 1000;
+      p.updatedAt = now;
+      p.logs = p.logs || [];
+      p.logs.unshift({
+        ts: now,
+        actor: currentUser.fullName,
+        action: `Renewed permit validity (+12 hours) until ${formatDateTime(p.validUntil)}`
+      });
+
+      saveLocalState();
+      refreshAllUI();
+      showToast(`Permit ${p.permitNumber} renewed (+12h)`, 'success');
+      await publishRecordToCloud('permit', p);
+    }
+
+    async function closePermit(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p) return;
+      const now = Date.now();
+      p.status = 'CLOSED';
+      p.pendingToId = null;
+      p.pendingToName = null;
+      p.closedAt = now;
+      p.closedBy = currentUser.fullName;
+      p.updatedAt = now;
+      p.logs = p.logs || [];
+      p.logs.unshift({
+        ts: now,
+        actor: currentUser.fullName,
+        action: 'Closed work permit & verified safe site handover'
+      });
+
+      saveLocalState();
+      if (activeTab === 'admin') renderAdminPanel();
+      else refreshAllUI();
+      showToast(`Permit ${p.permitNumber} closed permanently`, 'info');
+      await publishRecordToCloud('permit', p);
+    }
+
+    async function deletePermit(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p) return;
+      const now = Date.now();
+
+      if (!deletedPermitIds.includes(permitId)) deletedPermitIds.push(permitId);
+      permits = permits.filter(x => x.id !== permitId);
+
+      // Alert Admin if deleted by a non-admin user
+      if (currentUser && currentUser.role !== 'ADMIN') {
+        const alertNotif = {
+          id: 'ntf_del_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          toUserId: 'ADMIN_ALL',
+          toRole: 'ADMIN',
+          title: `⚠️ Permit Deleted: ${p.permitNumber}`,
+          body: `User ${currentUser.fullName} (@${currentUser.username}) deleted permit ${p.permitNumber} (${p.type}) at ${p.location}.`,
+          ts: now,
+          read: false
+        };
+        notifications.unshift(alertNotif);
+        publishRecordToCloud('notif', alertNotif);
+      }
+
+      saveLocalState();
+      if (activeTab === 'admin') renderAdminPanel();
+      else refreshAllUI();
+      showToast(`Permit ${p.permitNumber} deleted`, 'warn');
+
+      await publishRecordToCloud('del', { deletedPermitIds, deletedUserIds, deletedUsernames });
+    }
+
+    function openAuditModal(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p) return;
+      const box = document.getElementById('audit-log-content');
+      const logs = Array.isArray(p.logs) ? p.logs : [];
+      box.innerHTML = logs.length
+        ? logs.map(l => `
+            <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 font-bold mb-1">
+                <span>👤 ${escapeHtml(l.actor)}</span>
+                <span>🕒 ${formatDateTime(l.ts)}</span>
+              </div>
+              <p class="text-slate-800 font-semibold">${escapeHtml(l.action)}</p>
+            </div>
+          `).join('')
+        : '<p class="text-slate-400 text-center py-4">No audit entries recorded.</p>';
+      openModal('audit-modal');
+    }
+
+    function sharePermitWhatsApp(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p) return;
+      const text = [
+        `*WORK PERMIT (PTW)*`,
+        `• Number: ${p.permitNumber}`,
+        `• Type: ${p.type}`,
+        `• Location: ${p.location}`,
+        `• Status: ${p.status}`,
+        `• Current Holder: ${p.holderName}`,
+        `• Valid Until: ${formatDateTime(p.validUntil)}`,
+        `• Portal: ${window.location.origin}${window.location.pathname}`
+      ].join('\n');
+      window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    }
+
+    // =========================================================================
+    // 7. DASHBOARD RENDERING & NOTIFICATIONS
+    // =========================================================================
     function refreshAllUI() {
       if (!currentUser) return;
-      const t = I18N[currentLang];
+      const t = I18N[currentLang] || I18N.en;
+      const isAdmin = currentUser.role === 'ADMIN';
 
-      // Update Notification & Incoming Badges
-      const unreadCount = notifications.filter(n => n.userId === currentUser.id && !n.read).length;
-      const badge = document.getElementById('notif-badge');
-      badge.textContent = unreadCount;
-      badge.classList.toggle('hidden', unreadCount === 0);
-
-      const incomingPermits = permits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id);
+      // Incoming handovers badge
+      const incomingList = permits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id);
       const incBadge = document.getElementById('incoming-count-badge');
-      incBadge.textContent = incomingPermits.length;
-      incBadge.classList.toggle('hidden', incomingPermits.length === 0);
-
-      if (activeTab === 'admin') {
-        renderAdminPanel();
-        return;
+      if (incBadge) {
+        incBadge.textContent = incomingList.length;
+        incBadge.classList.toggle('hidden', incomingList.length === 0);
       }
 
-      // Filter permits according to tab
+      // Notifications badge
+      const myNotifs = notifications.filter(n =>
+        n.toUserId === currentUser.id || (isAdmin && n.toUserId === 'ADMIN_ALL')
+      );
+      const unreadCount = myNotifs.filter(n => !n.read).length;
+      const nBadge = document.getElementById('notif-badge');
+      if (nBadge) {
+        nBadge.textContent = unreadCount;
+        nBadge.classList.toggle('hidden', unreadCount === 0);
+      }
+
+      // Filter permits by activeTab
       let baseList = [];
-      if (activeTab === 'my') {
-        baseList = permits.filter(p => p.holderId === currentUser.id || p.issuerId === currentUser.id);
-      } else if (activeTab === 'incoming') {
-        baseList = incomingPermits;
-      } else if (activeTab === 'all' && currentUser.role === 'ADMIN') {
+      if (activeTab === 'incoming') {
+        baseList = incomingList;
+      } else if (activeTab === 'all' && isAdmin) {
         baseList = [...permits];
+      } else {
+        baseList = permits.filter(p =>
+          p.holderId === currentUser.id ||
+          p.issuedById === currentUser.id ||
+          p.pendingToId === currentUser.id
+        );
       }
 
-      // KPIs
+      // Update KPIs based on baseList
       document.getElementById('kpi-active-val').textContent = baseList.filter(p => p.status === 'ACTIVE').length;
       document.getElementById('kpi-pending-val').textContent = baseList.filter(p => p.status === 'PENDING_HANDOVER').length;
       document.getElementById('kpi-closed-val').textContent = baseList.filter(p => p.status === 'CLOSED').length;
       document.getElementById('kpi-total-val').textContent = baseList.length;
 
-      // Search & Dropdown Filters
-      const q = (document.getElementById('search-input').value || '').trim().toLowerCase();
-      const fType = document.getElementById('filter-type').value;
-      const fStatus = document.getElementById('filter-status').value;
+      // Search & dropdown filters
+      const q = (document.getElementById('search-input')?.value || '').trim().toLowerCase();
+      const fType = document.getElementById('filter-type')?.value || 'ALL';
+      const fStatus = document.getElementById('filter-status')?.value || 'ALL';
 
       const filtered = baseList.filter(p => {
         if (fType !== 'ALL' && p.type !== fType) return false;
         if (fStatus !== 'ALL' && p.status !== fStatus) return false;
         if (q) {
-          const hay = `${p.number} ${p.location} ${p.holderName} ${p.description}`.toLowerCase();
+          const hay = `${p.permitNumber} ${p.location} ${p.holderName} ${p.description}`.toLowerCase();
           if (!hay.includes(q)) return false;
         }
         return true;
@@ -1618,103 +1710,122 @@
 
       const grid = document.getElementById('permits-grid');
       if (!filtered.length) {
-        grid.innerHTML = `<div class="col-span-full glass-card rounded-3xl p-10 text-center text-slate-400 text-sm font-semibold">${t.noPermitsFound}</div>`;
+        grid.innerHTML = `<div class="col-span-full glass-card rounded-2xl p-10 text-center text-slate-400 text-sm font-bold">${escapeHtml(t.noPermits)}</div>`;
         return;
       }
 
-      grid.innerHTML = filtered.map(p => {
-        const typeColors = {
-          HOT: 'bg-red-100 text-red-700 border-red-200',
-          COLD: 'bg-sky-100 text-sky-700 border-sky-200',
-          BREAKING: 'bg-amber-100 text-amber-800 border-amber-200',
-          SPARK: 'bg-purple-100 text-purple-700 border-purple-200'
-        };
-        const statusBadge = p.status === 'ACTIVE'
-          ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-700">${t.statusActive}</span>`
-          : p.status === 'PENDING_HANDOVER'
-            ? `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">${t.statusPending}</span>`
-            : `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-slate-200 text-slate-700">${t.statusClosed}</span>`;
+      const typeColors = {
+        HOT: 'bg-red-100 text-red-700 border-red-200',
+        COLD: 'bg-sky-100 text-sky-700 border-sky-200',
+        BREAKING: 'bg-amber-100 text-amber-800 border-amber-200',
+        SPARK: 'bg-purple-100 text-purple-700 border-purple-200'
+      };
 
-        const canControl = currentUser.role === 'ADMIN' || p.holderId === currentUser.id;
+      const statusBadges = {
+        ACTIVE: `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-700">${escapeHtml(t.statusActive)}</span>`,
+        PENDING_HANDOVER: `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">${escapeHtml(t.statusPending)}</span>`,
+        CLOSED: `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-slate-200 text-slate-700">${escapeHtml(t.statusClosed)}</span>`
+      };
+
+      grid.innerHTML = filtered.map(p => {
+        const isHolder = p.holderId === currentUser.id;
         const isRecipient = p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id;
+        const canManage = isAdmin || isHolder;
 
         return `
-          <div class="glass-card rounded-3xl p-5 flex flex-col justify-between space-y-4">
+          <div class="glass-card rounded-3xl p-5 flex flex-col justify-between gap-4 hover:shadow-md transition">
             <div class="space-y-3">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2">
-                  <span class="text-lg font-extrabold text-slate-900">${escapeHtml(p.number)}</span>
-                  <span class="px-2 py-0.5 rounded-lg text-[10px] font-extrabold border ${typeColors[p.type] || 'bg-slate-100'}">${escapeHtml(p.type)}</span>
+                  <span class="text-base font-extrabold text-slate-900">${escapeHtml(p.permitNumber)}</span>
+                  <span class="px-2 py-0.5 rounded-lg text-[10px] font-extrabold border ${typeColors[p.type] || 'bg-slate-100 text-slate-700'}">${escapeHtml(p.type)}</span>
                 </div>
-                ${statusBadge}
+                ${statusBadges[p.status] || ''}
               </div>
 
-              <div class="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                <span>📍</span>
-                <span>${escapeHtml(p.location)}</span>
+              <div class="text-xs font-bold text-slate-600">
+                📍 ${escapeHtml(p.location)}
               </div>
 
-              <div class="p-3 rounded-2xl bg-slate-50 border border-slate-100 text-xs text-slate-700 leading-relaxed">
+              <p class="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100 leading-relaxed">
                 ${escapeHtml(p.description)}
-              </div>
-
-              ${p.status === 'PENDING_HANDOVER' ? `
-                <div class="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-900">
-                  ⏳ ${t.awaitingAcceptance} ${escapeHtml(p.pendingToName || '')}
-                </div>
-              ` : ''}
+              </p>
 
               <div class="space-y-1 text-xs pt-1">
                 <div class="flex justify-between">
-                  <span class="text-slate-400 font-semibold">${t.currentHolder}</span>
-                  <span class="font-extrabold text-slate-900">${escapeHtml(p.holderName)}</span>
+                  <span class="text-slate-400 font-semibold">${escapeHtml(t.holder)}:</span>
+                  <span class="font-extrabold text-slate-800">${escapeHtml(p.holderName)}</span>
                 </div>
+                ${p.status === 'PENDING_HANDOVER' && p.pendingToName ? `
+                  <div class="flex justify-between text-amber-700">
+                    <span class="font-semibold">${escapeHtml(t.pendingTo)}:</span>
+                    <span class="font-extrabold">${escapeHtml(p.pendingToName)}</span>
+                  </div>
+                ` : ''}
                 <div class="flex justify-between">
-                  <span class="text-slate-400 font-semibold">${t.validUntil}</span>
+                  <span class="text-slate-400 font-semibold">${escapeHtml(t.validUntil)}:</span>
                   <span class="font-bold text-slate-700">${formatDateTime(p.validUntil)}</span>
                 </div>
               </div>
             </div>
 
-            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center gap-2">
+            <div class="pt-3 border-t border-slate-100 flex flex-wrap gap-1.5">
               ${isRecipient ? `
-                <button type="button" onclick="acceptHandover('${p.id}')" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow">
-                  ✓ ${t.acceptHandover}
-                </button>
-                <button type="button" onclick="rejectHandover('${p.id}')" class="py-2 px-3 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 text-xs font-bold">
-                  ✕ ${t.declineHandover}
-                </button>
+                <button type="button" onclick="respondToHandover('${p.id}', true)" class="flex-1 py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold">✅ ${escapeHtml(t.acceptBtn)}</button>
+                <button type="button" onclick="respondToHandover('${p.id}', false)" class="py-2 px-3 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 text-xs font-extrabold">✖ ${escapeHtml(t.rejectBtn)}</button>
               ` : ''}
 
-              ${canControl && p.status !== 'CLOSED' ? `
-                <button type="button" onclick="openHandoverModal('${p.id}')" class="py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold shadow-sm">
-                  ⇄ ${t.btnHandover}
-                </button>
-                <button type="button" onclick="renewPermit('${p.id}')" class="py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold">
-                  ↻ ${t.btnRenew}
-                </button>
-                <button type="button" onclick="closePermit('${p.id}')" class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">
-                  🔒 ${t.btnClose}
-                </button>
+              ${p.status !== 'CLOSED' && canManage ? `
+                <button type="button" onclick="openHandoverModal('${p.id}')" class="py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold">⇄ ${escapeHtml(t.handoverBtn)}</button>
+                <button type="button" onclick="renewPermit('${p.id}')" class="py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold">↻ ${escapeHtml(t.renewBtn)}</button>
+                <button type="button" onclick="closePermit('${p.id}')" class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">🔒 ${escapeHtml(t.closeBtn)}</button>
               ` : ''}
 
-              <button type="button" onclick="openAuditModal('${p.id}')" class="py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">
-                📋 ${t.btnAudit}
-              </button>
-
-              ${canControl ? `
-                <button type="button" onclick="deletePermit('${p.id}')" title="Delete" class="p-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold">
-                  🗑️
-                </button>
-              ` : ''}
+              <button type="button" onclick="openAuditModal('${p.id}')" class="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">📋 ${escapeHtml(t.auditBtn)}</button>
+              <button type="button" onclick="sharePermitWhatsApp('${p.id}')" class="py-2 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold">💬</button>
+              ${(isAdmin || isHolder) ? `<button type="button" onclick="deletePermit('${p.id}')" class="py-2 px-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold">🗑️</button>` : ''}
             </div>
           </div>
         `;
       }).join('');
     }
 
+    function openNotificationsModal() {
+      if (!currentUser) return;
+      const isAdmin = currentUser.role === 'ADMIN';
+      const list = notifications.filter(n =>
+        n.toUserId === currentUser.id || (isAdmin && n.toUserId === 'ADMIN_ALL')
+      );
+      const box = document.getElementById('notifications-list');
+      box.innerHTML = list.length
+        ? list.map(n => `
+            <div class="p-3.5 rounded-2xl border ${n.read ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-300'}">
+              <div class="flex items-center justify-between text-[11px] text-slate-500 font-bold mb-1">
+                <span>${escapeHtml(n.title)}</span>
+                <span>${formatDateTime(n.ts)}</span>
+              </div>
+              <p class="text-slate-800 font-medium">${escapeHtml(n.body)}</p>
+            </div>
+          `).join('')
+        : '<p class="text-slate-400 text-center py-6">No notifications yet.</p>';
+      openModal('notifications-modal');
+    }
+
+    function markAllNotificationsRead() {
+      if (!currentUser) return;
+      const isAdmin = currentUser.role === 'ADMIN';
+      notifications.forEach(n => {
+        if (n.toUserId === currentUser.id || (isAdmin && n.toUserId === 'ADMIN_ALL')) {
+          n.read = true;
+        }
+      });
+      saveLocalState();
+      refreshAllUI();
+      openNotificationsModal();
+    }
+
     // =========================================================================
-    // 6. ADMIN CONTROL PANEL (USERS & ALL PERMITS)
+    // 8. ADMINISTRATOR MASTER PANEL & CLOUD SETUP
     // =========================================================================
     function renderAdminPanel() {
       if (!currentUser || currentUser.role !== 'ADMIN') return;
@@ -1727,27 +1838,12 @@
           <td class="py-3 px-4 font-bold text-slate-900">${escapeHtml(u.fullName)}</td>
           <td class="py-3 px-4 font-mono text-slate-700">${escapeHtml(u.username)}</td>
           <td class="py-3 px-4 font-mono text-slate-600">${escapeHtml(u.password)}</td>
-          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-slate-200 font-bold text-[10px]">${u.role}</span></td>
-          <td class="py-3 px-4">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${u.active !== false ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}">
-              ${u.active !== false ? 'Active' : 'Suspended'}
-            </span>
-          </td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-md bg-slate-200 text-slate-800 font-extrabold text-[10px]">${escapeHtml(u.role)}</span></td>
+          <td class="py-3 px-4">${u.active !== false ? '<span class="text-emerald-600 font-bold">Active</span>' : '<span class="text-red-600 font-bold">Disabled</span>'}</td>
           <td class="py-3 px-4 flex flex-wrap gap-1.5">
-            <button type="button" onclick="copyUserCredentials('${u.id}')" class="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 font-bold">
-              📋 Copy Link
-            </button>
-            <button type="button" onclick="openAdminEditUserModal('${u.id}')" class="px-2.5 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold">
-              Edit
-            </button>
-            ${u.id !== 'usr_admin_1' ? `
-              <button type="button" onclick="toggleUserStatus('${u.id}')" class="px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold">
-                ${u.active !== false ? 'Suspend' : 'Activate'}
-              </button>
-              <button type="button" onclick="deleteUserAccount('${u.id}')" class="px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-bold">
-                Delete
-              </button>
-            ` : ''}
+            <button type="button" onclick="copyUserCredentials('${u.id}')" class="px-2.5 py-1 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold">📋 Copy Link</button>
+            <button type="button" onclick="openEditUserModal('${u.id}')" class="px-2.5 py-1 rounded-lg bg-blue-100 hover:bg-blue-200 text-blue-800 font-bold">✏️ Edit</button>
+            ${u.username !== 'admin' ? `<button type="button" onclick="deleteUserAccount('${u.id}')" class="px-2.5 py-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 font-bold">🗑️ Delete</button>` : ''}
           </td>
         </tr>
       `).join('');
@@ -1755,22 +1851,20 @@
       const pBody = document.getElementById('admin-permits-tbody');
       pBody.innerHTML = permits.length
         ? permits.map(p => `
-          <tr class="hover:bg-slate-50">
-            <td class="py-3 px-4 font-extrabold text-slate-900">${escapeHtml(p.number)}</td>
-            <td class="py-3 px-4 font-bold">${escapeHtml(p.type)}</td>
-            <td class="py-3 px-4">${escapeHtml(p.location)}</td>
-            <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(p.holderName)}</td>
-            <td class="py-3 px-4 font-bold">${escapeHtml(p.status)}</td>
-            <td class="py-3 px-4 flex flex-wrap gap-1.5">
-              ${p.status !== 'CLOSED' ? `
-                <button type="button" onclick="openHandoverModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-100 text-amber-900 font-bold">Transfer</button>
-                <button type="button" onclick="closePermit('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-800 text-white font-bold">Close</button>
-              ` : ''}
-              <button type="button" onclick="deletePermit('${p.id}')" class="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 font-bold">Delete</button>
-            </td>
-          </tr>
-        `).join('')
-        : '<tr><td colspan="6" class="py-6 text-center text-slate-400">No permits in system yet.</td></tr>';
+            <tr class="hover:bg-slate-50">
+              <td class="py-3 px-4 font-extrabold text-slate-900">${escapeHtml(p.permitNumber)}</td>
+              <td class="py-3 px-4 font-bold">${escapeHtml(p.type)}</td>
+              <td class="py-3 px-4">${escapeHtml(p.location)}</td>
+              <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(p.holderName)}</td>
+              <td class="py-3 px-4 font-bold">${escapeHtml(p.status)}</td>
+              <td class="py-3 px-4 flex flex-wrap gap-1.5">
+                <button type="button" onclick="openAuditModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold">Log</button>
+                ${p.status !== 'CLOSED' ? `<button type="button" onclick="closePermit('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold">Force Close</button>` : ''}
+                <button type="button" onclick="deletePermit('${p.id}')" class="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 font-bold">Delete</button>
+              </td>
+            </tr>
+          `).join('')
+        : '<tr><td colspan="6" class="py-6 text-center text-slate-400 font-bold">No permits recorded yet.</td></tr>';
     }
 
     function openCreateUserModal() {
@@ -1781,24 +1875,25 @@
       openModal('create-user-modal');
     }
 
-    function handleCreateUser(e) {
+    async function handleCreateUser(e) {
       e.preventDefault();
-      const fullName = (document.getElementById('cu-fullname').value || '').trim();
-      const username = (document.getElementById('cu-username').value || '').trim();
-      const password = normalizeDigits((document.getElementById('cu-password').value || '').trim());
+      const fullName = document.getElementById('cu-fullname').value.trim();
+      const username = document.getElementById('cu-username').value.trim();
+      const password = normalizeDigits(document.getElementById('cu-password').value.trim());
       const role = document.getElementById('cu-role').value;
-
       if (!fullName || !username || !password) return;
-      if (users.some(u => u.username.toLowerCase() === username.toLowerCase())) {
+
+      const unameLow = username.toLowerCase();
+      if (users.some(u => u.username && u.username.toLowerCase() === unameLow)) {
         showToast('Username already exists!', 'error');
         return;
       }
 
-      // Remove from deletedUsernames if recreated by admin
-      deletedUsernames = deletedUsernames.filter(un => un !== username.toLowerCase());
+      // Remove from deleted list if recreated
+      deletedUsernames = deletedUsernames.filter(x => x !== unameLow);
 
       const newUser = {
-        id: 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+        id: 'usr_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
         fullName,
         username,
         password,
@@ -1809,15 +1904,13 @@
 
       users.push(newUser);
       saveLocalState();
-      publishRecordToCloud('user', newUser);
-      publishRecordToCloud('del', { deletedPermitIds, deletedUserIds, deletedUsernames });
-
       closeModal('create-user-modal');
       renderAdminPanel();
-      showToast(`User ${fullName} created & synced to Firebase!`, 'success');
+      showToast(`User ${username} created & synced!`, 'success');
+      await publishRecordToCloud('user', newUser);
     }
 
-    function openAdminEditUserModal(userId) {
+    function openEditUserModal(userId) {
       const u = users.find(x => x.id === userId);
       if (!u) return;
       document.getElementById('eu-id').value = u.id;
@@ -1828,110 +1921,115 @@
       openModal('edit-user-modal');
     }
 
-    function handleAdminUpdateUser(e) {
+    async function handleAdminUpdateUser(e) {
       e.preventDefault();
       const id = document.getElementById('eu-id').value;
       const u = users.find(x => x.id === id);
       if (!u) return;
 
-      u.fullName = (document.getElementById('eu-fullname').value || '').trim();
-      u.username = (document.getElementById('eu-username').value || '').trim();
-      u.password = normalizeDigits((document.getElementById('eu-password').value || '').trim());
+      u.fullName = document.getElementById('eu-fullname').value.trim();
+      u.username = document.getElementById('eu-username').value.trim();
+      u.password = normalizeDigits(document.getElementById('eu-password').value.trim());
       u.role = document.getElementById('eu-role').value;
       u.updatedAt = Date.now();
 
       saveLocalState();
-      publishRecordToCloud('user', u);
       closeModal('edit-user-modal');
       renderAdminPanel();
-      showToast('User account updated & synced!', 'success');
+      showToast(`User ${u.username} updated!`, 'success');
+      await publishRecordToCloud('user', u);
     }
 
-    function toggleUserStatus(userId) {
+    async function deleteUserAccount(userId) {
       const u = users.find(x => x.id === userId);
-      if (!u || u.id === 'usr_admin_1') return;
-      u.active = u.active === false ? true : false;
-      u.updatedAt = Date.now();
-      saveLocalState();
-      publishRecordToCloud('user', u);
-      renderAdminPanel();
-      showToast(u.active ? 'User activated' : 'User suspended', 'info');
-    }
+      if (!u || u.username === 'admin') return;
 
-    function deleteUserAccount(userId) {
-      if (userId === 'usr_admin_1') return;
-      const idx = users.findIndex(x => x.id === userId);
-      if (idx === -1) return;
-      const u = users[idx];
       if (!deletedUserIds.includes(u.id)) deletedUserIds.push(u.id);
-      if (!deletedUsernames.includes(u.username.toLowerCase())) deletedUsernames.push(u.username.toLowerCase());
-      users.splice(idx, 1);
+      const low = (u.username || '').toLowerCase();
+      if (low && !deletedUsernames.includes(low)) deletedUsernames.push(low);
+
+      users = users.filter(x => x.id !== userId);
       saveLocalState();
-      publishRecordToCloud('del', { deletedPermitIds, deletedUserIds, deletedUsernames });
       renderAdminPanel();
-      showToast(`User ${u.fullName} deleted permanently`, 'info');
+      showToast(`User ${u.username} deleted & revoked!`, 'warn');
+      await publishRecordToCloud('del', { deletedPermitIds, deletedUserIds, deletedUsernames });
     }
 
-    // =========================================================================
-    // 7. UTILITIES & BOOTSTRAP
-    // =========================================================================
-    function openModal(id) {
-      const el = document.getElementById(id);
-      if (el) el.classList.remove('hidden');
+    function copyTextFallback(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      ta.remove();
     }
 
-    function closeModal(id) {
-      const el = document.getElementById(id);
-      if (el) el.classList.add('hidden');
+    function copyUserCredentials(userId) {
+      const u = users.find(x => x.id === userId);
+      if (!u) return;
+      const encodedUser = btoa(unescape(encodeURIComponent(JSON.stringify(u))));
+      const fbBase = getCustomFirebaseBase();
+      const fbQuery = fbBase ? `&fb=${encodeURIComponent(btoa(unescape(encodeURIComponent(fbBase))))}` : '';
+      const directUrl = `${window.location.origin}${window.location.pathname}?u=${encodeURIComponent(encodedUser)}${fbQuery}`;
+
+      const msg = [
+        `PTW System Login Access:`,
+        `Name: ${u.fullName}`,
+        `Username: ${u.username}`,
+        `Password: ${u.password}`,
+        `Direct Link: ${directUrl}`
+      ].join('\n');
+
+      copyTextFallback(msg);
+      showToast(`Direct access link & credentials copied for ${u.username}!`, 'success');
     }
 
-    function showToast(msg, type = 'info') {
-      const container = document.getElementById('toast-container');
-      if (!container) return;
-      const colors = {
-        success: 'bg-emerald-600 text-white border-emerald-500',
-        error: 'bg-red-600 text-white border-red-500',
-        info: 'bg-slate-900 text-white border-slate-700'
-      };
-      const el = document.createElement('div');
-      el.className = `pointer-events-auto px-4 py-3 rounded-2xl shadow-xl border text-xs font-bold transition-all ${colors[type] || colors.info}`;
-      el.textContent = msg;
-      container.appendChild(el);
-      setTimeout(() => {
-        el.style.opacity = '0';
-        setTimeout(() => el.remove(), 300);
-      }, 3500);
+    function copyPortalLink() {
+      const fbBase = getCustomFirebaseBase();
+      const fbQuery = fbBase ? `?fb=${encodeURIComponent(btoa(unescape(encodeURIComponent(fbBase))))}` : '';
+      const url = `${window.location.origin}${window.location.pathname}${fbQuery}`;
+      copyTextFallback(url);
+      showToast('Portal URL copied to clipboard!', 'success');
     }
 
-    function escapeHtml(str) {
-      return String(str || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
+    function openCloudSetupModal() {
+      document.getElementById('cloud-fb-url-input').value = getCustomFirebaseBase();
+      openModal('cloud-setup-modal');
     }
 
-    function formatDateTime(ts) {
-      try {
-        const d = new Date(ts);
-        const pad = n => String(n).padStart(2, '0');
-        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      } catch (e) {
-        return '';
+    async function handleSaveCloudUrl(e) {
+      e.preventDefault();
+      const url = document.getElementById('cloud-fb-url-input').value.trim().replace(/\/+$/, '');
+      if (!url.startsWith('https://')) {
+        showToast('Please enter a valid https:// Firebase Realtime Database URL', 'error');
+        return;
       }
+      localStorage.setItem(FIREBASE_CFG_KEY, url);
+      resolvedFirebaseUrl = url;
+      closeModal('cloud-setup-modal');
+      showToast('Cloud URL saved! Syncing now...', 'success');
+
+      for (const u of users) await publishRecordToCloud('user', u);
+      for (const p of permits) await publishRecordToCloud('permit', p);
+      await fetchLatestCloudState(true);
     }
 
-    async function initApp() {
+    // =========================================================================
+    // 9. BOOTSTRAP & AUTO-POLLING LOOP
+    // =========================================================================
+    function initApp() {
       loadLocalState();
-      importSharedPayloadFromUrl();
+      checkMagicInviteLink();
       applyLanguage();
 
-      // Restore active session if valid
       try {
-        const savedSess = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-        if (savedSess && savedSess.id) {
-          const found = users.find(u => u.id === savedSess.id && u.active !== false);
-          if (found) {
+        const savedSess = localStorage.getItem(SESSION_KEY);
+        if (savedSess) {
+          const parsed = JSON.parse(savedSess);
+          const found = users.find(u => u.id === parsed.id || (u.username && parsed.username && u.username.toLowerCase() === parsed.username.toLowerCase()));
+          if (found && found.active !== false) {
             currentUser = found;
             activeTab = found.role === 'ADMIN' ? 'all' : 'my';
             enterAppShell();
@@ -1940,7 +2038,12 @@
       } catch (e) {}
 
       startLiveCloudStream();
-      await fetchLatestCloudState(false);
+      fetchLatestCloudState(false);
+
+      // Periodic background sync every 4 seconds
+      setInterval(() => {
+        fetchLatestCloudState(false);
+      }, 4000);
     }
 
     window.addEventListener('DOMContentLoaded', initApp);
