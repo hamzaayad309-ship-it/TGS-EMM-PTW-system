@@ -100,7 +100,7 @@
             <span class="w-2 h-2 rounded-full bg-emerald-500 pulse-dot"></span>
             <span id="login-sync-text">Cloud Sync Ready</span>
           </span>
-          <span>v10.0 Live</span>
+          <span>v10.1 Live</span>
         </div>
       </form>
     </div>
@@ -568,6 +568,7 @@
     const SESSION_KEY = 'ptw_enterprise_session_v10';
     const LANG_KEY = 'ptw_enterprise_lang_v10';
     const FIREBASE_CFG_KEY = 'ptw_custom_firebase_url_v10';
+    const TWO_DAYS_MS = 48 * 3600 * 1000;
 
     let currentLang = localStorage.getItem(LANG_KEY) || 'en';
     let currentUser = null;
@@ -651,7 +652,8 @@
         closeBtn: 'Close Permit',
         auditBtn: 'Audit Log',
         waBtn: 'WhatsApp',
-        delBtn: 'Delete'
+        delBtn: 'Delete',
+        expiringSoonTag: 'Expiring within 48h'
       },
       ar: {
         brandTitle: 'نظام تصاريح العمل',
@@ -708,7 +710,8 @@
         closeBtn: 'إغلاق التصريح',
         auditBtn: 'السجل',
         waBtn: 'واتساب',
-        delBtn: 'حذف'
+        delBtn: 'حذف',
+        expiringSoonTag: 'ينتهي خلال أقل من يومين'
       }
     };
 
@@ -815,7 +818,7 @@
         localStorage.setItem(STORAGE_KEY, JSON.stringify({
           users,
           permits,
-          notifications: notifications.slice(0, 120),
+          notifications: notifications.slice(0, 150),
           deletedPermitIds,
           deletedUserIds,
           deletedUsernames
@@ -866,7 +869,85 @@
     }
 
     // =========================================================================
-    // 4. CLOUD SYNC ENGINE (FIREBASE REALTIME DB + NTFY BACKUP STREAM)
+    // 4. EXPIRY REMINDER ENGINE (48 HOURS / 2 DAYS BEFORE EXPIRATION)
+    // =========================================================================
+    async function checkExpiringPermitsNotifications() {
+      const now = Date.now();
+      let stateChanged = false;
+
+      for (const p of permits) {
+        if (!p || p.status === 'CLOSED' || !p.validUntil) continue;
+        const remainingMs = p.validUntil - now;
+
+        // Trigger if permit is within 48 hours (2 days) of expiring and not yet expired
+        if (remainingMs > 0 && remainingMs <= TWO_DAYS_MS) {
+          // Unique key per permit & validity timestamp so renewing resets the alert
+          const alertCycleKey = `${p.id}_${p.validUntil}`;
+          if (p.twoDayAlertSentFor === alertCycleKey) continue;
+
+          // Mark as alerted immediately to prevent duplicates across tabs/syncs
+          p.twoDayAlertSentFor = alertCycleKey;
+          p.updatedAt = now;
+          stateChanged = true;
+
+          const hoursLeft = Math.max(1, Math.round(remainingMs / 3600000));
+          const daysApprox = hoursLeft >= 24
+            ? `${Math.floor(hoursLeft / 24)}d ${hoursLeft % 24}h`
+            : `${hoursLeft}h`;
+          const expiryStr = formatDateTime(p.validUntil);
+
+          // 1. Deterministic notification for Current Holder (User)
+          const holderNotifId = `ntf_exp_u_${p.id}_${p.validUntil}`;
+          if (!notifications.some(n => n.id === holderNotifId)) {
+            const userNotif = {
+              id: holderNotifId,
+              toUserId: p.holderId,
+              toRole: 'USER',
+              title: `⏰ تنبيه انتهاء تصريح خلال يومين / Expiring Soon: ${p.permitNumber}`,
+              body: `التصريح ${p.permitNumber} (${p.type}) في موقع (${p.location}) سينتهي خلال ${daysApprox} بتاريخ ${expiryStr}. يرجى التجديد أو الإغلاق. | Permit ${p.permitNumber} expires on ${expiryStr}.`,
+              ts: now,
+              read: false
+            };
+            notifications.unshift(userNotif);
+            publishRecordToCloud('notif', userNotif);
+          }
+
+          // 2. Deterministic notification for System Administration
+          const adminNotifId = `ntf_exp_a_${p.id}_${p.validUntil}`;
+          if (!notifications.some(n => n.id === adminNotifId)) {
+            const adminNotif = {
+              id: adminNotifId,
+              toUserId: 'ADMIN_ALL',
+              toRole: 'ADMIN',
+              title: `⚠️ تنبيه إدارة: تصريح قارب على الانتهاء (${p.permitNumber})`,
+              body: `التصريح ${p.permitNumber} (${p.type}) بعهدة (${p.holderName}) في (${p.location}) سينتهي خلال ${daysApprox} (${expiryStr}).`,
+              ts: now,
+              read: false
+            };
+            notifications.unshift(adminNotif);
+            publishRecordToCloud('notif', adminNotif);
+          }
+
+          // Show live toast alert if current user is the holder or an Admin
+          if (currentUser && (currentUser.role === 'ADMIN' || currentUser.id === p.holderId)) {
+            const toastMsg = currentLang === 'ar'
+              ? `⏰ تنبيه: التصريح ${p.permitNumber} سينتهي خلال أقل من يومين (${expiryStr})`
+              : `⏰ Alert: Permit ${p.permitNumber} expires within 2 days (${expiryStr})`;
+            showToast(toastMsg, 'warn');
+          }
+
+          publishRecordToCloud('permit', p);
+        }
+      }
+
+      if (stateChanged) {
+        saveLocalState();
+        if (currentUser) refreshAllUI();
+      }
+    }
+
+    // =========================================================================
+    // 5. CLOUD SYNC ENGINE (FIREBASE REALTIME DB + NTFY BACKUP STREAM)
     // =========================================================================
     function getCustomFirebaseBase() {
       const saved = (localStorage.getItem(FIREBASE_CFG_KEY) || '').trim().replace(/\/+$/, '');
@@ -1045,7 +1126,6 @@
       const fbBase = await resolveWorkingFirebaseUrl();
       let fbSaved = false;
 
-      // 1. Atomic per-record write to Firebase Realtime DB
       if (fbBase) {
         try {
           let targetUrl = '';
@@ -1087,7 +1167,6 @@
         } catch (e) {}
       }
 
-      // 2. Broadcast lightweight single-line plain-text packet to ntfy backup stream
       try {
         const bodyObj = { t: type, d: payload, ts: Date.now() };
         const encoded = btoa(unescape(encodeURIComponent(JSON.stringify(bodyObj))));
@@ -1110,7 +1189,6 @@
       let cloudReachable = false;
 
       try {
-        // A. Fetch from Embedded Firebase Realtime Database
         const fbBase = await resolveWorkingFirebaseUrl();
         if (fbBase) {
           try {
@@ -1130,7 +1208,6 @@
                 applyRemoteSnapshot(fbData);
               }
 
-              // Two-way auto-push: upload any local permits/users not yet in Firebase
               for (const localP of permits) {
                 if (!deletedPermitIds.includes(localP.id) && !remotePermitIds.includes(localP.id)) {
                   await publishRecordToCloud('permit', localP);
@@ -1145,7 +1222,6 @@
           } catch (e) {}
         }
 
-        // B. Fetch from ntfy real-time stream (backup push channel)
         try {
           const res = await fetch(`https://ntfy.sh/${NTFY_STREAM_TOPIC}/json?poll=1&since=48h`, { cache: 'no-store' });
           if (res.ok) {
@@ -1159,6 +1235,9 @@
             }
           }
         } catch (e) {}
+
+        // Check for permits expiring within 2 days (48 hours)
+        await checkExpiringPermitsNotifications();
 
         const statusEl = document.getElementById('sync-status-label');
         if (statusEl) {
@@ -1195,7 +1274,7 @@
     }
 
     // =========================================================================
-    // 5. AUTHENTICATION & ACCESS ENFORCEMENT
+    // 6. AUTHENTICATION & ACCESS ENFORCEMENT
     // =========================================================================
     function checkMagicInviteLink() {
       try {
@@ -1235,7 +1314,6 @@
 
       if (!rawUser || !rawPass) return;
 
-      // Sync latest users from cloud before verifying
       await fetchLatestCloudState(false);
 
       if (deletedUsernames.includes(unameLow)) {
@@ -1352,7 +1430,7 @@
     }
 
     // =========================================================================
-    // 6. PERMIT CREATION, HANDOVER, RENEWAL, CLOSURE & DELETION
+    // 7. PERMIT CREATION, HANDOVER, RENEWAL, CLOSURE & DELETION
     // =========================================================================
     function openNewPermitModal() {
       document.getElementById('new-permit-number').value = '';
@@ -1360,13 +1438,11 @@
       document.getElementById('new-permit-location').value = '';
       document.getElementById('new-permit-desc').value = '';
 
-      // Default Valid Until = Today + 12 hours (formatted for datetime-local)
       const defDate = new Date(Date.now() + 12 * 3600 * 1000);
       const pad = n => String(n).padStart(2, '0');
       const localIso = `${defDate.getFullYear()}-${pad(defDate.getMonth() + 1)}-${pad(defDate.getDate())}T${pad(defDate.getHours())}:${pad(defDate.getMinutes())}`;
       document.getElementById('new-permit-valid-until').value = localIso;
 
-      // Populate optional handover user select
       const t = I18N[currentLang] || I18N.en;
       const sel = document.getElementById('new-permit-handover-user');
       sel.innerHTML = `<option value="">${escapeHtml(t.noneSelf)}</option>`;
@@ -1424,7 +1500,6 @@
 
       permits.unshift(newPermit);
 
-      // Notify recipient if direct handover selected
       if (targetUser) {
         const notif = {
           id: 'ntf_' + now + '_' + Math.random().toString(36).slice(2, 6),
@@ -1439,7 +1514,6 @@
         publishRecordToCloud('notif', notif);
       }
 
-      // Notify Admin of new permit issuance
       const adminNotif = {
         id: 'ntf_adm_' + now + '_' + Math.random().toString(36).slice(2, 6),
         toUserId: 'ADMIN_ALL',
@@ -1457,6 +1531,8 @@
 
       const savedToFb = await publishRecordToCloud('permit', newPermit);
       await publishRecordToCloud('notif', adminNotif);
+      await checkExpiringPermitsNotifications();
+
       showToast(
         savedToFb ? `Permit ${permitNum} saved to Firebase Cloud ✓` : `Saved locally (Firebase offline)`,
         savedToFb ? 'success' : 'warn'
@@ -1583,6 +1659,7 @@
       refreshAllUI();
       showToast(`Permit ${p.permitNumber} renewed (+12h)`, 'success');
       await publishRecordToCloud('permit', p);
+      await checkExpiringPermitsNotifications();
     }
 
     async function closePermit(permitId) {
@@ -1617,7 +1694,6 @@
       if (!deletedPermitIds.includes(permitId)) deletedPermitIds.push(permitId);
       permits = permits.filter(x => x.id !== permitId);
 
-      // Alert Admin if deleted by a non-admin user
       if (currentUser && currentUser.role !== 'ADMIN') {
         const alertNotif = {
           id: 'ntf_del_' + now + '_' + Math.random().toString(36).slice(2, 6),
@@ -1676,14 +1752,13 @@
     }
 
     // =========================================================================
-    // 7. DASHBOARD RENDERING & NOTIFICATIONS
+    // 8. DASHBOARD RENDERING & NOTIFICATIONS
     // =========================================================================
     function refreshAllUI() {
       if (!currentUser) return;
       const t = I18N[currentLang] || I18N.en;
       const isAdmin = currentUser.role === 'ADMIN';
 
-      // Incoming handovers badge
       const incomingList = permits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id);
       const incBadge = document.getElementById('incoming-count-badge');
       if (incBadge) {
@@ -1691,7 +1766,6 @@
         incBadge.classList.toggle('hidden', incomingList.length === 0);
       }
 
-      // Notifications badge
       const myNotifs = notifications.filter(n =>
         n.toUserId === currentUser.id || (isAdmin && n.toUserId === 'ADMIN_ALL')
       );
@@ -1702,7 +1776,6 @@
         nBadge.classList.toggle('hidden', unreadCount === 0);
       }
 
-      // Filter permits by activeTab
       let baseList = [];
       if (activeTab === 'incoming') {
         baseList = incomingList;
@@ -1716,13 +1789,11 @@
         );
       }
 
-      // Update KPIs based on baseList
       document.getElementById('kpi-active-val').textContent = baseList.filter(p => p.status === 'ACTIVE').length;
       document.getElementById('kpi-pending-val').textContent = baseList.filter(p => p.status === 'PENDING_HANDOVER').length;
       document.getElementById('kpi-closed-val').textContent = baseList.filter(p => p.status === 'CLOSED').length;
       document.getElementById('kpi-total-val').textContent = baseList.length;
 
-      // Search & dropdown filters
       const q = (document.getElementById('search-input')?.value || '').trim().toLowerCase();
       const fType = document.getElementById('filter-type')?.value || 'ALL';
       const fStatus = document.getElementById('filter-status')?.value || 'ALL';
@@ -1756,13 +1827,16 @@
         CLOSED: `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-slate-200 text-slate-700">${escapeHtml(t.statusClosed)}</span>`
       };
 
+      const now = Date.now();
       grid.innerHTML = filtered.map(p => {
         const isHolder = p.holderId === currentUser.id;
         const isRecipient = p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id;
         const canManage = isAdmin || isHolder;
+        const remMs = (p.validUntil || 0) - now;
+        const isExpiringSoon = p.status !== 'CLOSED' && remMs > 0 && remMs <= TWO_DAYS_MS;
 
         return `
-          <div class="glass-card rounded-3xl p-5 flex flex-col justify-between gap-4 hover:shadow-md transition">
+          <div class="glass-card rounded-3xl p-5 flex flex-col justify-between gap-4 hover:shadow-md transition ${isExpiringSoon ? 'ring-2 ring-amber-400' : ''}">
             <div class="space-y-3">
               <div class="flex items-center justify-between gap-2">
                 <div class="flex items-center gap-2">
@@ -1771,6 +1845,13 @@
                 </div>
                 ${statusBadges[p.status] || ''}
               </div>
+
+              ${isExpiringSoon ? `
+                <div class="px-3 py-1.5 rounded-xl bg-amber-100 border border-amber-300 text-amber-900 text-[11px] font-extrabold flex items-center gap-1.5">
+                  <span>⏰</span>
+                  <span>${escapeHtml(t.expiringSoonTag)}</span>
+                </div>
+              ` : ''}
 
               <div class="text-xs font-bold text-slate-600">
                 📍 ${escapeHtml(p.location)}
@@ -1793,7 +1874,7 @@
                 ` : ''}
                 <div class="flex justify-between">
                   <span class="text-slate-400 font-semibold">${escapeHtml(t.validUntil)}:</span>
-                  <span class="font-bold text-slate-700">${formatDateTime(p.validUntil)}</span>
+                  <span class="font-bold ${isExpiringSoon ? 'text-amber-700' : 'text-slate-700'}">${formatDateTime(p.validUntil)}</span>
                 </div>
               </div>
             </div>
@@ -1854,7 +1935,7 @@
     }
 
     // =========================================================================
-    // 8. ADMINISTRATOR MASTER PANEL & CLOUD SETUP
+    // 9. ADMINISTRATOR MASTER PANEL & CLOUD SETUP
     // =========================================================================
     function renderAdminPanel() {
       if (!currentUser || currentUser.role !== 'ADMIN') return;
@@ -1918,7 +1999,6 @@
         return;
       }
 
-      // Remove from deleted list if recreated
       deletedUsernames = deletedUsernames.filter(x => x !== unameLow);
 
       const newUser = {
@@ -2046,7 +2126,7 @@
     }
 
     // =========================================================================
-    // 9. BOOTSTRAP & AUTO-POLLING LOOP
+    // 10. BOOTSTRAP & AUTO-POLLING LOOP
     // =========================================================================
     function initApp() {
       loadLocalState();
@@ -2069,7 +2149,6 @@
       startLiveCloudStream();
       fetchLatestCloudState(false);
 
-      // Periodic background sync every 4 seconds
       setInterval(() => {
         fetchLatestCloudState(false);
       }, 4000);
