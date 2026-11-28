@@ -138,6 +138,12 @@
             <span id="btn-sync-text">Sync</span>
           </button>
 
+          <button type="button" onclick="openChangePasswordModal()"
+            class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs font-bold border border-slate-700 flex items-center gap-1.5 transition">
+            <span>🔑</span>
+            <span id="btn-change-pass-text">Password</span>
+          </button>
+
           <button type="button" onclick="openNotificationsModal()"
             class="relative p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 transition">
             <span>🔔</span>
@@ -505,16 +511,20 @@
           <input id="cu-password" type="text" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none" />
         </div>
         <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">WhatsApp Phone Number (Optional, e.g. 9647701234567)</label>
+          <input id="cu-phone" type="tel" placeholder="9647XXXXXXXXX" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none" />
+        </div>
+        <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Role</label>
           <select id="cu-role" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-bold bg-white outline-none">
             <option value="PA">PA (Permit Applicant / Holder)</option>
             <option value="AA">AA (Area Authority)</option>
-            <option value="ADMIN">ADMIN (Full Control)</option>
+            <option value="ADMIN">ADMIN (Viewer)</option>
           </select>
         </div>
         <div class="flex justify-end gap-2 pt-2">
           <button type="button" onclick="closeModal('create-user-modal')" class="lbl-cancel px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Cancel</button>
-          <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-xs font-extrabold">Create User</button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold">Create User</button>
         </div>
       </form>
     </div>
@@ -544,6 +554,10 @@
           <input id="eu-password" type="text" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none" />
         </div>
         <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">WhatsApp Phone Number (Optional, e.g. 9647701234567)</label>
+          <input id="eu-phone" type="tel" placeholder="9647XXXXXXXXX" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none" />
+        </div>
+        <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Role</label>
           <select id="eu-role" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-bold bg-white outline-none">
             <option value="PA">PA (Permit Applicant / Holder)</option>
@@ -569,16 +583,42 @@
         <button type="button" onclick="closeModal('cloud-setup-modal')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
       </div>
       <form onsubmit="handleSaveCloudUrl(event)" class="p-6 space-y-4">
+        <p class="text-xs text-slate-600 leading-relaxed">
+          Enter your Firebase Realtime Database URL to synchronize all users, permits, and notifications across all devices.
+        </p>
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Firebase Realtime Database URL *</label>
-          <input id="cloud-fb-url-input" type="url" required placeholder="https://your-project.firebasedatabase.app"
-            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono outline-none" />
+          <input id="cloud-fb-url-input" type="url" required placeholder="https://your-project-default-rtdb.firebasedatabase.app"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono outline-none focus:border-amber-500" />
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('cloud-setup-modal')" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Cancel</button>
-          <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold">Save &amp; Sync Now</button>
+          <button type="button" onclick="closeModal('cloud-setup-modal')" class="lbl-cancel px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold shadow">Save &amp; Sync Now</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL 7: CLOUD DATABASE SETUP MODAL                                     -->
+  <!-- ======================================================================= -->
+  <div id="cloud-setup-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <h3 class="font-bold text-base">Cloud Database Setup (Firebase)</h3>
+        <button type="button" onclick="closeModal('cloud-setup-modal')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+      <form onsubmit="handleSaveCloudUrl(event)" class="p-6 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Password *</label>
+          <input id="eu-password" type="text" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">WhatsApp Phone Number (Optional, e.g. 9647701234567)</label>
+          <input id="eu-phone" type="tel" placeholder="9647XXXXXXXXX" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Role</label>
     </div>
   </div>
 
@@ -647,6 +687,42 @@
   </div>
 
   <!-- ======================================================================= -->
+  <!-- MODAL 10: USER SELF-SERVICE CHANGE PASSWORD MODAL                       -->
+  <!-- ======================================================================= -->
+  <div id="change-password-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <h3 id="modal-change-pass-title" class="font-bold text-base">Change Account Password</h3>
+        <button type="button" onclick="closeModal('change-password-modal')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+      <form onsubmit="handleSelfChangePassword(event)" class="p-6 space-y-4">
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-700">
+          Account: <span id="cp-account-label" class="text-slate-950"></span>
+        </div>
+        <div>
+          <label id="lbl-cp-old" class="block text-xs font-bold text-slate-700 mb-1">Current Password *</label>
+          <input id="cp-old-password" type="password" required placeholder="••••••••"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-amber-500" />
+        </div>
+        <div>
+          <label id="lbl-cp-new" class="block text-xs font-bold text-slate-700 mb-1">New Password *</label>
+          <input id="cp-new-password" type="password" required placeholder="••••••••"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-amber-500" />
+        </div>
+        <div>
+          <label id="lbl-cp-confirm" class="block text-xs font-bold text-slate-700 mb-1">Confirm New Password *</label>
+          <input id="cp-confirm-password" type="password" required placeholder="••••••••"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none focus:border-amber-500" />
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('change-password-modal')" class="lbl-cancel px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Cancel</button>
+          <button type="submit" id="btn-save-new-pass" class="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold shadow">Update Password</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
   <!-- APPLICATION JAVASCRIPT ENGINE                                           -->
   <!-- ======================================================================= -->
   <script>
@@ -704,7 +780,13 @@
         password: 'Password',
         signIn: 'Sign In',
         sync: 'Sync',
+        changePassBtn: 'Password',
         logout: 'Logout',
+        changePassTitle: 'Change Account Password',
+        cpOldLabel: 'Current Password *',
+        cpNewLabel: 'New Password *',
+        cpConfirmLabel: 'Confirm New Password *',
+        cpSaveBtn: 'Update Password',
         myPermits: 'My Permits',
         incomingHandovers: 'Incoming Handovers',
         permitsRegistry: 'Permits Registry',
@@ -766,7 +848,13 @@
         password: 'كلمة المرور',
         signIn: 'دخول النظام',
         sync: 'مزامنة',
+        changePassBtn: 'كلمة المرور',
         logout: 'خروج',
+        changePassTitle: 'تغيير كلمة مرور الحساب',
+        cpOldLabel: 'كلمة المرور الحالية *',
+        cpNewLabel: 'كلمة المرور الجديدة *',
+        cpConfirmLabel: 'تأكيد كلمة المرور الجديدة *',
+        cpSaveBtn: 'حفظ كلمة المرور',
         myPermits: 'تصاريحي',
         incomingHandovers: 'طلبات التسليم الواردة',
         permitsRegistry: 'سجل التصاريح',
@@ -841,7 +929,13 @@
       setTxt('login-lang-btn', currentLang === 'en' ? 'العربية' : 'English');
       setTxt('header-lang-btn', currentLang === 'en' ? 'العربية' : 'English');
       setTxt('btn-sync-text', t.sync);
+      setTxt('btn-change-pass-text', t.changePassBtn);
       setTxt('btn-logout-text', t.logout);
+      setTxt('modal-change-pass-title', t.changePassTitle);
+      setTxt('lbl-cp-old', t.cpOldLabel);
+      setTxt('lbl-cp-new', t.cpNewLabel);
+      setTxt('lbl-cp-confirm', t.cpConfirmLabel);
+      setTxt('btn-save-new-pass', t.cpSaveBtn);
       setTxt('tab-my-label', t.myPermits);
       setTxt('tab-incoming-label', t.incomingHandovers);
       setTxt('tab-registry-label', t.permitsRegistry);
@@ -1641,9 +1735,40 @@
       else refreshAllUI();
       showToast(`Permit ${permitNumber} issued and logged!`, 'success');
 
+      if (recipient) {
+        sendHandoverWhatsAppAlert(newPermit, recipient, '');
+      }
+
       await publishRecordToCloud('permit', newPermit);
       await publishRecordToCloud('notif', adminRegNotif);
       await checkExpiringPermitsNotifications();
+    }
+
+    function sendHandoverWhatsAppAlert(permit, recipient, notes = '') {
+      if (!permit || !recipient) return;
+      const encodedUser = btoa(unescape(encodeURIComponent(JSON.stringify(recipient))));
+      const fbBase = getCustomFirebaseBase();
+      const fbQuery = fbBase ? `&fb=${encodeURIComponent(btoa(unescape(encodeURIComponent(fbBase))))}` : '';
+      const directUrl = `${window.location.origin}${window.location.pathname}?u=${encodeURIComponent(encodedUser)}${fbQuery}`;
+
+      const msgLines = [
+        `Permit to Work (PTW) Handover Notification`,
+        `Hello ${recipient.fullName},`,
+        `${currentUser.fullName} has sent you a request for the handover of a Permit to Work:`,
+        `- Permit Number: ${permit.permitNumber}`,
+        `- Permit Type: ${permit.type}`,
+        `- Work Location: ${permit.location}`,
+        `- Valid Until: ${formatDateTime(permit.validUntil)}`,
+        `Please log in to the web portal to accept or decline the permit handover:`,
+        `${directUrl}`
+      ].join('\n');
+
+      const cleanPhone = normalizeDigits(recipient.phone || '').replace(/[^\d]/g, '');
+      const waUrl = cleanPhone
+        ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgLines)}`
+        : `https://wa.me/?text=${encodeURIComponent(msgLines)}`;
+
+      window.open(waUrl, '_blank');
     }
 
     function openHandoverModal(permitId) {
@@ -1699,6 +1824,7 @@
       closeModal('handover-modal');
       refreshAllUI();
       showToast(`Handover request sent to ${recipient.fullName}`, 'success');
+      sendHandoverWhatsAppAlert(p, recipient, notes);
 
       await publishRecordToCloud('permit', p);
       await publishRecordToCloud('notif', hoNotif);
@@ -2250,6 +2376,7 @@
 
               ${(p.status === 'ACTIVE' || p.status === 'PENDING_HANDOVER') && canManage ? `
                 <button type="button" onclick="openHandoverModal('${p.id}')" class="py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold">⇄ ${escapeHtml(t.handoverBtn)}</button>
+                ${p.status === 'PENDING_HANDOVER' && p.pendingToId ? `<button type="button" onclick="resendHandoverWhatsApp('${p.id}')" class="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold">📲 WA Notify</button>` : ''}
                 <button type="button" onclick="renewPermit('${p.id}')" class="py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold">↻ ${escapeHtml(t.renewBtn)}</button>
                 <button type="button" onclick="openClosureRequestModal('${p.id}')" class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">🔒 ${escapeHtml(t.closeBtn)}</button>
               ` : ''}
@@ -2349,6 +2476,7 @@
       document.getElementById('cu-fullname').value = '';
       document.getElementById('cu-username').value = '';
       document.getElementById('cu-password').value = '';
+      document.getElementById('cu-phone').value = '';
       document.getElementById('cu-role').value = 'PA';
       openModal('create-user-modal');
     }
@@ -2359,6 +2487,7 @@
       const fullName = document.getElementById('cu-fullname').value.trim();
       const username = document.getElementById('cu-username').value.trim();
       const password = normalizeDigits(document.getElementById('cu-password').value.trim());
+      const phone = normalizeDigits(document.getElementById('cu-phone').value.trim()).replace(/[^\d]/g, '');
       const role = document.getElementById('cu-role').value;
       if (!fullName || !username || !password) return;
 
@@ -2375,6 +2504,7 @@
         fullName,
         username,
         password,
+        phone,
         role,
         active: true,
         updatedAt: Date.now()
@@ -2396,6 +2526,7 @@
       document.getElementById('eu-fullname').value = u.fullName;
       document.getElementById('eu-username').value = u.username;
       document.getElementById('eu-password').value = u.password;
+      document.getElementById('eu-phone').value = u.phone || '';
       document.getElementById('eu-role').value = u.role;
       openModal('edit-user-modal');
     }
@@ -2410,6 +2541,7 @@
       u.fullName = document.getElementById('eu-fullname').value.trim();
       u.username = document.getElementById('eu-username').value.trim();
       u.password = normalizeDigits(document.getElementById('eu-password').value.trim());
+      u.phone = normalizeDigits(document.getElementById('eu-phone').value.trim()).replace(/[^\d]/g, '');
       u.role = document.getElementById('eu-role').value;
       u.updatedAt = Date.now();
 
@@ -2418,6 +2550,14 @@
       renderAdminPanel();
       showToast(`User ${u.username} updated!`, 'success');
       await publishRecordToCloud('user', u);
+    }
+
+    function resendHandoverWhatsApp(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p || !p.pendingToId) return;
+      const recipient = users.find(u => u.id === p.pendingToId);
+      if (!recipient) return;
+      sendHandoverWhatsAppAlert(p, recipient, '');
     }
 
     async function deleteUserAccount(userId) {
@@ -2495,6 +2635,51 @@
       for (const u of users) await publishRecordToCloud('user', u);
       for (const p of permits) await publishRecordToCloud('permit', p);
       await fetchLatestCloudState(true);
+    }
+
+    function openChangePasswordModal() {
+      if (!currentUser) return;
+      document.getElementById('cp-account-label').textContent = `${currentUser.fullName} (${currentUser.username})`;
+      document.getElementById('cp-old-password').value = '';
+      document.getElementById('cp-new-password').value = '';
+      document.getElementById('cp-confirm-password').value = '';
+      openModal('change-password-modal');
+    }
+
+    async function handleSelfChangePassword(e) {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      const oldPass = normalizeDigits(document.getElementById('cp-old-password').value.trim());
+      const newPass = normalizeDigits(document.getElementById('cp-new-password').value.trim());
+      const confirmPass = normalizeDigits(document.getElementById('cp-confirm-password').value.trim());
+
+      if (normalizeDigits(currentUser.password) !== oldPass) {
+        showToast(currentLang === 'ar' ? 'كلمة المرور الحالية غير صحيحة!' : 'Current password is incorrect!', 'error');
+        return;
+      }
+      if (!newPass || newPass.length < 3) {
+        showToast(currentLang === 'ar' ? 'كلمة المرور الجديدة قصيرة جداً.' : 'New password must be at least 3 characters.', 'error');
+        return;
+      }
+      if (newPass !== confirmPass) {
+        showToast(currentLang === 'ar' ? 'كلمة المرور الجديدة وتأكيدها غير متطابقين!' : 'New password and confirmation do not match!', 'error');
+        return;
+      }
+
+      const idx = users.findIndex(u => u.id === currentUser.id);
+      if (idx === -1) return;
+
+      users[idx].password = newPass;
+      users[idx].updatedAt = Date.now();
+      currentUser = users[idx];
+
+      saveLocalState();
+      closeModal('change-password-modal');
+      if (activeTab === 'admin' && isSystemAdmin()) renderAdminPanel();
+      showToast(currentLang === 'ar' ? 'تم تغيير كلمة المرور ومزامنتها بنجاح ✓' : 'Password changed & synced to cloud ✓', 'success');
+
+      await publishRecordToCloud('user', currentUser);
     }
 
     // =========================================================================
