@@ -180,7 +180,7 @@
             </button>
 
             <button type="button" id="tab-registry" onclick="switchTab('registry')"
-              class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:bg-slate-800">
+              class="hidden px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:bg-slate-800">
               <span>📒</span>
               <span id="tab-registry-label">Permits Registry</span>
             </button>
@@ -600,29 +600,6 @@
   </div>
 
   <!-- ======================================================================= -->
-  <!-- MODAL 7: CLOUD DATABASE SETUP MODAL                                     -->
-  <!-- ======================================================================= -->
-  <div id="cloud-setup-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
-      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-        <h3 class="font-bold text-base">Cloud Database Setup (Firebase)</h3>
-        <button type="button" onclick="closeModal('cloud-setup-modal')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
-      </div>
-      <form onsubmit="handleSaveCloudUrl(event)" class="p-6 space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Password *</label>
-          <input id="eu-password" type="text" required class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">WhatsApp Phone Number (Optional, e.g. 9647701234567)</label>
-          <input id="eu-phone" type="tel" placeholder="9647XXXXXXXXX" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none" />
-        </div>
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Role</label>
-    </div>
-  </div>
-
-  <!-- ======================================================================= -->
   <!-- MODAL 8: REQUEST CLOSURE WITH FIRST & LAST PERMIT PHOTOS                -->
   <!-- ======================================================================= -->
   <div id="closure-request-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -767,9 +744,11 @@
       return user.id === 'usr_admin_master' || (user.username && user.username.toLowerCase() === 'admin');
     }
 
-    // =========================================================================
-    // 2. BILINGUAL DICTIONARY (ENGLISH DEFAULT + ARABIC)
-    // =========================================================================
+    function canViewRegistry(user = currentUser) {
+      if (!user) return false;
+      return isSystemAdmin(user) || user.role === 'ADMIN';
+    }
+
     const I18N = {
       en: {
         brandTitle: 'Work Permit System',
@@ -810,43 +789,41 @@
         permitLoc: 'Work Location *',
         handoverTo: 'Handover Permit To Another User (Optional)',
         handoverHint: 'If selected, an instant notification will be sent to the recipient to accept custody.',
+        noneSelf: '-- Keep in My Custody (No Handover) --',
         permitDesc: 'Work Description *',
         validUntilLabel: 'Valid Until Date & Time *',
-        cancel: 'Cancel',
         issueBtn: 'Issue Permit',
         handoverTitle: 'Handover Permit Custody',
         hoRecipient: 'Select Recipient User *',
+        selectUser: '-- Select Authorized User --',
         hoNotes: 'Handover Notes / Site Condition',
         sendHandover: 'Send Handover Request',
         auditTitle: 'Permit Audit Log',
         notifTitle: 'Notifications & Alerts',
         markRead: 'Mark All Read',
-        noneSelf: '-- Keep in My Custody (No Handover) --',
-        selectUser: '-- Select User --',
-        noPermits: 'No permits found in this view.',
+        cancel: 'Cancel',
+        noPermits: 'No permits found matching your current filter.',
+        expiringSoonTag: 'Expiring within 48 hours',
         holder: 'Current Holder',
-        validUntil: 'Valid Until',
         pendingTo: 'Pending Handover To',
-        acceptBtn: 'Accept Custody',
+        validUntil: 'Valid Until',
+        acceptBtn: 'Accept',
         rejectBtn: 'Reject',
+        reviewCloseBtn: 'Review Closure',
         handoverBtn: 'Handover',
-        renewBtn: 'Renew +12h',
-        closeBtn: 'Close Permit',
-        reviewCloseBtn: 'Review & Approve Closure',
-        viewPhotosBtn: 'Closure Photos',
-        auditBtn: 'Audit Log',
-        waBtn: 'WhatsApp',
-        delBtn: 'Delete',
-        expiringSoonTag: 'Expiring within 48h'
+        renewBtn: 'Renew',
+        closeBtn: 'Close',
+        viewPhotosBtn: 'Photos',
+        auditBtn: 'Log'
       },
       ar: {
         brandTitle: 'نظام تصاريح العمل',
-        brandSub: 'بوابة التسليم والإغلاق الميداني',
+        brandSub: 'بوابة التسليم والإغلاق',
         loginHeading: 'تسجيل الدخول للبوابة',
-        loginSub: 'أدخل اسم المستخدم وكلمة المرور المعتمدة',
+        loginSub: 'أدخل اسم المستخدم وكلمة المرور المصرح بهما',
         username: 'اسم المستخدم',
         password: 'كلمة المرور',
-        signIn: 'دخول النظام',
+        signIn: 'تسجيل الدخول',
         sync: 'مزامنة',
         changePassBtn: 'كلمة المرور',
         logout: 'خروج',
@@ -854,58 +831,56 @@
         cpOldLabel: 'كلمة المرور الحالية *',
         cpNewLabel: 'كلمة المرور الجديدة *',
         cpConfirmLabel: 'تأكيد كلمة المرور الجديدة *',
-        cpSaveBtn: 'حفظ كلمة المرور',
+        cpSaveBtn: 'تحديث كلمة المرور',
         myPermits: 'تصاريحي',
-        incomingHandovers: 'طلبات التسليم الواردة',
+        incomingHandovers: 'طلبات الاستلام الواردة',
         permitsRegistry: 'سجل التصاريح',
         allSitePermits: 'جميع تصاريح الموقع',
-        adminControl: 'مدير النظام',
+        adminControl: 'إدارة النظام',
         newPermit: 'تصريح جديد',
         activePermits: 'التصاريح النشطة',
-        pendingHandovers: 'بانتظار الاستلام',
+        pendingHandovers: 'بانتظار الاستلام / الإغلاق',
         closedPermits: 'التصاريح المغلقة',
-        totalVisible: 'الإجمالي المعروض',
-        searchPlaceholder: 'بحث برقم التصريح، الموقع، أو المستلم...',
-        allTypes: 'كل الأنواع',
-        allStatuses: 'كل الحالات',
+        totalVisible: 'إجمالي المعروض',
+        searchPlaceholder: 'ابحث برقم التصريح، الموقع، أو حامل التصريح...',
+        allTypes: 'جميع الأنواع',
+        allStatuses: 'جميع الحالات',
         statusActive: 'نشط',
-        statusPending: 'بانتظار الاستلام',
+        statusPending: 'بانتظار التسليم',
         statusPendingClose: 'بانتظار موافقة الإغلاق',
         statusClosed: 'مغلق',
         issueNewPermit: 'إصدار تصريح عمل جديد',
         permitNum: 'رقم التصريح *',
         permitType: 'نوع التصريح *',
         permitLoc: 'موقع العمل *',
-        handoverTo: 'تسليم التصريح لمستخدم آخر (اختياري)',
-        handoverHint: 'عند اختيار مستخدم سيصله إشعار فوري لقبول استلام التصريح.',
-        permitDesc: 'وصف العمل واجراءات السلامة *',
-        validUntilLabel: 'تاريخ ووقت انتهاء الصلاحية *',
-        cancel: 'إلغاء',
+        handoverTo: 'تسليم التصريح إلى مستخدم آخر (اختياري)',
+        handoverHint: 'في حال الاختيار، سيصل إشعار فوري للمستلم لقبول استلام التصريح.',
+        noneSelf: '-- إبقاء التصريح بحوزتي (بدون تسليم) --',
+        permitDesc: 'وصف العمل *',
+        validUntilLabel: 'صالح لغاية تاريخ ووقت *',
         issueBtn: 'إصدار التصريح',
         handoverTitle: 'تسليم عهدة التصريح',
         hoRecipient: 'اختر المستخدم المستلم *',
-        hoNotes: 'ملاحظات التسليم وحالة الموقع',
+        selectUser: '-- اختر مستخدماً مصرحاً --',
+        hoNotes: 'ملاحظات التسليم / حالة الموقع',
         sendHandover: 'إرسال طلب التسليم',
         auditTitle: 'سجل حركات التصريح',
         notifTitle: 'الإشعارات والتنبيهات',
         markRead: 'تحديد الكل كمقروء',
-        noneSelf: '-- إبقاء التصريح بعهدتي (بدون تسليم) --',
-        selectUser: '-- اختر المستخدم --',
-        noPermits: 'لا توجد تصاريح في هذه القائمة.',
-        holder: 'حامل التصريح الحالي',
-        validUntil: 'صالح لغاية',
+        cancel: 'إلغاء',
+        noPermits: 'لا توجد تصاريح مطابقة للبحث الحالي.',
+        expiringSoonTag: 'ينتهي خلال أقل من 48 ساعة',
+        holder: 'الحامل الحالي',
         pendingTo: 'بانتظار استلام',
-        acceptBtn: 'قبول الاستلام',
+        validUntil: 'صالح لغاية',
+        acceptBtn: 'قبول',
         rejectBtn: 'رفض',
+        reviewCloseBtn: 'مراجعة الإغلاق',
         handoverBtn: 'تسليم',
-        renewBtn: 'تجديد +12س',
-        closeBtn: 'إغلاق التصريح',
-        reviewCloseBtn: 'مراجعة واعتماد الإغلاق',
-        viewPhotosBtn: 'صور الإغلاق',
-        auditBtn: 'السجل',
-        waBtn: 'واتساب',
-        delBtn: 'حذف',
-        expiringSoonTag: 'ينتهي خلال أقل من يومين'
+        renewBtn: 'تجديد',
+        closeBtn: 'إغلاق',
+        viewPhotosBtn: 'الصور',
+        auditBtn: 'السجل'
       }
     };
 
@@ -974,7 +949,7 @@
       document.querySelectorAll('.lbl-cancel').forEach(el => { el.textContent = t.cancel; });
 
       if (currentUser) {
-        if (activeTab === 'registry') renderRegistryView();
+        if (activeTab === 'registry' && canViewRegistry()) renderRegistryView();
         else if (activeTab === 'admin' && isSystemAdmin()) renderAdminPanel();
         else refreshAllUI();
       }
@@ -1282,7 +1257,7 @@
         enforceCurrentUserAccess();
         if (currentUser) {
           if (activeTab === 'admin' && isSystemAdmin()) renderAdminPanel();
-          else if (activeTab === 'registry') renderRegistryView();
+          else if (activeTab === 'registry' && canViewRegistry()) renderRegistryView();
           else refreshAllUI();
         }
       }
@@ -1312,7 +1287,7 @@
           enforceCurrentUserAccess();
           if (currentUser) {
             if (activeTab === 'admin' && isSystemAdmin()) renderAdminPanel();
-            else if (activeTab === 'registry') renderRegistryView();
+            else if (activeTab === 'registry' && canViewRegistry()) renderRegistryView();
             else refreshAllUI();
           }
         }
@@ -1567,12 +1542,18 @@
       document.getElementById('app-shell').classList.remove('hidden');
 
       const sysAdmin = isSystemAdmin(currentUser);
+      const allowRegistry = canViewRegistry(currentUser);
       document.getElementById('header-user-name').textContent = currentUser.fullName;
       document.getElementById('header-user-role').textContent = sysAdmin ? 'SYSTEM ADMIN' : currentUser.role;
       document.getElementById('header-avatar').textContent = (currentUser.fullName || 'U').charAt(0).toUpperCase();
 
+      const tabRegistryEl = document.getElementById('tab-registry');
       const tabAllEl = document.getElementById('tab-all');
       const tabAdminEl = document.getElementById('tab-admin');
+      if (tabRegistryEl) {
+        tabRegistryEl.classList.toggle('hidden', !allowRegistry);
+        tabRegistryEl.style.display = allowRegistry ? '' : 'none';
+      }
       if (tabAllEl) {
         tabAllEl.classList.toggle('hidden', !sysAdmin);
         tabAllEl.style.display = sysAdmin ? '' : 'none';
@@ -1582,7 +1563,7 @@
         tabAdminEl.style.display = sysAdmin ? '' : 'none';
       }
 
-      if (!sysAdmin && (activeTab === 'all' || activeTab === 'admin')) {
+      if ((!sysAdmin && (activeTab === 'all' || activeTab === 'admin')) || (!allowRegistry && activeTab === 'registry')) {
         activeTab = 'my';
       }
 
@@ -1600,7 +1581,8 @@
 
     function switchTab(tab) {
       const sysAdmin = isSystemAdmin(currentUser);
-      if (!sysAdmin && (tab === 'all' || tab === 'admin')) {
+      const allowRegistry = canViewRegistry(currentUser);
+      if ((!sysAdmin && (tab === 'all' || tab === 'admin')) || (!allowRegistry && tab === 'registry')) {
         tab = 'my';
       }
       activeTab = tab;
@@ -1608,7 +1590,7 @@
         const btn = document.getElementById(`tab-${t}`);
         if (!btn) return;
         const isSysAdminOnly = (t === 'all' || t === 'admin');
-        if (isSysAdminOnly && !sysAdmin) {
+        if ((isSysAdminOnly && !sysAdmin) || (t === 'registry' && !allowRegistry)) {
           btn.classList.add('hidden');
           btn.style.display = 'none';
           return;
@@ -1621,7 +1603,7 @@
       });
 
       const isAdminTab = tab === 'admin' && sysAdmin;
-      const isRegistryTab = tab === 'registry';
+      const isRegistryTab = tab === 'registry' && allowRegistry;
       document.getElementById('permits-section').classList.toggle('hidden', isAdminTab || isRegistryTab);
       document.getElementById('registry-section').classList.toggle('hidden', !isRegistryTab);
       document.getElementById('admin-section').classList.toggle('hidden', !isAdminTab);
@@ -2210,7 +2192,7 @@
     // 8. DASHBOARD RENDERING, REGISTRY VIEW & NOTIFICATIONS
     // =========================================================================
     function renderRegistryView() {
-      if (!currentUser) return;
+      if (!currentUser || !canViewRegistry(currentUser)) return;
       const sorted = [...permits].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       const badge = document.getElementById('registry-total-badge');
       if (badge) badge.textContent = `${sorted.length} Records`;
