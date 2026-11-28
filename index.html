@@ -173,6 +173,12 @@
               <span id="incoming-count-badge" class="hidden px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-extrabold">0</span>
             </button>
 
+            <button type="button" id="tab-registry" onclick="switchTab('registry')"
+              class="px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:bg-slate-800">
+              <span>📒</span>
+              <span id="tab-registry-label">Permits Registry</span>
+            </button>
+
             <button type="button" id="tab-all" onclick="switchTab('all')"
               class="hidden px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:bg-slate-800">
               <span>🗂️</span>
@@ -182,7 +188,7 @@
             <button type="button" id="tab-admin" onclick="switchTab('admin')"
               class="hidden px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 text-slate-300 hover:bg-slate-800">
               <span>🛡️</span>
-              <span id="tab-admin-label">Admin Control</span>
+              <span id="tab-admin-label">System Admin</span>
             </button>
           </div>
 
@@ -240,6 +246,7 @@
               <option value="ALL" id="opt-all-statuses">All Statuses</option>
               <option value="ACTIVE" id="opt-status-active">Active</option>
               <option value="PENDING_HANDOVER" id="opt-status-pending">Pending Handover</option>
+              <option value="PENDING_CLOSURE" id="opt-status-pending-close">Pending Closure Approval</option>
               <option value="CLOSED" id="opt-status-closed">Closed</option>
             </select>
           </div>
@@ -247,6 +254,38 @@
 
         <!-- PERMIT CARDS GRID -->
         <div id="permits-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+      </section>
+
+      <!-- PERMITS REGISTRY LOG VIEW (VISIBLE TO ALL USERS) -->
+      <section id="registry-section" class="hidden space-y-6">
+        <div class="glass-card rounded-2xl p-5 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 id="registry-title" class="text-lg font-extrabold text-slate-900">Master Permits Issuance Registry</h2>
+            <p id="registry-sub" class="text-xs text-slate-500">Chronological log of every work permit created across the site</p>
+          </div>
+          <span id="registry-total-badge" class="px-3.5 py-1.5 rounded-xl bg-slate-900 text-amber-400 text-xs font-extrabold">0 Records</span>
+        </div>
+
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr class="bg-slate-900 text-white font-bold">
+                  <th class="py-3.5 px-4">#</th>
+                  <th class="py-3.5 px-4">Permit Number</th>
+                  <th class="py-3.5 px-4">Type</th>
+                  <th class="py-3.5 px-4">Location</th>
+                  <th class="py-3.5 px-4">Issued By</th>
+                  <th class="py-3.5 px-4">Current Holder</th>
+                  <th class="py-3.5 px-4">Issued Date &amp; Time</th>
+                  <th class="py-3.5 px-4">Valid Until</th>
+                  <th class="py-3.5 px-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="registry-tbody" class="divide-y divide-slate-100"></tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- ADMIN CONTROL PANEL VIEW -->
@@ -482,7 +521,7 @@
   </div>
 
   <!-- ======================================================================= -->
-  <!-- MODAL 6: EDIT USER MODAL (ADMIN)                                        -->
+  <!-- MODAL 6: EDIT USER MODAL (SYSTEM ADMIN)                                 -->
   <!-- ======================================================================= -->
   <div id="edit-user-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
@@ -507,9 +546,9 @@
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Role</label>
           <select id="eu-role" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-bold bg-white outline-none">
-            <option value="PA">PA</option>
-            <option value="AA">AA</option>
-            <option value="ADMIN">ADMIN</option>
+            <option value="PA">PA (Permit Applicant / Holder)</option>
+            <option value="AA">AA (Area Authority)</option>
+            <option value="ADMIN">ADMIN (Viewer)</option>
           </select>
         </div>
         <div class="flex justify-end gap-2 pt-2">
@@ -521,35 +560,89 @@
   </div>
 
   <!-- ======================================================================= -->
-  <!-- MODAL 7: CLOUD DATABASE SETUP (FIREBASE REALTIME DB)                    -->
+  <!-- MODAL 7: CLOUD DATABASE SETUP MODAL                                     -->
   <!-- ======================================================================= -->
   <div id="cloud-setup-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+    <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
       <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
-        <h3 class="font-bold text-base">☁️ Permanent Cloud Sync (Firebase RTDB)</h3>
+        <h3 class="font-bold text-base">Cloud Database Setup (Firebase)</h3>
         <button type="button" onclick="closeModal('cloud-setup-modal')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
       </div>
-      <form onsubmit="handleSaveCloudUrl(event)" class="p-6 space-y-4 text-xs">
-        <div class="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 space-y-1.5 leading-relaxed">
-          <p class="font-extrabold">لماذا نحتاج هذا الرابط لضمان المزامنة 100% بين الموبايل والحاسبة؟</p>
-          <p>1. افتح <a href="https://console.firebase.google.com" target="_blank" class="underline font-bold text-blue-700">console.firebase.google.com</a> وأنشئ مشروعاً مجانياً.</p>
-          <p>2. اختر <strong>Realtime Database</strong> ثم <strong>Create Database</strong> واختر <strong>Start in test mode</strong>.</p>
-          <p>3. انسخ الرابط الظاهر أعلى قاعدة البيانات (مثل: <code class="bg-white px-1 rounded">https://your-app-default-rtdb.firebaseio.com</code>) والصقه هنا، وسيتم تضمينه تلقائياً في رابط كل مستخدم!</p>
-        </div>
+      <form onsubmit="handleSaveCloudUrl(event)" class="p-6 space-y-4">
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Firebase Realtime Database URL *</label>
-          <input id="cloud-fb-url-input" type="url" placeholder="https://your-project-default-rtdb.firebaseio.com"
-            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm font-mono outline-none" />
+          <input id="cloud-fb-url-input" type="url" required placeholder="https://your-project.firebasedatabase.app"
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs font-mono outline-none" />
         </div>
         <div class="flex justify-end gap-2 pt-2">
-          <button type="button" onclick="closeModal('cloud-setup-modal')" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">
-            Cancel
-          </button>
-          <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold">
-            Save &amp; Sync Now
+          <button type="button" onclick="closeModal('cloud-setup-modal')" class="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold">Save &amp; Sync Now</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL 8: REQUEST CLOSURE WITH FIRST & LAST PERMIT PHOTOS                -->
+  <!-- ======================================================================= -->
+  <div id="closure-request-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <h3 id="modal-closure-title" class="font-bold text-base">Submit Permit Closure Request</h3>
+        <button type="button" onclick="closeModal('closure-request-modal')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+      <form onsubmit="handleSubmitClosureRequest(event)" class="p-6 space-y-4 text-xs">
+        <input type="hidden" id="closure-permit-id" />
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200 font-bold text-slate-700">
+          Permit: <span id="closure-permit-label" class="text-slate-950"></span>
+        </div>
+
+        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 font-semibold">
+          To close this permit, you must attach both the <strong>First Page Photo</strong> and the <strong>Last Page Photo</strong> of the permit for System Administrator approval.
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div class="p-3 rounded-2xl border border-slate-200 bg-slate-50 space-y-2">
+            <label class="block font-extrabold text-slate-800">1. First Permit Photo *</label>
+            <input id="closure-first-photo" type="file" accept="image/*" required onchange="previewClosurePhoto(this, 'closure-first-preview')"
+              class="w-full text-[11px] text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white" />
+            <img id="closure-first-preview" class="hidden w-full h-32 object-cover rounded-xl border border-slate-300" alt="First Photo Preview" />
+          </div>
+
+          <div class="p-3 rounded-2xl border border-slate-200 bg-slate-50 space-y-2">
+            <label class="block font-extrabold text-slate-800">2. Last Permit Photo *</label>
+            <input id="closure-last-photo" type="file" accept="image/*" required onchange="previewClosurePhoto(this, 'closure-last-preview')"
+              class="w-full text-[11px] text-slate-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-slate-900 file:text-white" />
+            <img id="closure-last-preview" class="hidden w-full h-32 object-cover rounded-xl border border-slate-300" alt="Last Photo Preview" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Closure Remarks (Optional)</label>
+          <textarea id="closure-notes" rows="2" placeholder="Site cleared, equipment isolated..."
+            class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm outline-none"></textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" onclick="closeModal('closure-request-modal')" class="lbl-cancel px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 text-xs font-bold">Cancel</button>
+          <button type="submit" id="btn-submit-closure" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-extrabold shadow">
+            Send Closure For Approval
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================= -->
+  <!-- MODAL 9: SYSTEM ADMIN CLOSURE APPROVAL & PHOTO REVIEW                   -->
+  <!-- ======================================================================= -->
+  <div id="closure-review-modal" class="hidden fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+      <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between">
+        <h3 class="font-bold text-base">System Administrator Closure Approval</h3>
+        <button type="button" onclick="closeModal('closure-review-modal')" class="text-slate-400 hover:text-white text-xl font-bold">&times;</button>
+      </div>
+      <div id="closure-review-body" class="p-6 max-h-[80vh] overflow-y-auto space-y-4 text-xs"></div>
     </div>
   </div>
 
@@ -593,6 +686,11 @@
       updatedAt: 1700000000000
     };
 
+    function isSystemAdmin(user = currentUser) {
+      if (!user) return false;
+      return user.id === 'usr_admin_master' || (user.username && user.username.toLowerCase() === 'admin');
+    }
+
     // =========================================================================
     // 2. BILINGUAL DICTIONARY (ENGLISH DEFAULT + ARABIC)
     // =========================================================================
@@ -609,8 +707,9 @@
         logout: 'Logout',
         myPermits: 'My Permits',
         incomingHandovers: 'Incoming Handovers',
+        permitsRegistry: 'Permits Registry',
         allSitePermits: 'All Site Permits',
-        adminControl: 'Admin Control',
+        adminControl: 'System Admin',
         newPermit: 'New Permit',
         activePermits: 'Active Permits',
         pendingHandovers: 'Pending Handovers',
@@ -621,6 +720,7 @@
         allStatuses: 'All Statuses',
         statusActive: 'Active',
         statusPending: 'Pending Handover',
+        statusPendingClose: 'Pending Closure Approval',
         statusClosed: 'Closed',
         issueNewPermit: 'Issue New Work Permit',
         permitNum: 'Permit Number *',
@@ -650,6 +750,8 @@
         handoverBtn: 'Handover',
         renewBtn: 'Renew +12h',
         closeBtn: 'Close Permit',
+        reviewCloseBtn: 'Review & Approve Closure',
+        viewPhotosBtn: 'Closure Photos',
         auditBtn: 'Audit Log',
         waBtn: 'WhatsApp',
         delBtn: 'Delete',
@@ -667,8 +769,9 @@
         logout: 'خروج',
         myPermits: 'تصاريحي',
         incomingHandovers: 'طلبات التسليم الواردة',
+        permitsRegistry: 'سجل التصاريح',
         allSitePermits: 'جميع تصاريح الموقع',
-        adminControl: 'لوحة الإدارة',
+        adminControl: 'مدير النظام',
         newPermit: 'تصريح جديد',
         activePermits: 'التصاريح النشطة',
         pendingHandovers: 'بانتظار الاستلام',
@@ -679,6 +782,7 @@
         allStatuses: 'كل الحالات',
         statusActive: 'نشط',
         statusPending: 'بانتظار الاستلام',
+        statusPendingClose: 'بانتظار موافقة الإغلاق',
         statusClosed: 'مغلق',
         issueNewPermit: 'إصدار تصريح عمل جديد',
         permitNum: 'رقم التصريح *',
@@ -708,6 +812,8 @@
         handoverBtn: 'تسليم',
         renewBtn: 'تجديد +12س',
         closeBtn: 'إغلاق التصريح',
+        reviewCloseBtn: 'مراجعة واعتماد الإغلاق',
+        viewPhotosBtn: 'صور الإغلاق',
         auditBtn: 'السجل',
         waBtn: 'واتساب',
         delBtn: 'حذف',
@@ -738,6 +844,7 @@
       setTxt('btn-logout-text', t.logout);
       setTxt('tab-my-label', t.myPermits);
       setTxt('tab-incoming-label', t.incomingHandovers);
+      setTxt('tab-registry-label', t.permitsRegistry);
       setTxt('tab-all-label', t.allSitePermits);
       setTxt('tab-admin-label', t.adminControl);
       setTxt('btn-new-permit-text', t.newPermit);
@@ -749,6 +856,7 @@
       setTxt('opt-all-statuses', t.allStatuses);
       setTxt('opt-status-active', t.statusActive);
       setTxt('opt-status-pending', t.statusPending);
+      setTxt('opt-status-pending-close', t.statusPendingClose);
       setTxt('opt-status-closed', t.statusClosed);
       setTxt('modal-new-permit-title', t.issueNewPermit);
       setTxt('lbl-permit-num', t.permitNum);
@@ -771,7 +879,11 @@
       if (searchEl) searchEl.placeholder = t.searchPlaceholder;
       document.querySelectorAll('.lbl-cancel').forEach(el => { el.textContent = t.cancel; });
 
-      if (currentUser) refreshAllUI();
+      if (currentUser) {
+        if (activeTab === 'registry') renderRegistryView();
+        else if (activeTab === 'admin' && isSystemAdmin()) renderAdminPanel();
+        else refreshAllUI();
+      }
     }
 
     function toggleLanguage() {
@@ -780,12 +892,8 @@
       applyLanguage();
     }
 
-    // =========================================================================
-    // 3. LOCAL STATE PERSISTENCE & HELPERS
-    // =========================================================================
     function normalizeDigits(str) {
-      if (!str) return '';
-      return String(str)
+      return String(str ?? '')
         .replace(/[٠-٩]/g, d => '٠١٢٣٤٥٦٧٨٩'.indexOf(d))
         .replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d));
     }
@@ -802,15 +910,12 @@
           deletedUserIds = Array.isArray(parsed.deletedUserIds) ? parsed.deletedUserIds : [];
           deletedUsernames = Array.isArray(parsed.deletedUsernames) ? parsed.deletedUsernames : [];
         }
-      } catch (e) {
-        users = [];
-        permits = [];
-        notifications = [];
-      }
+      } catch (e) {}
 
-      if (!users.some(u => u.username && u.username.toLowerCase() === 'admin')) {
+      if (!users.some(u => u.id === DEFAULT_ADMIN.id || (u.username && u.username.toLowerCase() === 'admin'))) {
         users.unshift({ ...DEFAULT_ADMIN });
       }
+      saveLocalState();
     }
 
     function saveLocalState() {
@@ -896,15 +1001,15 @@
             : `${hoursLeft}h`;
           const expiryStr = formatDateTime(p.validUntil);
 
-          // 1. Deterministic notification for Current Holder (User)
+          // 1. Deterministic notification for Current Holder (User) - ENGLISH ONLY
           const holderNotifId = `ntf_exp_u_${p.id}_${p.validUntil}`;
           if (!notifications.some(n => n.id === holderNotifId)) {
             const userNotif = {
               id: holderNotifId,
               toUserId: p.holderId,
               toRole: 'USER',
-              title: `⏰ تنبيه انتهاء تصريح خلال يومين / Expiring Soon: ${p.permitNumber}`,
-              body: `التصريح ${p.permitNumber} (${p.type}) في موقع (${p.location}) سينتهي خلال ${daysApprox} بتاريخ ${expiryStr}. يرجى التجديد أو الإغلاق. | Permit ${p.permitNumber} expires on ${expiryStr}.`,
+              title: `Permit Expiring Within 48 Hours: ${p.permitNumber}`,
+              body: `Work Permit ${p.permitNumber} (${p.type}) at ${p.location} will expire in ${daysApprox} (${expiryStr}). Please renew or submit closure photos.`,
               ts: now,
               read: false
             };
@@ -912,15 +1017,15 @@
             publishRecordToCloud('notif', userNotif);
           }
 
-          // 2. Deterministic notification for System Administration
+          // 2. Deterministic notification for System Administrator - ENGLISH ONLY
           const adminNotifId = `ntf_exp_a_${p.id}_${p.validUntil}`;
           if (!notifications.some(n => n.id === adminNotifId)) {
             const adminNotif = {
               id: adminNotifId,
               toUserId: 'ADMIN_ALL',
               toRole: 'ADMIN',
-              title: `⚠️ تنبيه إدارة: تصريح قارب على الانتهاء (${p.permitNumber})`,
-              body: `التصريح ${p.permitNumber} (${p.type}) بعهدة (${p.holderName}) في (${p.location}) سينتهي خلال ${daysApprox} (${expiryStr}).`,
+              title: `System Alert - Permit Expiring Soon: ${p.permitNumber}`,
+              body: `Permit ${p.permitNumber} (${p.type}) held by ${p.holderName} at ${p.location} expires in ${daysApprox} (${expiryStr}).`,
               ts: now,
               read: false
             };
@@ -928,12 +1033,9 @@
             publishRecordToCloud('notif', adminNotif);
           }
 
-          // Show live toast alert if current user is the holder or an Admin
-          if (currentUser && (currentUser.role === 'ADMIN' || currentUser.id === p.holderId)) {
-            const toastMsg = currentLang === 'ar'
-              ? `⏰ تنبيه: التصريح ${p.permitNumber} سينتهي خلال أقل من يومين (${expiryStr})`
-              : `⏰ Alert: Permit ${p.permitNumber} expires within 2 days (${expiryStr})`;
-            showToast(toastMsg, 'warn');
+          // Show live English toast alert if current user is holder or System Administrator
+          if (currentUser && (isSystemAdmin() || currentUser.id === p.holderId)) {
+            showToast(`Alert: Permit ${p.permitNumber} expires within 2 days (${expiryStr})`, 'warn');
           }
 
           publishRecordToCloud('permit', p);
@@ -1085,7 +1187,8 @@
         saveLocalState();
         enforceCurrentUserAccess();
         if (currentUser) {
-          if (activeTab === 'admin' && currentUser.role === 'ADMIN') renderAdminPanel();
+          if (activeTab === 'admin' && isSystemAdmin()) renderAdminPanel();
+          else if (activeTab === 'registry') renderRegistryView();
           else refreshAllUI();
         }
       }
@@ -1114,7 +1217,8 @@
           saveLocalState();
           enforceCurrentUserAccess();
           if (currentUser) {
-            if (activeTab === 'admin' && currentUser.role === 'ADMIN') renderAdminPanel();
+            if (activeTab === 'admin' && isSystemAdmin()) renderAdminPanel();
+            else if (activeTab === 'registry') renderRegistryView();
             else refreshAllUI();
           }
         }
@@ -1318,8 +1422,8 @@
 
       if (deletedUsernames.includes(unameLow)) {
         errTxt.textContent = currentLang === 'ar'
-          ? 'تم إيقاف أو حذف هذا الحساب من قبل الإدارة.'
-          : 'This user account has been revoked by Administrator.';
+          ? 'تم إيقاف أو حذف هذا الحساب من قبل مدير النظام.'
+          : 'This user account has been revoked by System Administrator.';
         errBox.classList.remove('hidden');
         return;
       }
@@ -1341,7 +1445,7 @@
 
       currentUser = found;
       localStorage.setItem(SESSION_KEY, JSON.stringify({ id: found.id, username: found.username }));
-      activeTab = found.role === 'ADMIN' ? 'all' : 'my';
+      activeTab = isSystemAdmin(found) ? 'all' : 'my';
       enterAppShell();
     }
 
@@ -1350,7 +1454,7 @@
       const unameLow = (currentUser.username || '').toLowerCase();
       if (deletedUserIds.includes(currentUser.id) || deletedUsernames.includes(unameLow)) {
         handleLogout();
-        showToast('Your account was removed by Administrator.', 'error');
+        showToast('Your account was removed by System Administrator.', 'error');
         return;
       }
       const latest = users.find(u => u.id === currentUser.id);
@@ -1368,23 +1472,23 @@
       document.getElementById('login-screen').classList.add('hidden');
       document.getElementById('app-shell').classList.remove('hidden');
 
+      const sysAdmin = isSystemAdmin(currentUser);
       document.getElementById('header-user-name').textContent = currentUser.fullName;
-      document.getElementById('header-user-role').textContent = currentUser.role;
+      document.getElementById('header-user-role').textContent = sysAdmin ? 'SYSTEM ADMIN' : currentUser.role;
       document.getElementById('header-avatar').textContent = (currentUser.fullName || 'U').charAt(0).toUpperCase();
 
-      const isAdmin = currentUser.role === 'ADMIN';
       const tabAllEl = document.getElementById('tab-all');
       const tabAdminEl = document.getElementById('tab-admin');
       if (tabAllEl) {
-        tabAllEl.classList.toggle('hidden', !isAdmin);
-        tabAllEl.style.display = isAdmin ? '' : 'none';
+        tabAllEl.classList.toggle('hidden', !sysAdmin);
+        tabAllEl.style.display = sysAdmin ? '' : 'none';
       }
       if (tabAdminEl) {
-        tabAdminEl.classList.toggle('hidden', !isAdmin);
-        tabAdminEl.style.display = isAdmin ? '' : 'none';
+        tabAdminEl.classList.toggle('hidden', !sysAdmin);
+        tabAdminEl.style.display = sysAdmin ? '' : 'none';
       }
 
-      if (!isAdmin && (activeTab === 'all' || activeTab === 'admin')) {
+      if (!sysAdmin && (activeTab === 'all' || activeTab === 'admin')) {
         activeTab = 'my';
       }
 
@@ -1401,15 +1505,16 @@
     }
 
     function switchTab(tab) {
-      if (currentUser && currentUser.role !== 'ADMIN' && (tab === 'all' || tab === 'admin')) {
+      const sysAdmin = isSystemAdmin(currentUser);
+      if (!sysAdmin && (tab === 'all' || tab === 'admin')) {
         tab = 'my';
       }
       activeTab = tab;
-      ['my', 'incoming', 'all', 'admin'].forEach(t => {
+      ['my', 'incoming', 'registry', 'all', 'admin'].forEach(t => {
         const btn = document.getElementById(`tab-${t}`);
         if (!btn) return;
-        const isAdminOnly = (t === 'all' || t === 'admin');
-        if (isAdminOnly && (!currentUser || currentUser.role !== 'ADMIN')) {
+        const isSysAdminOnly = (t === 'all' || t === 'admin');
+        if (isSysAdminOnly && !sysAdmin) {
           btn.classList.add('hidden');
           btn.style.display = 'none';
           return;
@@ -1421,18 +1526,23 @@
         }
       });
 
-      const isAdminTab = tab === 'admin' && currentUser && currentUser.role === 'ADMIN';
-      document.getElementById('permits-section').classList.toggle('hidden', isAdminTab);
+      const isAdminTab = tab === 'admin' && sysAdmin;
+      const isRegistryTab = tab === 'registry';
+      document.getElementById('permits-section').classList.toggle('hidden', isAdminTab || isRegistryTab);
+      document.getElementById('registry-section').classList.toggle('hidden', !isRegistryTab);
       document.getElementById('admin-section').classList.toggle('hidden', !isAdminTab);
 
       if (isAdminTab) renderAdminPanel();
+      else if (isRegistryTab) renderRegistryView();
       else refreshAllUI();
     }
 
     // =========================================================================
-    // 7. PERMIT CREATION, HANDOVER, RENEWAL, CLOSURE & DELETION
+    // 7. PERMIT CREATION, HANDOVER, RENEWAL, PHOTO CLOSURE & DELETION
     // =========================================================================
     function openNewPermitModal() {
+      if (!currentUser) return;
+      const t = I18N[currentLang] || I18N.en;
       document.getElementById('new-permit-number').value = '';
       document.getElementById('new-permit-type').value = 'HOT';
       document.getElementById('new-permit-location').value = '';
@@ -1440,121 +1550,114 @@
 
       const defDate = new Date(Date.now() + 12 * 3600 * 1000);
       const pad = n => String(n).padStart(2, '0');
-      const localIso = `${defDate.getFullYear()}-${pad(defDate.getMonth() + 1)}-${pad(defDate.getDate())}T${pad(defDate.getHours())}:${pad(defDate.getMinutes())}`;
-      document.getElementById('new-permit-valid-until').value = localIso;
+      document.getElementById('new-permit-valid-until').value =
+        `${defDate.getFullYear()}-${pad(defDate.getMonth() + 1)}-${pad(defDate.getDate())}T${pad(defDate.getHours())}:${pad(defDate.getMinutes())}`;
 
-      const t = I18N[currentLang] || I18N.en;
       const sel = document.getElementById('new-permit-handover-user');
-      sel.innerHTML = `<option value="">${escapeHtml(t.noneSelf)}</option>`;
-      users.filter(u => u.active !== false && u.id !== currentUser.id).forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u.id;
-        opt.textContent = `${u.fullName} (@${u.username} - ${u.role})`;
-        sel.appendChild(opt);
-      });
+      const otherUsers = users.filter(u => u.active !== false && u.id !== currentUser.id);
+      sel.innerHTML = `<option value="">${escapeHtml(t.noneSelf)}</option>` +
+        otherUsers.map(u => `<option value="${u.id}">${escapeHtml(u.fullName)} (${escapeHtml(u.username)})</option>`).join('');
 
       openModal('new-permit-modal');
     }
 
     async function handleCreatePermit(e) {
       e.preventDefault();
-      const permitNum = document.getElementById('new-permit-number').value.trim();
-      const permitType = document.getElementById('new-permit-type').value;
+      if (!currentUser) return;
+
+      const permitNumber = document.getElementById('new-permit-number').value.trim();
+      const type = document.getElementById('new-permit-type').value;
       const location = document.getElementById('new-permit-location').value.trim();
-      const desc = document.getElementById('new-permit-desc').value.trim();
-      const validInput = document.getElementById('new-permit-valid-until').value;
-      const handoverTargetId = document.getElementById('new-permit-handover-user').value;
+      const description = document.getElementById('new-permit-desc').value.trim();
+      const validUntilStr = document.getElementById('new-permit-valid-until').value;
+      const handoverToId = document.getElementById('new-permit-handover-user').value;
 
-      if (!permitNum || !location || !desc || !validInput) return;
+      if (!permitNumber || !location || !description || !validUntilStr) return;
 
-      const validUntilTs = new Date(validInput).getTime() || (Date.now() + 12 * 3600 * 1000);
+      const validUntilMs = new Date(validUntilStr).getTime();
+      if (isNaN(validUntilMs)) {
+        showToast('Invalid expiration date and time.', 'error');
+        return;
+      }
+
       const now = Date.now();
-      const targetUser = handoverTargetId ? users.find(u => u.id === handoverTargetId) : null;
+      const recipient = handoverToId ? users.find(u => u.id === handoverToId) : null;
 
       const newPermit = {
         id: 'ptw_' + now + '_' + Math.random().toString(36).slice(2, 6),
-        permitNumber: permitNum,
-        type: permitType,
-        location: location,
-        description: desc,
+        permitNumber,
+        type,
+        location,
+        description,
+        status: recipient ? 'PENDING_HANDOVER' : 'ACTIVE',
         issuedById: currentUser.id,
         issuedByName: currentUser.fullName,
         holderId: currentUser.id,
         holderName: currentUser.fullName,
-        pendingToId: targetUser ? targetUser.id : null,
-        pendingToName: targetUser ? targetUser.fullName : null,
-        status: targetUser ? 'PENDING_HANDOVER' : 'ACTIVE',
-        validUntil: validUntilTs,
+        pendingToId: recipient ? recipient.id : null,
+        pendingToName: recipient ? recipient.fullName : null,
         createdAt: now,
+        validUntil: validUntilMs,
         updatedAt: now,
-        logs: [
-          {
-            ts: now,
-            actor: currentUser.fullName,
-            action: targetUser
-              ? `Issued permit (${permitType}) & initiated handover to ${targetUser.fullName}`
-              : `Issued permit (${permitType}) at ${location}`
-          }
-        ]
+        logs: [{
+          ts: now,
+          actor: currentUser.fullName,
+          action: recipient
+            ? `Issued permit (${type}) at ${location} and initiated handover to ${recipient.fullName}`
+            : `Issued permit (${type}) at ${location} valid until ${formatDateTime(validUntilMs)}`
+        }]
       };
 
       permits.unshift(newPermit);
 
-      if (targetUser) {
-        const notif = {
-          id: 'ntf_' + now + '_' + Math.random().toString(36).slice(2, 6),
-          toUserId: targetUser.id,
-          toRole: targetUser.role,
-          title: `Incoming Permit Handover: ${permitNum}`,
-          body: `${currentUser.fullName} assigned permit ${permitNum} (${permitType}) at ${location} to you. Please accept custody.`,
-          ts: now,
-          read: false
-        };
-        notifications.unshift(notif);
-        publishRecordToCloud('notif', notif);
-      }
-
-      const adminNotif = {
-        id: 'ntf_adm_' + now + '_' + Math.random().toString(36).slice(2, 6),
+      const adminRegNotif = {
+        id: 'ntf_new_' + now + '_' + Math.random().toString(36).slice(2, 6),
         toUserId: 'ADMIN_ALL',
         toRole: 'ADMIN',
-        title: `New Permit Issued: ${permitNum}`,
-        body: `${currentUser.fullName} issued ${permitType} permit ${permitNum} at ${location}.`,
+        title: `New Work Permit Issued: ${permitNumber}`,
+        body: `${currentUser.fullName} issued ${type} permit ${permitNumber} at ${location} (Valid until ${formatDateTime(validUntilMs)}).`,
         ts: now,
         read: false
       };
-      notifications.unshift(adminNotif);
+      notifications.unshift(adminRegNotif);
+
+      if (recipient) {
+        const hoNotif = {
+          id: 'ntf_ho_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          toUserId: recipient.id,
+          toRole: 'USER',
+          title: `Incoming Permit Handover: ${permitNumber}`,
+          body: `${currentUser.fullName} requested to handover permit ${permitNumber} (${type}) at ${location} to your custody.`,
+          ts: now,
+          read: false
+        };
+        notifications.unshift(hoNotif);
+        publishRecordToCloud('notif', hoNotif);
+      }
 
       saveLocalState();
       closeModal('new-permit-modal');
-      refreshAllUI();
+      if (activeTab === 'registry') renderRegistryView();
+      else refreshAllUI();
+      showToast(`Permit ${permitNumber} issued and logged!`, 'success');
 
-      const savedToFb = await publishRecordToCloud('permit', newPermit);
-      await publishRecordToCloud('notif', adminNotif);
+      await publishRecordToCloud('permit', newPermit);
+      await publishRecordToCloud('notif', adminRegNotif);
       await checkExpiringPermitsNotifications();
-
-      showToast(
-        savedToFb ? `Permit ${permitNum} saved to Firebase Cloud ✓` : `Saved locally (Firebase offline)`,
-        savedToFb ? 'success' : 'warn'
-      );
     }
 
     function openHandoverModal(permitId) {
       const p = permits.find(x => x.id === permitId);
-      if (!p) return;
+      if (!p || p.status === 'CLOSED') return;
+      const t = I18N[currentLang] || I18N.en;
       document.getElementById('handover-permit-id').value = p.id;
       document.getElementById('handover-permit-label').textContent = `${p.permitNumber} (${p.type}) - ${p.location}`;
       document.getElementById('handover-notes').value = '';
 
-      const t = I18N[currentLang] || I18N.en;
       const sel = document.getElementById('handover-recipient-select');
-      sel.innerHTML = `<option value="">${escapeHtml(t.selectUser)}</option>`;
-      users.filter(u => u.active !== false && u.id !== p.holderId).forEach(u => {
-        const opt = document.createElement('option');
-        opt.value = u.id;
-        opt.textContent = `${u.fullName} (@${u.username} - ${u.role})`;
-        sel.appendChild(opt);
-      });
+      const eligible = users.filter(u => u.active !== false && u.id !== p.holderId);
+      sel.innerHTML = `<option value="">${escapeHtml(t.selectUser)}</option>` +
+        eligible.map(u => `<option value="${u.id}">${escapeHtml(u.fullName)} (${escapeHtml(u.username)})</option>`).join('');
 
       openModal('handover-modal');
     }
@@ -1566,73 +1669,97 @@
       const notes = document.getElementById('handover-notes').value.trim();
 
       const p = permits.find(x => x.id === permitId);
-      const target = users.find(u => u.id === recipientId);
-      if (!p || !target) return;
+      const recipient = users.find(u => u.id === recipientId);
+      if (!p || !recipient) return;
 
       const now = Date.now();
       p.status = 'PENDING_HANDOVER';
-      p.pendingToId = target.id;
-      p.pendingToName = target.fullName;
+      p.pendingToId = recipient.id;
+      p.pendingToName = recipient.fullName;
       p.updatedAt = now;
       p.logs = p.logs || [];
       p.logs.unshift({
         ts: now,
         actor: currentUser.fullName,
-        action: `Initiated handover to ${target.fullName}${notes ? ' | Notes: ' + notes : ''}`
+        action: `Initiated custody handover to ${recipient.fullName}${notes ? ' | Notes: ' + notes : ''}`
       });
 
-      const notif = {
-        id: 'ntf_' + now + '_' + Math.random().toString(36).slice(2, 6),
-        toUserId: target.id,
-        toRole: target.role,
-        title: `Handover Request: ${p.permitNumber}`,
-        body: `${currentUser.fullName} requested handover of permit ${p.permitNumber} (${p.location}).`,
+      const hoNotif = {
+        id: 'ntf_ho_' + now + '_' + Math.random().toString(36).slice(2, 6),
+        toUserId: recipient.id,
+        toRole: 'USER',
+        title: `Permit Handover Request: ${p.permitNumber}`,
+        body: `${currentUser.fullName} initiated handover of permit ${p.permitNumber} (${p.location}) to you.${notes ? ' Notes: ' + notes : ''}`,
         ts: now,
         read: false
       };
-      notifications.unshift(notif);
+      notifications.unshift(hoNotif);
 
       saveLocalState();
       closeModal('handover-modal');
       refreshAllUI();
-      showToast(`Handover sent to ${target.fullName}`, 'success');
+      showToast(`Handover request sent to ${recipient.fullName}`, 'success');
 
       await publishRecordToCloud('permit', p);
-      await publishRecordToCloud('notif', notif);
+      await publishRecordToCloud('notif', hoNotif);
     }
 
     async function respondToHandover(permitId, accept) {
       const p = permits.find(x => x.id === permitId);
-      if (!p) return;
+      if (!p || p.status !== 'PENDING_HANDOVER' || p.pendingToId !== currentUser.id) return;
+
       const now = Date.now();
+      const prevHolderId = p.holderId;
 
       if (accept) {
-        const prevHolder = p.holderName;
+        p.status = 'ACTIVE';
         p.holderId = currentUser.id;
         p.holderName = currentUser.fullName;
         p.pendingToId = null;
         p.pendingToName = null;
-        p.status = 'ACTIVE';
         p.updatedAt = now;
         p.logs = p.logs || [];
         p.logs.unshift({
           ts: now,
           actor: currentUser.fullName,
-          action: `Accepted permit custody from ${prevHolder}`
+          action: `Accepted custody of permit ${p.permitNumber}`
         });
+
+        const accNotif = {
+          id: 'ntf_ho_acc_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          toUserId: prevHolderId,
+          toRole: 'USER',
+          title: `Handover Accepted: ${p.permitNumber}`,
+          body: `${currentUser.fullName} accepted custody of work permit ${p.permitNumber} (${p.location}).`,
+          ts: now,
+          read: false
+        };
+        notifications.unshift(accNotif);
+        publishRecordToCloud('notif', accNotif);
         showToast(`You are now the active holder of ${p.permitNumber}`, 'success');
       } else {
-        const rejectedBy = currentUser.fullName;
+        p.status = 'ACTIVE';
         p.pendingToId = null;
         p.pendingToName = null;
-        p.status = 'ACTIVE';
         p.updatedAt = now;
         p.logs = p.logs || [];
         p.logs.unshift({
           ts: now,
-          actor: rejectedBy,
-          action: `Rejected handover request; custody remains with ${p.holderName}`
+          actor: currentUser.fullName,
+          action: `Rejected custody handover of permit ${p.permitNumber}`
         });
+
+        const rejNotif = {
+          id: 'ntf_ho_rej_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          toUserId: prevHolderId,
+          toRole: 'USER',
+          title: `Handover Rejected: ${p.permitNumber}`,
+          body: `${currentUser.fullName} rejected the handover request for permit ${p.permitNumber}. Custody remains with you.`,
+          ts: now,
+          read: false
+        };
+        notifications.unshift(rejNotif);
+        publishRecordToCloud('notif', rejNotif);
         showToast(`Handover rejected for ${p.permitNumber}`, 'warn');
       }
 
@@ -1641,9 +1768,242 @@
       await publishRecordToCloud('permit', p);
     }
 
+    function compressImageFile(file, maxWidth = 900, quality = 0.65) {
+      return new Promise((resolve, reject) => {
+        if (!file) return reject(new Error('No file'));
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const img = new Image();
+          img.onload = () => {
+            const scale = Math.min(1, maxWidth / img.width);
+            const w = Math.round(img.width * scale);
+            const h = Math.round(img.height * scale);
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, w, h);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          img.onerror = () => resolve(ev.target.result);
+          img.src = ev.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function previewClosurePhoto(inputEl, previewImgId) {
+      const imgEl = document.getElementById(previewImgId);
+      if (!imgEl) return;
+      const file = inputEl.files && inputEl.files[0];
+      if (!file) {
+        imgEl.classList.add('hidden');
+        imgEl.src = '';
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imgEl.src = e.target.result;
+        imgEl.classList.remove('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function openClosureRequestModal(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p || p.status === 'CLOSED') return;
+      document.getElementById('closure-permit-id').value = p.id;
+      document.getElementById('closure-permit-label').textContent = `${p.permitNumber} (${p.type}) - ${p.location}`;
+      document.getElementById('closure-first-photo').value = '';
+      document.getElementById('closure-last-photo').value = '';
+      document.getElementById('closure-notes').value = '';
+      document.getElementById('closure-first-preview').classList.add('hidden');
+      document.getElementById('closure-last-preview').classList.add('hidden');
+      openModal('closure-request-modal');
+    }
+
+    async function handleSubmitClosureRequest(e) {
+      e.preventDefault();
+      const permitId = document.getElementById('closure-permit-id').value;
+      const firstFile = document.getElementById('closure-first-photo').files[0];
+      const lastFile = document.getElementById('closure-last-photo').files[0];
+      const notes = document.getElementById('closure-notes').value.trim();
+
+      const p = permits.find(x => x.id === permitId);
+      if (!p || !firstFile || !lastFile) {
+        showToast('Both First and Last permit photos are required.', 'error');
+        return;
+      }
+
+      const submitBtn = document.getElementById('btn-submit-closure');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Uploading Photos...';
+
+      try {
+        const firstPhotoData = await compressImageFile(firstFile);
+        const lastPhotoData = await compressImageFile(lastFile);
+        const now = Date.now();
+
+        p.status = 'PENDING_CLOSURE';
+        p.pendingToId = null;
+        p.pendingToName = null;
+        p.closureFirstPhoto = firstPhotoData;
+        p.closureLastPhoto = lastPhotoData;
+        p.closureNotes = notes;
+        p.closureRequestedBy = currentUser.fullName;
+        p.closureRequestedById = currentUser.id;
+        p.closureRequestedAt = now;
+        p.updatedAt = now;
+        p.logs = p.logs || [];
+        p.logs.unshift({
+          ts: now,
+          actor: currentUser.fullName,
+          action: `Submitted closure request with First & Last permit photos awaiting System Administrator approval${notes ? ' | Notes: ' + notes : ''}`
+        });
+
+        const adminNotif = {
+          id: 'ntf_cls_req_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          toUserId: 'ADMIN_ALL',
+          toRole: 'ADMIN',
+          title: `Closure Approval Required: ${p.permitNumber}`,
+          body: `${currentUser.fullName} attached First & Last permit photos and requested closure approval for permit ${p.permitNumber} (${p.type}) at ${p.location}.`,
+          ts: now,
+          read: false
+        };
+        notifications.unshift(adminNotif);
+
+        saveLocalState();
+        closeModal('closure-request-modal');
+        refreshAllUI();
+        showToast(`Closure request sent to System Administrator for ${p.permitNumber}`, 'success');
+
+        await publishRecordToCloud('permit', p);
+        await publishRecordToCloud('notif', adminNotif);
+      } catch (err) {
+        showToast('Failed to process photos. Please try again.', 'error');
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Send Closure For Approval';
+      }
+    }
+
+    function openClosureReviewModal(permitId) {
+      const p = permits.find(x => x.id === permitId);
+      if (!p) return;
+      const sysAdmin = isSystemAdmin(currentUser);
+      const box = document.getElementById('closure-review-body');
+
+      box.innerHTML = `
+        <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+          <div class="flex justify-between"><span class="text-slate-500">Permit Number:</span><span class="font-extrabold text-slate-900">${escapeHtml(p.permitNumber)} (${escapeHtml(p.type)})</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Location:</span><span class="font-bold">${escapeHtml(p.location)}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Submitted By:</span><span class="font-bold">${escapeHtml(p.closureRequestedBy || p.holderName)}</span></div>
+          <div class="flex justify-between"><span class="text-slate-500">Submitted At:</span><span class="font-bold">${formatDateTime(p.closureRequestedAt || p.updatedAt)}</span></div>
+          ${p.closureNotes ? `<div class="pt-1 text-slate-700"><strong>Notes:</strong> ${escapeHtml(p.closureNotes)}</div>` : ''}
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div class="space-y-1.5">
+            <p class="font-extrabold text-slate-800">1. First Permit Photo</p>
+            ${p.closureFirstPhoto
+              ? `<a href="${p.closureFirstPhoto}" target="_blank"><img src="${p.closureFirstPhoto}" class="w-full h-56 object-contain bg-slate-100 rounded-2xl border border-slate-300" alt="First Permit Photo" /></a>`
+              : '<div class="p-8 text-center bg-slate-100 rounded-2xl text-slate-400">No photo attached</div>'}
+          </div>
+          <div class="space-y-1.5">
+            <p class="font-extrabold text-slate-800">2. Last Permit Photo</p>
+            ${p.closureLastPhoto
+              ? `<a href="${p.closureLastPhoto}" target="_blank"><img src="${p.closureLastPhoto}" class="w-full h-56 object-contain bg-slate-100 rounded-2xl border border-slate-300" alt="Last Permit Photo" /></a>`
+              : '<div class="p-8 text-center bg-slate-100 rounded-2xl text-slate-400">No photo attached</div>'}
+          </div>
+        </div>
+
+        ${sysAdmin && p.status === 'PENDING_CLOSURE' ? `
+          <div class="pt-3 border-t border-slate-200 flex flex-wrap justify-end gap-2">
+            <button type="button" onclick="approveOrRejectClosure('${p.id}', false)" class="px-4 py-2.5 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 font-extrabold">
+              ✖ Reject Closure
+            </button>
+            <button type="button" onclick="approveOrRejectClosure('${p.id}', true)" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold shadow">
+              ✅ Approve &amp; Close Permit
+            </button>
+          </div>
+        ` : ''}
+      `;
+      openModal('closure-review-modal');
+    }
+
+    async function approveOrRejectClosure(permitId, approve) {
+      if (!isSystemAdmin(currentUser)) {
+        showToast('Only System Administrator can approve or reject permit closure.', 'error');
+        return;
+      }
+      const p = permits.find(x => x.id === permitId);
+      if (!p) return;
+      const now = Date.now();
+      const targetUserId = p.closureRequestedById || p.holderId;
+
+      if (approve) {
+        p.status = 'CLOSED';
+        p.closedAt = now;
+        p.closedBy = currentUser.fullName;
+        p.updatedAt = now;
+        p.logs = p.logs || [];
+        p.logs.unshift({
+          ts: now,
+          actor: currentUser.fullName,
+          action: 'System Administrator reviewed First & Last photos and APPROVED permanent permit closure'
+        });
+
+        const userNotif = {
+          id: 'ntf_cls_ok_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          toUserId: targetUserId,
+          toRole: 'USER',
+          title: `Permit Closure Approved: ${p.permitNumber}`,
+          body: `System Administrator approved your closure photos and permanently closed permit ${p.permitNumber} (${p.location}).`,
+          ts: now,
+          read: false
+        };
+        notifications.unshift(userNotif);
+        publishRecordToCloud('notif', userNotif);
+        showToast(`Permit ${p.permitNumber} approved and closed`, 'success');
+      } else {
+        p.status = 'ACTIVE';
+        p.updatedAt = now;
+        p.logs = p.logs || [];
+        p.logs.unshift({
+          ts: now,
+          actor: currentUser.fullName,
+          action: 'System Administrator REJECTED closure request; permit returned to Active status'
+        });
+
+        const userNotif = {
+          id: 'ntf_cls_rej_' + now + '_' + Math.random().toString(36).slice(2, 6),
+          toUserId: targetUserId,
+          toRole: 'USER',
+          title: `Permit Closure Rejected: ${p.permitNumber}`,
+          body: `System Administrator rejected closure for permit ${p.permitNumber}. Please verify site conditions and re-attach clear photos.`,
+          ts: now,
+          read: false
+        };
+        notifications.unshift(userNotif);
+        publishRecordToCloud('notif', userNotif);
+        showToast(`Closure rejected for ${p.permitNumber}`, 'warn');
+      }
+
+      saveLocalState();
+      closeModal('closure-review-modal');
+      if (activeTab === 'admin') renderAdminPanel();
+      else refreshAllUI();
+      await publishRecordToCloud('permit', p);
+    }
+
     async function renewPermit(permitId) {
       const p = permits.find(x => x.id === permitId);
       if (!p || p.status === 'CLOSED') return;
+      if (!isSystemAdmin(currentUser) && p.holderId !== currentUser.id) {
+        showToast('Only the current holder or System Administrator can renew this permit.', 'error');
+        return;
+      }
       const now = Date.now();
       const baseTime = Math.max(now, p.validUntil || now);
       p.validUntil = baseTime + 12 * 3600 * 1000;
@@ -1663,55 +2023,24 @@
     }
 
     async function closePermit(permitId) {
-      const p = permits.find(x => x.id === permitId);
-      if (!p) return;
-      const now = Date.now();
-      p.status = 'CLOSED';
-      p.pendingToId = null;
-      p.pendingToName = null;
-      p.closedAt = now;
-      p.closedBy = currentUser.fullName;
-      p.updatedAt = now;
-      p.logs = p.logs || [];
-      p.logs.unshift({
-        ts: now,
-        actor: currentUser.fullName,
-        action: 'Closed work permit & verified safe site handover'
-      });
-
-      saveLocalState();
-      if (activeTab === 'admin') renderAdminPanel();
-      else refreshAllUI();
-      showToast(`Permit ${p.permitNumber} closed permanently`, 'info');
-      await publishRecordToCloud('permit', p);
+      openClosureRequestModal(permitId);
     }
 
     async function deletePermit(permitId) {
+      if (!isSystemAdmin(currentUser)) {
+        showToast('Permission Denied: Only System Administrator can delete permits.', 'error');
+        return;
+      }
       const p = permits.find(x => x.id === permitId);
       if (!p) return;
-      const now = Date.now();
 
       if (!deletedPermitIds.includes(permitId)) deletedPermitIds.push(permitId);
       permits = permits.filter(x => x.id !== permitId);
 
-      if (currentUser && currentUser.role !== 'ADMIN') {
-        const alertNotif = {
-          id: 'ntf_del_' + now + '_' + Math.random().toString(36).slice(2, 6),
-          toUserId: 'ADMIN_ALL',
-          toRole: 'ADMIN',
-          title: `⚠️ Permit Deleted: ${p.permitNumber}`,
-          body: `User ${currentUser.fullName} (@${currentUser.username}) deleted permit ${p.permitNumber} (${p.type}) at ${p.location}.`,
-          ts: now,
-          read: false
-        };
-        notifications.unshift(alertNotif);
-        publishRecordToCloud('notif', alertNotif);
-      }
-
       saveLocalState();
       if (activeTab === 'admin') renderAdminPanel();
       else refreshAllUI();
-      showToast(`Permit ${p.permitNumber} deleted`, 'warn');
+      showToast(`Permit ${p.permitNumber} deleted by System Administrator`, 'warn');
 
       await publishRecordToCloud('del', { deletedPermitIds, deletedUserIds, deletedUsernames });
     }
@@ -1752,12 +2081,40 @@
     }
 
     // =========================================================================
-    // 8. DASHBOARD RENDERING & NOTIFICATIONS
+    // 8. DASHBOARD RENDERING, REGISTRY VIEW & NOTIFICATIONS
     // =========================================================================
+    function renderRegistryView() {
+      if (!currentUser) return;
+      const sorted = [...permits].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+      const badge = document.getElementById('registry-total-badge');
+      if (badge) badge.textContent = `${sorted.length} Records`;
+
+      const tbody = document.getElementById('registry-tbody');
+      if (!tbody) return;
+      if (!sorted.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="py-8 text-center text-slate-400 font-bold">No permits registered in the log yet.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = sorted.map((p, idx) => `
+        <tr class="hover:bg-slate-50">
+          <td class="py-3 px-4 font-bold text-slate-400">${idx + 1}</td>
+          <td class="py-3 px-4 font-extrabold text-slate-900">${escapeHtml(p.permitNumber)}</td>
+          <td class="py-3 px-4"><span class="px-2 py-0.5 rounded-md bg-slate-100 font-extrabold text-[10px]">${escapeHtml(p.type)}</span></td>
+          <td class="py-3 px-4 font-semibold">${escapeHtml(p.location)}</td>
+          <td class="py-3 px-4 font-bold text-blue-700">${escapeHtml(p.issuedByName || '-')}</td>
+          <td class="py-3 px-4 font-bold text-slate-800">${escapeHtml(p.holderName || '-')}</td>
+          <td class="py-3 px-4 text-slate-600">${formatDateTime(p.createdAt)}</td>
+          <td class="py-3 px-4 text-slate-600">${formatDateTime(p.validUntil)}</td>
+          <td class="py-3 px-4 font-extrabold">${escapeHtml(p.status)}</td>
+        </tr>
+      `).join('');
+    }
+
     function refreshAllUI() {
       if (!currentUser) return;
       const t = I18N[currentLang] || I18N.en;
-      const isAdmin = currentUser.role === 'ADMIN';
+      const sysAdmin = isSystemAdmin(currentUser);
 
       const incomingList = permits.filter(p => p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id);
       const incBadge = document.getElementById('incoming-count-badge');
@@ -1767,7 +2124,7 @@
       }
 
       const myNotifs = notifications.filter(n =>
-        n.toUserId === currentUser.id || (isAdmin && n.toUserId === 'ADMIN_ALL')
+        n.toUserId === currentUser.id || (sysAdmin && n.toUserId === 'ADMIN_ALL')
       );
       const unreadCount = myNotifs.filter(n => !n.read).length;
       const nBadge = document.getElementById('notif-badge');
@@ -1779,7 +2136,7 @@
       let baseList = [];
       if (activeTab === 'incoming') {
         baseList = incomingList;
-      } else if (activeTab === 'all' && isAdmin) {
+      } else if (activeTab === 'all' && sysAdmin) {
         baseList = [...permits];
       } else {
         baseList = permits.filter(p =>
@@ -1790,7 +2147,7 @@
       }
 
       document.getElementById('kpi-active-val').textContent = baseList.filter(p => p.status === 'ACTIVE').length;
-      document.getElementById('kpi-pending-val').textContent = baseList.filter(p => p.status === 'PENDING_HANDOVER').length;
+      document.getElementById('kpi-pending-val').textContent = baseList.filter(p => p.status === 'PENDING_HANDOVER' || p.status === 'PENDING_CLOSURE').length;
       document.getElementById('kpi-closed-val').textContent = baseList.filter(p => p.status === 'CLOSED').length;
       document.getElementById('kpi-total-val').textContent = baseList.length;
 
@@ -1824,6 +2181,7 @@
       const statusBadges = {
         ACTIVE: `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-700">${escapeHtml(t.statusActive)}</span>`,
         PENDING_HANDOVER: `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-amber-100 text-amber-800">${escapeHtml(t.statusPending)}</span>`,
+        PENDING_CLOSURE: `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-indigo-100 text-indigo-800">${escapeHtml(t.statusPendingClose)}</span>`,
         CLOSED: `<span class="px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-slate-200 text-slate-700">${escapeHtml(t.statusClosed)}</span>`
       };
 
@@ -1831,9 +2189,10 @@
       grid.innerHTML = filtered.map(p => {
         const isHolder = p.holderId === currentUser.id;
         const isRecipient = p.status === 'PENDING_HANDOVER' && p.pendingToId === currentUser.id;
-        const canManage = isAdmin || isHolder;
+        const canManage = sysAdmin || isHolder;
         const remMs = (p.validUntil || 0) - now;
         const isExpiringSoon = p.status !== 'CLOSED' && remMs > 0 && remMs <= TWO_DAYS_MS;
+        const hasPhotos = Boolean(p.closureFirstPhoto || p.closureLastPhoto);
 
         return `
           <div class="glass-card rounded-3xl p-5 flex flex-col justify-between gap-4 hover:shadow-md transition ${isExpiringSoon ? 'ring-2 ring-amber-400' : ''}">
@@ -1885,15 +2244,23 @@
                 <button type="button" onclick="respondToHandover('${p.id}', false)" class="py-2 px-3 rounded-xl bg-red-100 hover:bg-red-200 text-red-700 text-xs font-extrabold">✖ ${escapeHtml(t.rejectBtn)}</button>
               ` : ''}
 
-              ${p.status !== 'CLOSED' && canManage ? `
+              ${p.status === 'PENDING_CLOSURE' && sysAdmin ? `
+                <button type="button" onclick="openClosureReviewModal('${p.id}')" class="flex-1 py-2 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-extrabold">🖼️ ${escapeHtml(t.reviewCloseBtn)}</button>
+              ` : ''}
+
+              ${(p.status === 'ACTIVE' || p.status === 'PENDING_HANDOVER') && canManage ? `
                 <button type="button" onclick="openHandoverModal('${p.id}')" class="py-2 px-3 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-extrabold">⇄ ${escapeHtml(t.handoverBtn)}</button>
                 <button type="button" onclick="renewPermit('${p.id}')" class="py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold">↻ ${escapeHtml(t.renewBtn)}</button>
-                <button type="button" onclick="closePermit('${p.id}')" class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">🔒 ${escapeHtml(t.closeBtn)}</button>
+                <button type="button" onclick="openClosureRequestModal('${p.id}')" class="py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold">🔒 ${escapeHtml(t.closeBtn)}</button>
+              ` : ''}
+
+              ${hasPhotos && !(p.status === 'PENDING_CLOSURE' && sysAdmin) ? `
+                <button type="button" onclick="openClosureReviewModal('${p.id}')" class="py-2 px-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold">🖼️ ${escapeHtml(t.viewPhotosBtn)}</button>
               ` : ''}
 
               <button type="button" onclick="openAuditModal('${p.id}')" class="py-2 px-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold">📋 ${escapeHtml(t.auditBtn)}</button>
               <button type="button" onclick="sharePermitWhatsApp('${p.id}')" class="py-2 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold">💬</button>
-              ${(isAdmin || isHolder) ? `<button type="button" onclick="deletePermit('${p.id}')" class="py-2 px-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold">🗑️</button>` : ''}
+              ${sysAdmin ? `<button type="button" onclick="deletePermit('${p.id}')" class="py-2 px-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold">🗑️</button>` : ''}
             </div>
           </div>
         `;
@@ -1902,14 +2269,14 @@
 
     function openNotificationsModal() {
       if (!currentUser) return;
-      const isAdmin = currentUser.role === 'ADMIN';
+      const sysAdmin = isSystemAdmin(currentUser);
       const list = notifications.filter(n =>
-        n.toUserId === currentUser.id || (isAdmin && n.toUserId === 'ADMIN_ALL')
+        n.toUserId === currentUser.id || (sysAdmin && n.toUserId === 'ADMIN_ALL')
       );
       const box = document.getElementById('notifications-list');
       box.innerHTML = list.length
         ? list.map(n => `
-            <div class="p-3.5 rounded-2xl border ${n.read ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-300'}">
+            <div dir="ltr" class="text-left p-3.5 rounded-2xl border ${n.read ? 'bg-slate-50 border-slate-200' : 'bg-amber-50 border-amber-300'}">
               <div class="flex items-center justify-between text-[11px] text-slate-500 font-bold mb-1">
                 <span>${escapeHtml(n.title)}</span>
                 <span>${formatDateTime(n.ts)}</span>
@@ -1923,9 +2290,9 @@
 
     function markAllNotificationsRead() {
       if (!currentUser) return;
-      const isAdmin = currentUser.role === 'ADMIN';
+      const sysAdmin = isSystemAdmin(currentUser);
       notifications.forEach(n => {
-        if (n.toUserId === currentUser.id || (isAdmin && n.toUserId === 'ADMIN_ALL')) {
+        if (n.toUserId === currentUser.id || (sysAdmin && n.toUserId === 'ADMIN_ALL')) {
           n.read = true;
         }
       });
@@ -1935,10 +2302,10 @@
     }
 
     // =========================================================================
-    // 9. ADMINISTRATOR MASTER PANEL & CLOUD SETUP
+    // 9. SYSTEM ADMINISTRATOR MASTER PANEL & CLOUD SETUP
     // =========================================================================
     function renderAdminPanel() {
-      if (!currentUser || currentUser.role !== 'ADMIN') return;
+      if (!isSystemAdmin(currentUser)) return;
       document.getElementById('admin-users-count').textContent = `${users.length} Users`;
       document.getElementById('admin-permits-count').textContent = `${permits.length} Permits`;
 
@@ -1969,7 +2336,7 @@
               <td class="py-3 px-4 font-bold">${escapeHtml(p.status)}</td>
               <td class="py-3 px-4 flex flex-wrap gap-1.5">
                 <button type="button" onclick="openAuditModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold">Log</button>
-                ${p.status !== 'CLOSED' ? `<button type="button" onclick="closePermit('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold">Force Close</button>` : ''}
+                ${(p.closureFirstPhoto || p.closureLastPhoto) ? `<button type="button" onclick="openClosureReviewModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold">Review Photos</button>` : ''}
                 <button type="button" onclick="deletePermit('${p.id}')" class="px-2.5 py-1 rounded-lg bg-red-100 text-red-700 font-bold">Delete</button>
               </td>
             </tr>
@@ -1978,6 +2345,7 @@
     }
 
     function openCreateUserModal() {
+      if (!isSystemAdmin(currentUser)) return;
       document.getElementById('cu-fullname').value = '';
       document.getElementById('cu-username').value = '';
       document.getElementById('cu-password').value = '';
@@ -1987,6 +2355,7 @@
 
     async function handleCreateUser(e) {
       e.preventDefault();
+      if (!isSystemAdmin(currentUser)) return;
       const fullName = document.getElementById('cu-fullname').value.trim();
       const username = document.getElementById('cu-username').value.trim();
       const password = normalizeDigits(document.getElementById('cu-password').value.trim());
@@ -2020,6 +2389,7 @@
     }
 
     function openEditUserModal(userId) {
+      if (!isSystemAdmin(currentUser)) return;
       const u = users.find(x => x.id === userId);
       if (!u) return;
       document.getElementById('eu-id').value = u.id;
@@ -2032,6 +2402,7 @@
 
     async function handleAdminUpdateUser(e) {
       e.preventDefault();
+      if (!isSystemAdmin(currentUser)) return;
       const id = document.getElementById('eu-id').value;
       const u = users.find(x => x.id === id);
       if (!u) return;
@@ -2050,6 +2421,7 @@
     }
 
     async function deleteUserAccount(userId) {
+      if (!isSystemAdmin(currentUser)) return;
       const u = users.find(x => x.id === userId);
       if (!u || u.username === 'admin') return;
 
